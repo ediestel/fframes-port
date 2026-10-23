@@ -13,6 +13,8 @@ mod encoder_frame;
 mod ffmpeg_helper;
 mod frame_export;
 pub use frame_export::*;
+mod image_sequence;
+pub use image_sequence::*;
 mod renderer_font_source;
 mod stream;
 
