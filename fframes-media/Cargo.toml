@@ -45,7 +45,10 @@ wgpu = { version = "30", optional = true, default-features = false, features = [
 # the FFmpeg headers of the docs.rs image through pkg-config. It is a project cfg on purpose:
 # `--cfg docsrs` in RUSTFLAGS would also reach every dependency, and some enable removed
 # nightly features under it.
-[target.'cfg(not(any(target_arch = "wasm32", windows, fframes_docsrs)))'.dependencies]
+#
+# `fframes_system_ffmpeg` (set in .cargo/config.toml) skips the download as well and links the
+# FFmpeg installed on the machine through pkg-config, so there is one FFmpeg, not a second copy.
+[target.'cfg(not(any(target_arch = "wasm32", windows, fframes_docsrs, fframes_system_ffmpeg)))'.dependencies]
 ffmpeg-sys-fframes = { workspace = true, features = ["build", "static"] }
 
 [features]

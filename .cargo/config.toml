@@ -1,8 +1,10 @@
 [env]
 MACOSX_DEPLOYMENT_TARGET = "15.0"
 
+# Link the Homebrew FFmpeg through pkg-config instead of downloading a static copy
+# (see fframes-media/Cargo.toml).
 [target.aarch64-apple-darwin]
-rustflags = ["-C", "link-arg=-lc++", "-C", "link-arg=-Wl,-ld_classic"]
+rustflags = ["-C", "link-arg=-lc++", "-C", "link-arg=-Wl,-ld_classic", "--cfg", "fframes_system_ffmpeg"]
 
 [target.x86_64-apple-darwin]
 rustflags = ["-C", "link-arg=-lc++", "-C", "link-arg=-Wl,-ld_classic"]

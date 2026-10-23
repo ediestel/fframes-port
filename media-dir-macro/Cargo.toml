@@ -22,11 +22,13 @@ syn = { version = "2.0.98", features = [
 bytemuck = "1.21.0"
 base64 = "0.22.1"
 
-[target.'cfg(not(target_os = "macos"))'.dependencies]
+[target.'cfg(any(not(target_os = "macos"), fframes_system_ffmpeg))'.dependencies]
 fframes-media.workspace = true
 
 # this is actually just suppresssing the error message at compile time
-[target.'cfg(target_os = "macos")'.dependencies]
+# With `fframes_system_ffmpeg` the installed FFmpeg already has videotoolbox, and the feature would
+# switch ffmpeg-sys-fframes back to downloading its own static FFmpeg.
+[target.'cfg(all(target_os = "macos", not(fframes_system_ffmpeg)))'.dependencies]
 fframes-media = { workspace = true, features = ["videotoolbox"] }
 
 [features]
