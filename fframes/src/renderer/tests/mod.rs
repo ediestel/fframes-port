@@ -1,4 +1,6 @@
 #[cfg(feature = "cpu_renderer")]
+mod alpha_conversion_tests;
+#[cfg(feature = "cpu_renderer")]
 mod determinism_tests;
 #[cfg(feature = "cpu_renderer")]
 mod image_sequence_tests;
