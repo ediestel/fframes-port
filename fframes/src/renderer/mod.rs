@@ -5,6 +5,7 @@
 pub mod cpu;
 #[doc(hidden)]
 pub mod pix_fmt;
+pub mod plane_types;
 
 pub mod concatenator;
 
