@@ -121,6 +121,8 @@ mod media_provider;
 mod named_range;
 mod scenes;
 mod shader;
+mod svg_document;
+mod svg_validate;
 mod svgr;
 #[cfg(not(target_arch = "wasm32"))]
 mod svgr_image;
@@ -138,6 +140,7 @@ pub mod animation;
 pub mod diagnostics;
 pub mod error;
 pub mod log;
+pub mod validation;
 
 #[cfg(test)]
 mod tests;
@@ -165,6 +168,8 @@ pub use media_provider::*;
 pub use named_range::*;
 pub use scenes::*;
 pub use shader::*;
+pub use svg_document::SvgDocument;
+pub use svg_validate::{ValidationIssue, ValidationIssueKind, validate_svg_document};
 pub use svgr::*;
 #[cfg(not(target_arch = "wasm32"))]
 pub use svgr_image::*;
