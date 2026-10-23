@@ -1,0 +1,42 @@
+[package]
+name = "fframes-media"
+version = "1.0.0-beta.7.rc-29"
+edition = "2021"
+
+[lib]
+name = "fframes_media"
+path = "src/lib.rs"
+
+[dependencies]
+bytemuck = "1"
+image = "0.25.0"
+usvgr = "0.44.1"
+kamadak-exif = { version = "0.6.1", optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ffmpeg-sys-next = "8"
+ffmpeg-next = "8"
+
+# Fix 13: build dep only needed for non-wasm targets
+[target.'cfg(not(target_arch = "wasm32"))'.build-dependencies]
+pkg-config = "0.3"
+
+[features]
+default = []
+exif = ["dep:kamadak-exif"]
+h264 = []
+h265 = []
+aac = []
+mp3lame = []
+opus = []
+vpx = []
+videotoolbox = []
+audiotoolbox = []
+vaapi = []
+nvidia = []
+qsv = []
+vulkan = []
+mediacodec = []
+libav-agree-gpl = []
+libav-agree-nonfree = []
+libav-agree-version3 = []
