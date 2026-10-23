@@ -1,3 +1,5 @@
+#[cfg(feature = "cpu_renderer")]
+mod llm_svg_integration;
 mod preview_tests;
 #[cfg(feature = "cpu_renderer")]
 mod svgr_image_tests;

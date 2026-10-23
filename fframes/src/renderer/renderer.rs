@@ -175,6 +175,7 @@ pub fn render<
 
     let output = PathBuf::from(output.as_ref());
     let scenes = video.define_scenes();
+    crate::validation::validate_video(&video.duration(), &scenes, options.media)?;
 
     let FFramesRendererRuntime {
         timeline,

@@ -17,6 +17,9 @@ pub enum FFramesError {
     Overflow(String, usize),
     /// Svg parser error
     ParserError(usvgr::Error),
+    /// A runtime SVG document is structurally invalid (empty, not XML, or not an `<svg>` root).
+    /// Carries the issue kind and the 1-based line/column when known.
+    ValidationError(crate::svg_validate::ValidationIssue),
     /// This error means that audio that were required to calculate the duration was not found
     RequiredAudioNotFound(String),
     PoisonedLock,
@@ -39,6 +42,7 @@ impl fmt::Display for FFramesError {
                 FFramesError::Overflow(what, overflow_by) => format!("The {what} is overflowed by {overflow_by}"),
                 FFramesError::UserError(err) => format!("Custom error:\n{err}"),
                 FFramesError::ParserError(err) => format!("SVG parsing error: {err:?}"),
+                FFramesError::ValidationError(issue) => format!("SVG validation error: {issue}"),
                 FFramesError::MediaError(err) => format!("Media parsing error: {err:?}"),
                 FFramesError::RequiredAudioNotFound(audio) => format!("The required audio for resolving video duration {audio} was not found."),
                 FFramesError::PoisonedLock => "Some lock was poisoned".to_owned(),
