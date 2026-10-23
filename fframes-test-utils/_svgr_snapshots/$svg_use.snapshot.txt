@@ -1,0 +1,9 @@
+(Compile-time)
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <defs/>
+    <path id="rect1" fill="#008000" stroke="none" d="M 20 20 L 180 20 L 180 90 L 20 90 Z"/>
+    <g id="use1" transform="matrix(1 0 0 1 0 90)">
+        <path fill="#008000" stroke="none" d="M 20 20 L 180 20 L 180 90 L 20 90 Z"/>
+    </g>
+    <path id="frame" fill="none" stroke="#000000" d="M 1 1 L 199 1 L 199 199 L 1 199 Z"/>
+</svg>

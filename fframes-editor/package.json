@@ -1,0 +1,51 @@
+{
+  "name": "@fframes/editor",
+  "version": "1.3.0",
+  "public": true,
+  "keywords": [
+    "rescript"
+  ],
+  "author": "Dmitriy Kovalenko <dmtr.kovalenko@outlook.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dmtrKovalenko/fframes.git",
+    "directory": "fframes-editor"
+  },
+  "license": "MIT",
+  "main": "./dist/fframes-editor.js",
+  "types": "./src/fframes-editor.tsx",
+  "scripts": {
+    "build": "pnpm rescript:build && pnpm bundle:dev",
+    "bundle:dev": "npx @tailwindcss/cli -i src/main.css -o tw.css && node esbuild.mjs",
+    "build:prod": "npx @tailwindcss/cli -m -i src/main.css -o tw.css && pnpm rescript:build && node esbuild.mjs -r",
+    "dev": "concurrently --raw 'rescript build -w' 'npx @tailwindcss/cli -i src/main.css -o tw.css --watch' 'node esbuild.mjs --watch'",
+    "rescript:build": "rescript build -with-deps",
+    "rescript:clean": "rescript clean -with-deps"
+  },
+  "dependencies": {
+    "@openai/apps-sdk-ui": "^0.2.2",
+    "@radix-ui/react-slider": "^1.2.3",
+    "@radix-ui/react-tooltip": "^1.0.5",
+    "@rescript/react": "^0.10.3",
+    "@tailwindcss/cli": "^4.0.17",
+    "@types/react": "^19.x",
+    "@types/react-dom": "^19.x",
+    "bs-webapi": "^0.19.1",
+    "gentype": "^4.3.0",
+    "html-react-parser": "^5.2.2",
+    "mediabunny": "^1.1.1",
+    "minimp3-wasm": "^0.1.0",
+    "react": "^19.x",
+    "react-dom": "^19.x",
+    "rescript": "*",
+    "rescript-classnames": "^6.0.0",
+    "rescript-js": "^0.6.0",
+    "tailwindcss": "^4.0.16",
+    "use-debounce": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.9",
+    "concurrently": "^7.3.0",
+    "esbuild": "^0.25.1"
+  }
+}

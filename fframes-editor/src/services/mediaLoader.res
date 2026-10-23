@@ -1,0 +1,210 @@
+open Belt
+module Promise = Js.Promise
+
+type audioInfo = {
+  duration: float,
+  sampleRate: int,
+  // arrayBuffer: Js.ArrayBuffer.t,
+  audioData: WebAudio.AudioBuffer.t,
+  /* It is not really planar as we support only mono */
+  fltpData: Js.Float32Array.t,
+}
+
+type imageInfo = {
+  src: string,
+  width: int,
+  height: int,
+}
+
+type fontInfo = {
+  name: string,
+  style: string,
+  weight: int,
+  unicodeRange: string,
+}
+
+@genType
+type processedMedia =
+  | Font(fontInfo)
+  | Subtitles(int)
+  // Length of the animation in seconds
+  | Lottie(float)
+  | Image(imageInfo)
+  | Audio(audioInfo)
+
+type loadableMedia = Loading(string) | Media(processedMedia) | Error(string)
+
+type action =
+  | InitMediaProcessing(Js.Dict.t<WasmController.mediaImport>)
+  | MediaItemProcessed(string, processedMedia)
+  | MediaProcessingFinished
+
+module ObserverState = {
+  type state = {
+    allMediaLoaded: bool,
+    mediaList: Belt.Map.String.t<loadableMedia>,
+  }
+
+  type action = action
+
+  let initial = {
+    allMediaLoaded: false,
+    mediaList: Belt.Map.String.empty,
+  }
+
+  let reducer = (state, action) => {
+    switch action {
+    | InitMediaProcessing(imports) => {
+        ...state,
+        mediaList: Map.String.merge(
+          state.mediaList,
+          imports
+          ->Js.Dict.keysToArray
+          ->Array.map(relativePath => (Utils.Path.getFilename(relativePath), Loading(relativePath)))
+          ->Map.String.fromArray,
+          (_, staticVal, dynamicVal) => {
+            switch (staticVal, dynamicVal) {
+            | (Some(val), None) => Some(val)
+            | (None, Some(val)) => Some(val)
+            // if we have same file in both folders prefer dynamic
+            | (Some(_), Some(dynamicValue)) => Some(dynamicValue)
+            | _ => None
+            }
+          },
+        ),
+      }
+    | MediaItemProcessed(name, media) => {
+        ...state,
+        mediaList: state.mediaList->Map.String.update(name, _ => Some(Media(media))),
+      }
+    | MediaProcessingFinished => {
+        ...state,
+        allMediaLoaded: true,
+      }
+    }
+  }
+}
+
+module MediaLoaderObserver = UseObservable.MakeObserver(ObserverState)
+
+// This type forces typescript implementation to correctly call the `resolveMedia` and convert values to the rescript world
+type forceTsReturnResolveMedia = MediaResolved
+
+type mediaResolverOptions = {
+  name: string,
+  url: string,
+  wasmController: WasmController.t,
+  wasmControllerOptions: WasmController.options,
+}
+
+type staticMediaResolverOptions = {
+  wasmController: WasmController.t,
+  wasmControllerOptions: WasmController.options,
+}
+
+@genType.as("StaticMediaResolver")
+type staticMediaResolver = staticMediaResolverOptions => Js.Promise.t<unit>
+
+@genType.as("MediaResolver")
+type mediaResolveFnWithOptions = mediaResolverOptions => Js.Promise.t<forceTsReturnResolveMedia>
+
+@module("./MediaResolvers") external resolveAudio: mediaResolveFnWithOptions = "resolveAudio"
+@module("./MediaResolvers")
+external resolveSubtitles: mediaResolveFnWithOptions = "resolveSubtitles"
+@module("./MediaResolvers") external resolveLottie: mediaResolveFnWithOptions = "resolveLottie"
+@module("./MediaResolvers") external resolveFont: mediaResolveFnWithOptions = "resolveFont"
+@module("./MediaResolvers") external resolveImage: mediaResolveFnWithOptions = "resolveImage"
+@module("./MediaResolvers") external resolveVideo: mediaResolveFnWithOptions = "resolveVideo"
+
+@module("./MediaResolvers")
+external resolveStaticFonts: staticMediaResolver = "resolveStaticFonts"
+@module("./MediaResolvers")
+external resolveStaticAudios: staticMediaResolver = "resolveStaticAudios"
+
+// This is pretty dumb of how genType works for typescript.
+// It only maps public types to the internal types when using public API, so we can't do this on Promise.then step
+@genType
+let resolveMedia = (name, media) => {
+  MediaLoaderObserver.dispatch(MediaItemProcessed(name, media))
+
+  MediaResolved
+}
+
+@genType
+let populateInlinedMedia = (
+  ~wasmController: WasmController.t,
+  ~options: WasmController.options,
+) => {
+  wasmController->WasmController.populate_static_fonts_db_with_static_fonts
+  let fonts_loader = resolveStaticFonts({
+    wasmController: wasmController,
+    wasmControllerOptions: options,
+  })
+
+  let audios_loader = resolveStaticAudios({
+    wasmController: wasmController,
+    wasmControllerOptions: options,
+  })
+
+  Promise.all([fonts_loader, audios_loader])
+}
+
+@genType
+let processDynamicMedia = (
+  ~imports: WasmController.mediaFolder,
+  ~wasmController: WasmController.t,
+  ~options: WasmController.options,
+) => {
+  MediaLoaderObserver.dispatch(InitMediaProcessing(imports))
+  imports
+  ->Js.Dict.toArray
+  ->Array.keepMap(((moduleRelativePath, moduleVal)) => {
+    let name = moduleRelativePath->Utils.Path.getFilename
+
+    if (
+      options.ignoreMediaRegex
+      ->Belt.Option.map(regex => Js.RegExp.test(regex, moduleRelativePath))
+      ->Utils.Option.unwrapOr(false)
+    ) {
+      None
+    } else {
+      switch name->Js.String.split(".")->Utils.Array.last {
+      | Some("mp3" | "aac" | "ogg" | "wav" | "pcm" | "flac") => Some(resolveAudio)
+      | Some("vtt") => Some(resolveSubtitles)
+      | Some("json") => Some(resolveLottie)
+      | Some("ttf" | "otf") => Some(resolveFont)
+      | Some("png" | "jpg" | "jpeg") => Some(resolveImage)
+      | Some("mp4" | "webm" | "mov" | "avi" | "mkv") => Some(resolveVideo)
+      | _ => None
+      }->Option.map(resolveFn =>
+        resolveFn({
+          name: name,
+          url: moduleVal,
+          wasmController: wasmController,
+          wasmControllerOptions: options,
+        })
+      )
+    }
+  })
+  ->Promise.all
+}
+
+@genType
+let processMedia = (
+  ~dynamicImports: option<WasmController.mediaFolder>,
+  ~wasmController: WasmController.t,
+  ~options: WasmController.options,
+) => {
+  Js.Promise.all2((
+    populateInlinedMedia(~wasmController, ~options),
+    switch dynamicImports {
+    | None => Promise.resolve()
+    | Some(dynamicImports) =>
+      processDynamicMedia(
+        ~imports=dynamicImports,
+        ~wasmController,
+        ~options,
+      )->Js.Promise.thenResolve(_ => ())
+    },
+  ))->Promise.thenResolve(_ => MediaLoaderObserver.dispatch(MediaProcessingFinished))
+}

@@ -1,0 +1,17 @@
+import initWasm, {
+  create_wasm_bridge,
+} from "./editor-bridge/pkg/beta_editor_bridge";
+import { renderEditor } from "@fframes/editor";
+import "@fframes/editor/dist/fframes-editor.css";
+
+await initWasm();
+const bridge = create_wasm_bridge();
+
+renderEditor(bridge, {
+  dynamicImageSizeLimitBytes: 1 * 1024 * 1024, // 1MB
+  dynamicMediaFolder: import.meta.glob("../media/*", {
+    query: "url",
+    import: "default",
+    eager: true,
+  }),
+});

@@ -1,0 +1,41 @@
+[package]
+name = "audio-announce-example"
+version = "1.3.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.3.4", features = ["derive"] }
+fframes.workspace = true
+
+# `--renderer cpu|skia-cpu|gpu`: Skia on Metal on macOS, on Vulkan everywhere else
+# `preview`: real-time GPU window
+[target.'cfg(target_os = "macos")'.dependencies]
+fframes_skia_renderer = { workspace = true, features = ["metal", "cli"] }
+fframes_native_player = { workspace = true, features = ["metal", "audio"] }
+
+[target.'cfg(not(any(target_os = "macos", target_arch = "wasm32")))'.dependencies]
+fframes_skia_renderer = { workspace = true, features = ["vulkan", "cli"] }
+fframes_native_player = { workspace = true, features = ["vulkan", "audio"] }
+
+# FFmpeg codecs, portable so cached source builds work across CI runner CPUs. Windows
+# links a prebuilt FFmpeg instead (see README).
+[target.'cfg(not(any(target_arch = "wasm32", windows)))'.dependencies]
+fframes = { workspace = true, features = ["h264", "libav-agree-gpl", "build-portable"] }
+
+[features]
+default = ["renderer"]
+renderer = ["fframes/compile-time-svgtree", "fframes/cli"]
+videotoolbox = ["fframes/videotoolbox"]
+
+[lib]
+name = "audio_announce_example"
+path = "src/lib.rs"
+doctest = false
+
+[[bin]]
+name = "audio_announce_example_bin"
+path = "src/main.rs"
+required-features = ["renderer"]
+
+[lints]
+workspace = true

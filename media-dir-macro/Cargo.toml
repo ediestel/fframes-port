@@ -1,0 +1,41 @@
+[package]
+name = "fframes-media-dir-macro"
+version = "1.3.0"
+edition = "2024"
+description = "A macro for generating SVG trees at compile time"
+license = "MIT"
+homepage = "https://fframes.studio"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro-crate = "3.2.0"
+proc-macro2 = "1"
+quote = "1.0.38"
+syn = { version = "2.0.98", features = [
+  "full",
+  "parsing",
+  "extra-traits",
+  "proc-macro",
+] }
+bytemuck = "1.21.0"
+base64 = "0.22.1"
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+fframes-media.workspace = true
+
+# this is actually just suppresssing the error message at compile time
+[target.'cfg(target_os = "macos")'.dependencies]
+fframes-media = { workspace = true, features = ["videotoolbox"] }
+
+[features]
+build-portable = ["fframes-media/build-portable"]
+exif = ["fframes-media/kamadak-exif"]
+# `.json` files are Lottie animations (`fframes::Lottie`)
+lottie = []
+nightly = []
+metadata = []
+
+[lints]
+workspace = true

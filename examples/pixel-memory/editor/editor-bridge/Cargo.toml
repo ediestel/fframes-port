@@ -1,0 +1,20 @@
+[package]
+name = "pixel-bridge-example"
+version = "1.3.0"
+authors = ["Dmitriy Kovalenko <dmtr.kovalenko@outlook.com>"]
+edition = "2018"
+
+[package.metadata.wasm-pack.profile.profiling]
+wasm-opt = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "./lib.rs"
+
+[dependencies]
+wasm-bindgen = "0.2.100"
+fframes-editor-controller = { path = "../../../../fframes-editor-controller" }
+pixel-example = { path = "../../", default-features = false }
+
+[lints]
+workspace = true

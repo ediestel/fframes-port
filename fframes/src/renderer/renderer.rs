@@ -1,0 +1,351 @@
+#![allow(clippy::missing_safety_doc)]
+use crate::AudioTimelineSamples;
+use crate::MediaProvider;
+use crate::ResolvedRenderingTimeline;
+use crate::Scenes;
+use crate::Video;
+use crate::VideoDecodersWorker;
+use crate::VideoSize;
+use crate::usvgr::fontdb;
+use crate::{AudioData, FFramesContext, ScenesWithAudio, TimeBase};
+use std::collections::HashMap;
+use std::path::Path;
+use std::path::PathBuf;
+
+use super::EncoderOptions;
+use super::FFramesLoggerVariant;
+use super::FFramesRenderBackend;
+use super::fframes_logger;
+use super::renderer_error::FFramesRendererResult;
+use super::renderer_font_source::RendererFontSource;
+
+#[derive(Debug, Clone)]
+/// All the final render-specific options applies to the final video rendering pipeline
+/// including media resolution, logging, rendering backend, and encoding.
+pub struct RenderOptions<'a, 'media> {
+    pub media: Option<&'media dyn MediaProvider<'media>>,
+    pub logger: FFramesLoggerVariant,
+    pub audio_encoder_options: EncoderOptions<'a>,
+    pub video_encoder_options: EncoderOptions<'a>,
+    pub override_fps: Option<usize>,
+    /// Directory used to store temporary files and artifacts generated for rendering and encoding.
+    pub tmp_files_directory: Option<&'a PathBuf>,
+    /// Scale resolution factor, in svg terms this is basically increases the `viewBox` size,
+    /// allowing to scale the video down or up, e.g. if the `WIDTH` and `HEIGHT` of the video
+    /// are set to 1920x1080, setting `scale_resolution` to 2.0 will result in the video
+    /// being rendered to 3840x2160 (4k) resolution.
+    pub scale_resolution: f64,
+    /// If `true` locates and loads system font on `MacOS`, Windows and Linux OSes.
+    /// It is anyway recommended to provide all the font as either statically and dynamically
+    /// linked media.
+    ///
+    /// Keep in mind if you set it to `true` it might not work on "their" machine.
+    pub load_system_fonts: bool,
+    /// The default "base" font family that will be used for the text elements without specified
+    /// font family.
+    ///
+    /// @default "Arial"
+    pub default_font: &'a str,
+    /// The abort signal that can be used to abort the rendering process.
+    pub abort_signal: Option<&'media crate::AbortSignal>,
+    /// Render only these frames of the video (end exclusive). The output starts at the first
+    /// frame of the range and the audio is cut to match. `None` renders the whole video.
+    ///
+    /// Use `TimelineIndex::resolve_range` to build it from specs like `"Intro"` or `"10s..20s"`.
+    pub frame_range: Option<std::ops::Range<usize>>,
+    /// Master bus of the audio mix: limiter, master gain and de-click fades.
+    pub audio_mix: crate::AudioMixOptions,
+}
+
+impl RenderOptions<'_, '_> {
+    /// The frames that will be rendered for a video of `duration_in_frames`, clamped to it.
+    pub fn output_frame_range(&self, duration_in_frames: usize) -> std::ops::Range<usize> {
+        match &self.frame_range {
+            Some(range) => range.start.min(duration_in_frames)..range.end.min(duration_in_frames),
+            None => 0..duration_in_frames,
+        }
+    }
+}
+
+impl Default for RenderOptions<'_, '_> {
+    fn default() -> Self {
+        Self {
+            media: None,
+            scale_resolution: 1.0,
+            logger: FFramesLoggerVariant::Compact,
+            audio_encoder_options: EncoderOptions::default(),
+            video_encoder_options: EncoderOptions::default(),
+            override_fps: None,
+            load_system_fonts: false,
+            default_font: "Arial",
+            abort_signal: None,
+            tmp_files_directory: None,
+            frame_range: None,
+            audio_mix: crate::AudioMixOptions::default(),
+        }
+    }
+}
+
+#[doc(hidden)]
+/// This is a runtime context required for the rendering backend
+/// it is not meant to be used by the consumer of fframes, only if you want
+/// to implement your custom rendering backend.
+///
+/// Thus backward compatibility is not guaranteed. Use on your own risk.
+pub struct FFramesRendererRuntime<'a> {
+    pub time_base: TimeBase,
+    pub timeline: ResolvedRenderingTimeline<'a, AudioTimelineSamples>,
+    pub font_source: RendererFontSource,
+}
+
+impl<'a, 'media: 'a> FFramesRendererRuntime<'a> {
+    pub fn new<TVideo: Video>(
+        time_base: TimeBase,
+        video: &'a TVideo,
+        scenes: &Scenes<'a>,
+        media: Option<&'media dyn MediaProvider<'media>>,
+    ) -> FFramesRendererResult<Self> {
+        let timeline = crate::resolve_timeline(
+            &video.duration(),
+            &ScenesWithAudio::new(scenes),
+            &time_base,
+            &video.audio(),
+            |name| {
+                let media = media.ok_or_else(|| {
+                    crate::error::FFramesError::RequiredAudioNotFound(name.to_owned())
+                })?;
+
+                // A video file's own duration wins over its (possibly shorter
+                // or missing) audio track.
+                let video_duration = media
+                    .resolve_video(name)
+                    .and_then(|video| video.metadata)
+                    .map(|metadata| f64::from(metadata.duration));
+
+                video_duration
+                    .or_else(|| {
+                        media
+                            .resolve_audio(name)
+                            .and_then(|main_audio| match main_audio {
+                                AudioData::Preloaded(data) => {
+                                    Some(data.samples.len() as f64 / f64::from(data.sample_rate))
+                                }
+                                AudioData::Lazy => None,
+                            })
+                    })
+                    .ok_or_else(|| {
+                        crate::error::FFramesError::CanNotProcessAudioDuration(name.to_owned())
+                    })
+            },
+        )?;
+
+        let mut font_source = RendererFontSource {
+            fontdb: fontdb::Database::new(),
+        };
+
+        if let Some(media) = media {
+            media.populate_font_source(&mut font_source);
+        }
+
+        Ok(Self {
+            time_base,
+            timeline,
+            font_source,
+        })
+    }
+}
+
+/// Renders fframes video to the output destination path. Uses the provided video and media
+/// implementations as long as the reneder backend implementation.
+///
+/// The `RenderOptions::encoder_options` field might be used to configure all the final
+/// video file properties like bitrate, quality, video and audio codecs options, etc.
+pub fn render<
+    'a,
+    'media: 'a,
+    TBackend: FFramesRenderBackend,
+    TVideo: Video + Sync + Sized + Send,
+>(
+    output: impl AsRef<Path>,
+    video: &'a TVideo,
+    render_backend: TBackend,
+    options: &'a RenderOptions<'a, 'media>,
+) -> FFramesRendererResult<()> {
+    let logger = fframes_logger::make_logger(options.logger.clone());
+
+    let output = PathBuf::from(output.as_ref());
+    let scenes = video.define_scenes();
+
+    let FFramesRendererRuntime {
+        timeline,
+        time_base,
+        mut font_source,
+    } = FFramesRendererRuntime::new(
+        TimeBase {
+            fps: TVideo::FPS,
+            sample_rate: options.audio_encoder_options.sample_rate,
+        },
+        video,
+        &scenes,
+        options.media,
+    )?;
+
+    let mut image_source = HashMap::new();
+    if let Some(media) = options.media {
+        media.populate_image_source(&mut image_source);
+    }
+
+    let usvg_options = usvgr::Options {
+        image_data: Some(&image_source),
+        font_family: options.default_font.to_string(),
+        fast_shapes: render_backend.fast_shapes(),
+        ..Default::default()
+    };
+
+    if options.load_system_fonts {
+        font_source.fontdb.load_system_fonts();
+    }
+
+    let frame_range = options.output_frame_range(timeline.duration_in_frames);
+    if frame_range.is_empty() {
+        return Err(super::FFramesRendererError::Custom(format!(
+            "frame range {:?} is empty or outside the video (0..{})",
+            options.frame_range, timeline.duration_in_frames
+        )));
+    }
+
+    logger.init_frames_rendering(frame_range.len())?;
+    let ctx = FFramesContext {
+        time_base,
+        mode: crate::FFramesMode::Renderer,
+        media_source: options.media,
+        duration_in_frames: timeline.duration_in_frames,
+        scenes: timeline.scenes.as_ref(),
+        font_source: Some(&font_source),
+        abort_signal: options.abort_signal,
+        current_video_size: VideoSize::new_scaled(
+            TVideo::WIDTH,
+            TVideo::HEIGHT,
+            options.scale_resolution,
+        ),
+    };
+
+    render_backend.render(
+        &output,
+        video,
+        logger.clone(),
+        &usvg_options,
+        options,
+        font_source.as_db_ref(),
+        &timeline,
+        &ctx,
+    )?;
+
+    for (kind, name) in crate::diagnostics::take_missing_media() {
+        logger.warn(&format!(
+            "{kind:?} \"{name}\" was requested by render_frame but is not in the media provider"
+        ));
+    }
+
+    Ok(())
+}
+
+/// Renders a single frame into the output image buffer.
+/// Prints all the rendering warns and errors for the frame along with the svg file itself.
+/// Returns a byte representation specific to the render backend used.
+/// For `CpuRenderBackend` it is a RGBA image of the video size.
+///
+/// Convert the RGBA output to image using `image` crate:
+///
+/// ```ignore
+///    let frame_buffer = fframes_renderer::render_frame(...)?;
+///    let img_buffer = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(your_video::WIDTH as u32, your_video::HEIGHT as u32, frame_buffer)?;
+///
+///    img_buffer.save("output_path.png")?;
+/// ```
+pub fn render_frame<
+    'a,
+    'media: 'a,
+    TBackend: FFramesRenderBackend,
+    TVideo: Video + Sync + Sized + Send,
+>(
+    frame_index: usize,
+    video: &'a TVideo,
+    render_backend: TBackend,
+    options: &RenderOptions<'a, 'media>,
+) -> FFramesRendererResult<Vec<u8>> {
+    let scenes = video.define_scenes();
+
+    let FFramesRendererRuntime {
+        timeline,
+        time_base,
+        mut font_source,
+    } = FFramesRendererRuntime::new(
+        TimeBase {
+            fps: TVideo::FPS,
+            sample_rate: options.audio_encoder_options.sample_rate,
+        },
+        video,
+        &scenes,
+        options.media,
+    )?;
+
+    let mut image_source = HashMap::new();
+    if let Some(media) = options.media {
+        media.populate_image_source(&mut image_source);
+    }
+
+    if options.load_system_fonts {
+        font_source.fontdb.load_system_fonts();
+    }
+
+    let ctx = FFramesContext {
+        time_base,
+        mode: crate::FFramesMode::Renderer,
+        media_source: options.media,
+        duration_in_frames: timeline.duration_in_frames,
+        scenes: timeline.scenes.as_ref(),
+        font_source: Some(&font_source),
+        abort_signal: None,
+        current_video_size: VideoSize::new_scaled(
+            TVideo::WIDTH,
+            TVideo::HEIGHT,
+            options.scale_resolution,
+        ),
+    };
+
+    let decoders = VideoDecodersWorker::new(1);
+    let fast_shapes = render_backend.fast_shapes();
+    render_backend.render_frame(
+        crate::Frame::__internal_make_for_renderer(
+            frame_index,
+            frame_index,
+            TVideo::FPS,
+            None,
+            decoders,
+        ),
+        video,
+        &crate::usvgr::Options {
+            image_data: Some(&image_source),
+            font_family: options.default_font.to_string(),
+            fast_shapes,
+            ..Default::default()
+        },
+        font_source.as_db_ref(),
+        ctx,
+    )
+}
+
+/// Convenient function that can be used by different backend implementation to
+/// save the reused about of threads for the rendering process.
+/// Allowing to override the default thread count using the `FFRAMES_NUN_THREADS` environment variable.
+pub fn get_thread_count() -> usize {
+    if let Some(threads) = std::env::var("FFRAMES_NUM_THREADS")
+        .ok()
+        .and_then(|threads| threads.parse().ok())
+    {
+        return threads;
+    }
+
+    rayon::current_num_threads()
+}

@@ -1,0 +1,21 @@
+[package]
+name = "beta-editor-bridge"
+version = "1.3.0"
+authors = ["Dmitriy Kovalenko <dmtr.kovalenko@outlook.com>"]
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "./lib.rs"
+
+[dependencies]
+wasm-bindgen = "0.2.100"
+fframes-editor-controller = { path = "../../../../fframes-editor-controller" }
+beta-example = { path = "../../", default-features = false }
+marketing-example = { path = "../../../marketing", default-features = false }
+tiktok-example = { path = "../../../tiktok", default-features = false }
+hello-world-example = { path = "../../../hello-world", default-features = false }
+podcast-example = { path = "../../../podcast", default-features = false }
+
+[lints]
+workspace = true

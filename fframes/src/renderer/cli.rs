@@ -1,0 +1,1909 @@
+//! A ready-made command line for video binaries (feature `cli`). One call gives every video
+//! the same tools for rendering and for checking the result without watching it:
+//!
+//! ```ignore
+//! fn main() -> std::process::ExitCode {
+//!     let media = MyMedia::prepare().unwrap();
+//!     let video = MyVideo { media: &media };
+//!     fframes::cli::new(&video, RenderOptions { media: Some(&media), ..Default::default() }).run()
+//! }
+//! ```
+//!
+//! Everything else is optional: `.backend(..)` renders with another backend (the Skia renderer;
+//! previews then use it too), `.preview(fframes_native_player::cli_preview)` adds the real-time
+//! window, `.default_output("out.webm")` changes the file `render` writes. Flags of your own go
+//! into a `#[derive(clap::Args)]` struct: `let args = cli::parse::<MyArgs>();`, build the video
+//! from `args.app`, then `cli::new(&video, options).args(args).run()`.
+use super::{
+    CpuFrameRenderer, FFramesRenderBackend, FFramesRendererError, FrameRenderer, FrameReport,
+    Previewer, RgbaFrame,
+    continuity::{PopDetector, PopKind},
+    element_labels::{self, LabelledElement},
+    fframes_logger::FFramesLoggerVariant,
+    sheet,
+};
+use crate::diagnostics::Severity;
+use crate::{AudioMixer, AudioTimelineSamples, AudioTimelineUnit, RenderOptions, Video};
+use clap::{Args, Parser, Subcommand, ValueEnum};
+use serde::Serialize;
+use std::fmt::Write as _;
+use std::io::IsTerminal;
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
+use std::time::Instant;
+
+pub use clap;
+
+const TIME_SPECS: &str = "\
+TIME SPECS (for --at, ranges and positional times):
+  120, 120f        frame 120               3.2s, 500ms, 1:05.5   a timestamp
+  50%              half of the video       start, end            first / last frame
+  Intro            first frame of a scene (case-insensitive)   #3   scene index 3
+  Intro[1]         second scene of type Intro
+  Intro@1.2s       1.2s into the scene (also @12, @50%, @end)
+RANGES: a..b (end exclusive), a.., ..b, all, or a scene name for the whole scene.
+Run `timeline` to list scenes. Add --json to any command for machine-readable output.";
+
+/// No application specific flags.
+#[derive(Debug, Clone, Default, Args)]
+pub struct NoArgs {}
+
+#[derive(Debug, Parser)]
+#[command(about = "Render and inspect this fframes video", after_long_help = TIME_SPECS, after_help = TIME_SPECS)]
+pub struct Cli<A: Args = NoArgs> {
+    #[command(flatten)]
+    pub app: A,
+
+    #[command(subcommand)]
+    pub command: Option<Command>,
+
+    /// Print one JSON document to stdout; progress and warnings go to stderr.
+    #[arg(long, global = true)]
+    pub json: bool,
+
+    /// Output resolution factor, e.g. 0.5 for half resolution.
+    #[arg(long, global = true)]
+    pub scale: Option<f64>,
+
+    /// Render with this backend instead of the video's own. The Skia ones need
+    /// `Runner::renderers`.
+    #[arg(long, global = true, value_enum)]
+    pub renderer: Option<Renderer>,
+}
+
+/// The backends `--renderer` picks from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum Renderer {
+    /// The built-in CPU backend (tiny-skia).
+    Cpu,
+    /// Skia on the CPU.
+    SkiaCpu,
+    /// Skia on the GPU: Metal on macOS, Vulkan elsewhere.
+    Gpu,
+}
+
+impl<A: Args> Cli<A> {
+    pub fn parse() -> Self {
+        <Self as Parser>::parse()
+    }
+}
+
+/// Parses the command line with application specific flags `A` (available as `.app`). Needed
+/// only when the video is built from those flags; pass the result to `Runner::args`.
+pub fn parse<A: Args>() -> Cli<A> {
+    Cli::<A>::parse()
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum Command {
+    /// Render the video, or a range of it, to a file (default command).
+    Render(RenderArgs),
+    /// Render single frames to PNG and report problems found in them.
+    Frame(FrameArgs),
+    /// A labelled contact sheet of evenly spaced frames: one image to review motion.
+    Strip(StripArgs),
+    /// Blend several frames into one image (later frames stronger) to see a movement's path.
+    Onion(OnionArgs),
+    /// Print a frame as SVG after conversion (text laid out, styles resolved).
+    Svg(SvgArgs),
+    /// Scenes, duration and audio tracks.
+    Timeline,
+    /// Check frames for missing media and fonts, clipped text and panics without rendering.
+    Inspect(InspectArgs),
+    /// Render, measure and query the audio mix.
+    #[command(subcommand)]
+    Audio(AudioCommand),
+    /// Play the video in real time in a native GPU window (needs `fframes_native_player`).
+    Preview(PreviewArgs),
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct PreviewArgs {
+    /// Where to start, e.g. `Intro`, `12s`.
+    #[arg(default_value = "start")]
+    pub at: String,
+    /// Open paused instead of playing.
+    #[arg(long)]
+    pub paused: bool,
+    /// Stop at the end instead of looping.
+    #[arg(long)]
+    pub no_loop: bool,
+    /// Do not play the audio.
+    #[arg(long)]
+    pub mute: bool,
+    /// Skia backend of the window: auto, metal, vulkan or cpu.
+    #[arg(long, default_value = "auto")]
+    pub backend: String,
+}
+
+#[derive(Debug, Clone, Args, Default)]
+pub struct RenderArgs {
+    /// Only render this range, e.g. `Intro`, `10s..20s`.
+    pub range: Option<String>,
+    /// Output file, `out.mp4` unless the video sets another default.
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+    /// Fast low quality preview: half resolution (unless --scale) and fastest encoder preset.
+    #[arg(long)]
+    pub draft: bool,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct FrameArgs {
+    /// Frames to render (comma or space separated time specs).
+    #[arg(required = true, value_delimiter = ',', num_args = 1..)]
+    pub at: Vec<String>,
+    #[arg(short, long, default_value = "frames")]
+    pub output: PathBuf,
+    /// Also write the converted SVG next to every PNG.
+    #[arg(long)]
+    pub svg: bool,
+    /// Only this rectangle, `x,y,width,height` in the video's pixels, e.g. `1100,520,240,120`.
+    #[arg(long, value_parser = parse_region)]
+    pub crop: Option<Region>,
+    /// Render this many times larger. Defaults to enough to show a `--crop` about 960 pixels
+    /// wide (at most 8).
+    #[arg(long)]
+    pub zoom: Option<f64>,
+    /// Outline every element that has an `id` and label it with its id (listed in --json).
+    #[arg(long)]
+    pub ids: bool,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct StripArgs {
+    /// Range to sample, or comma separated times to show side by side, e.g. `1s,Intro@end,50%`.
+    #[arg(default_value = "all")]
+    pub range: String,
+    /// Number of frames.
+    #[arg(short = 'n', long, default_value_t = 12)]
+    pub count: usize,
+    #[arg(long, default_value_t = 4)]
+    pub columns: usize,
+    /// Width of one frame in pixels.
+    #[arg(long, default_value_t = 480)]
+    pub width: u32,
+    #[arg(short, long, default_value = "strip.png")]
+    pub output: PathBuf,
+    /// Show only this rectangle of every frame, `x,y,width,height` in the video's pixels,
+    /// rendered sharply at `--width`.
+    #[arg(long, value_parser = parse_region)]
+    pub crop: Option<Region>,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct OnionArgs {
+    /// Range to sample.
+    pub range: String,
+    #[arg(short = 'n', long, default_value_t = 6)]
+    pub count: usize,
+    #[arg(short, long, default_value = "onion.png")]
+    pub output: PathBuf,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct SvgArgs {
+    pub at: String,
+    /// Write to a file instead of stdout.
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum FailOn {
+    Error,
+    Warning,
+    Never,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct InspectArgs {
+    #[arg(default_value = "all")]
+    pub range: String,
+    /// Distance between checked frames (every scene's first and last frame are always checked).
+    #[arg(long, default_value = "0.25s")]
+    pub every: String,
+    /// Check every single frame.
+    #[arg(long)]
+    pub all_frames: bool,
+    /// Report frames entirely off canvas and other informational findings too.
+    #[arg(long)]
+    pub info: bool,
+    /// Exit with code 2 when a finding of this severity is found.
+    #[arg(long, value_enum, default_value = "error")]
+    pub fail_on: FailOn,
+    /// Also render every frame of the range small and report pops (warnings): parts of the
+    /// picture that change in a single frame between still frames, like an element that
+    /// appears, vanishes or jumps in front of another one instead of moving there.
+    #[arg(long)]
+    pub pops: bool,
+}
+
+/// A rectangle in the video's pixels.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct Region {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+fn parse_region(value: &str) -> Result<Region, String> {
+    let parts = value
+        .split(',')
+        .map(|part| part.trim().parse::<f64>())
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| format!("`{value}` is not `x,y,width,height`"))?;
+    match parts[..] {
+        [x, y, width, height] if width > 0. && height > 0. => Ok(Region {
+            x,
+            y,
+            width,
+            height,
+        }),
+        _ => Err(format!(
+            "`{value}`: expected `x,y,width,height` with a positive width and height"
+        )),
+    }
+}
+
+/// Larger frames do not fit into the GPU surfaces of the Skia backend.
+const MAX_RENDER_SIDE: f64 = 16_384.;
+
+/// Fails when the whole frame at `scale` would exceed [`MAX_RENDER_SIDE`].
+fn check_render_size<V: Video>(scale: f64) -> CliResult<()> {
+    let (width, height) = (V::WIDTH as f64 * scale, V::HEIGHT as f64 * scale);
+    if width > MAX_RENDER_SIDE || height > MAX_RENDER_SIDE {
+        return Err(format!(
+            "the whole frame would be rendered at {width:.0}x{height:.0}, more than \
+             {MAX_RENDER_SIDE} pixels per side; use a smaller --zoom or a wider --crop"
+        ));
+    }
+    Ok(())
+}
+
+/// The pixels of `region` (video pixels) in a frame rendered at any scale.
+/// The file name of a time spec: `Intro@1.5s` -> `intro_1.5s`.
+fn file_name(spec: &str) -> String {
+    let name: String = spec
+        .chars()
+        .map(|c| match c {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '.' | '-' => c.to_ascii_lowercase(),
+            '%' => 'p',
+            _ => '_',
+        })
+        .collect();
+    name.trim_matches('_').to_owned()
+}
+
+fn crop_frame<V: Video>(frame: &RgbaFrame, region: Region) -> RgbaFrame {
+    let scale = f64::from(frame.width) / V::WIDTH as f64;
+    frame.crop(
+        (region.x * scale).round().max(0.) as u32,
+        (region.y * scale).round().max(0.) as u32,
+        (region.width * scale).round().max(1.) as u32,
+        (region.height * scale).round().max(1.) as u32,
+    )
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum AudioCommand {
+    /// Mix the audio (or a range of it) to a stereo WAV file.
+    Render {
+        range: Option<String>,
+        #[arg(short, long, default_value = "audio.wav")]
+        output: PathBuf,
+        /// 32-bit float instead of 16-bit PCM.
+        #[arg(long)]
+        float: bool,
+    },
+    /// Loudness (LUFS), true peak, clipping, silence and loudness per scene.
+    Analyze {
+        range: Option<String>,
+        /// Also draw the waveform with loudness, scenes and cues to a PNG.
+        #[arg(long)]
+        waveform: Option<PathBuf>,
+    },
+    /// Which tracks play at the given times, where in the file and how loud.
+    At {
+        #[arg(required = true, value_delimiter = ',', num_args = 1..)]
+        at: Vec<String>,
+    },
+}
+
+type CliResult<T = ExitCode> = Result<T, String>;
+
+fn err(e: impl std::fmt::Display) -> String {
+    e.to_string()
+}
+
+/// Opens the real-time player for the `preview` command, see `Runner::preview`.
+type Player<'r, 'a, 'media, V> = Box<
+    dyn FnOnce(&'a V, &RenderOptions<'a, 'media>, &super::PreviewRequest) -> Result<(), String>
+        + 'r,
+>;
+
+/// The command line of one video, created with `cli::new`.
+pub struct Runner<
+    'r,
+    'a,
+    'media,
+    V,
+    B = crate::cpu::CpuRenderingBackend,
+    A: Args = NoArgs,
+    R = NoRenderers,
+> {
+    video: &'a V,
+    options: RenderOptions<'a, 'media>,
+    backend: B,
+    args: Option<Cli<A>>,
+    player: Option<Player<'r, 'a, 'media, V>>,
+    default_output: PathBuf,
+    renderers: R,
+}
+
+/// The backends behind `--renderer skia-cpu|gpu`, see `Runner::renderers`.
+pub trait Renderers {
+    /// What renders without `--renderer`, `None` for the runner's backend.
+    fn default_renderer(&self) -> Option<Renderer> {
+        None
+    }
+
+    /// Runs the command with the backend `renderer` asks for.
+    fn run<'r, 'a, 'media: 'a, V: Video + Send + Sync, B: FFramesRenderBackend, A: Args>(
+        self,
+        renderer: Renderer,
+        runner: Runner<'r, 'a, 'media, V, B, A>,
+    ) -> ExitCode;
+}
+
+/// Only `--renderer cpu`: the binary has no Skia.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NoRenderers;
+
+impl Renderers for NoRenderers {
+    fn run<'r, 'a, 'media: 'a, V: Video + Send + Sync, B: FFramesRenderBackend, A: Args>(
+        self,
+        renderer: Renderer,
+        runner: Runner<'r, 'a, 'media, V, B, A>,
+    ) -> ExitCode {
+        let name = renderer
+            .to_possible_value()
+            .map(|v| v.get_name().to_owned());
+        runner.fail(format!(
+            "--renderer {} needs `.renderers(fframes_skia_renderer::cli::SkiaRenderers::default())`",
+            name.unwrap_or_default()
+        ))
+    }
+}
+
+/// The command line for `video`: render, frame, strip, inspect, audio, ... Call `.run()`.
+pub fn new<'a, 'media: 'a, V: Video + Send + Sync>(
+    video: &'a V,
+    options: RenderOptions<'a, 'media>,
+) -> Runner<'static, 'a, 'media, V> {
+    Runner {
+        video,
+        options,
+        backend: crate::cpu::CpuRenderingBackend::default(),
+        args: None,
+        player: None,
+        default_output: PathBuf::from("out.mp4"),
+        renderers: NoRenderers,
+    }
+}
+
+impl<'r, 'a, 'media: 'a, V: Video + Send + Sync, B: FFramesRenderBackend, A: Args, R: Renderers>
+    Runner<'r, 'a, 'media, V, B, A, R>
+{
+    /// Renders with another backend, e.g. `SkiaFFramesRenderer`. Frame previews use the
+    /// backend's own renderer, so they look like the rendered video.
+    pub fn backend<B2: FFramesRenderBackend>(
+        self,
+        backend: B2,
+    ) -> Runner<'r, 'a, 'media, V, B2, A, R> {
+        Runner {
+            video: self.video,
+            options: self.options,
+            backend,
+            args: self.args,
+            player: self.player,
+            default_output: self.default_output,
+            renderers: self.renderers,
+        }
+    }
+
+    /// Uses already parsed arguments with application flags (see `cli::parse`).
+    pub fn args<A2: Args>(self, args: Cli<A2>) -> Runner<'r, 'a, 'media, V, B, A2, R> {
+        Runner {
+            video: self.video,
+            options: self.options,
+            backend: self.backend,
+            args: Some(args),
+            player: self.player,
+            default_output: self.default_output,
+            renderers: self.renderers,
+        }
+    }
+
+    /// Enables the `preview` command, usually with `fframes_native_player::cli_preview`.
+    pub fn preview<'r2>(
+        self,
+        play: impl FnOnce(
+            &'a V,
+            &RenderOptions<'a, 'media>,
+            &super::PreviewRequest,
+        ) -> Result<(), String>
+        + 'r2,
+    ) -> Runner<'r2, 'a, 'media, V, B, A, R> {
+        Runner {
+            video: self.video,
+            options: self.options,
+            backend: self.backend,
+            args: self.args,
+            player: Some(Box::new(play)),
+            default_output: self.default_output,
+            renderers: self.renderers,
+        }
+    }
+
+    /// The file `render` writes without `-o`, `out.mp4` by default.
+    pub fn default_output(mut self, path: impl Into<PathBuf>) -> Self {
+        self.default_output = path.into();
+        self
+    }
+
+    /// Backends for `--renderer skia-cpu|gpu`, usually
+    /// `fframes_skia_renderer::cli::SkiaRenderers`. Without them only `--renderer cpu` works.
+    pub fn renderers<R2: Renderers>(self, renderers: R2) -> Runner<'r, 'a, 'media, V, B, A, R2> {
+        Runner {
+            video: self.video,
+            options: self.options,
+            backend: self.backend,
+            args: self.args,
+            player: self.player,
+            default_output: self.default_output,
+            renderers,
+        }
+    }
+
+    /// Reports an error like a failed command does and returns its exit code.
+    pub fn fail(self, message: impl std::fmt::Display) -> ExitCode {
+        fail(self.args.is_some_and(|args| args.json), message)
+    }
+
+    /// Parses the command line (unless `args` was given) and runs the command.
+    pub fn run(mut self) -> ExitCode {
+        let renderer = self
+            .args
+            .get_or_insert_with(Cli::<A>::parse)
+            .renderer
+            .take()
+            .or(self.renderers.default_renderer());
+        let runner = Runner {
+            video: self.video,
+            options: self.options,
+            backend: self.backend,
+            args: self.args,
+            player: self.player,
+            default_output: self.default_output,
+            renderers: NoRenderers,
+        };
+        match renderer {
+            None => runner.execute(),
+            Some(Renderer::Cpu) => runner
+                .backend(crate::cpu::CpuRenderingBackend::default())
+                .execute(),
+            Some(renderer) => self.renderers.run(renderer, runner),
+        }
+    }
+
+    fn execute(self) -> ExitCode {
+        let Runner {
+            video,
+            mut options,
+            backend,
+            args,
+            player,
+            default_output,
+            renderers: _,
+        } = self;
+        let cli = args.unwrap_or_else(Cli::<A>::parse);
+
+        let json = cli.json;
+        if let Some(scale) = cli.scale {
+            options.scale_resolution = scale;
+        }
+        if json {
+            options.logger = FFramesLoggerVariant::Json;
+        } else if !std::io::stderr().is_terminal() {
+            options.logger = FFramesLoggerVariant::Lines;
+        }
+        crate::diagnostics::install_log_capture();
+
+        let command = cli
+            .command
+            .clone()
+            .unwrap_or(Command::Render(RenderArgs::default()));
+        let result = match command {
+            Command::Render(mut args) => {
+                args.output = args.output.or(Some(default_output));
+                render(json, cli.scale, video, options, args, backend)
+            }
+            command => {
+                let mut frame_renderer = backend.frame_renderer();
+                let mut fallback;
+                let frame_renderer: &mut dyn FrameRenderer =
+                    if let Some(renderer) = frame_renderer.as_mut() {
+                        renderer
+                    } else {
+                        fallback = CpuFrameRenderer::default();
+                        &mut fallback
+                    };
+                Previewer::new(video, &options)
+                    .map(|previewer| previewer.with_svgr_rasterizer(backend.svgr_rasterizer()))
+                    .map_err(err)
+                    .and_then(|mut previewer| match command {
+                        Command::Frame(args) => frame(json, &mut previewer, frame_renderer, args),
+                        Command::Strip(args) => strip(json, &mut previewer, frame_renderer, args),
+                        Command::Onion(args) => {
+                            onion(json, &mut previewer, frame_renderer, cli.scale, args)
+                        }
+                        Command::Svg(args) => svg(json, &mut previewer, args),
+                        Command::Timeline => timeline(json, &previewer),
+                        Command::Inspect(args) => {
+                            inspect(json, &mut previewer, frame_renderer, args)
+                        }
+                        Command::Audio(args) => audio(json, &previewer, args),
+                        Command::Preview(args) => {
+                            let Some(play) = player else {
+                                return Err("this binary has no real-time player: add the \
+                                    `fframes_native_player` crate and \
+                                    `.preview(fframes_native_player::cli_preview)`. Without a \
+                                    window use `strip`, `frame` or `render --draft`."
+                                    .to_owned());
+                            };
+                            let request = super::PreviewRequest {
+                                start_frame: previewer
+                                    .timeline()
+                                    .resolve_frame(&args.at)
+                                    .map_err(err)?,
+                                autoplay: !args.paused,
+                                looping: !args.no_loop,
+                                audio: !args.mute,
+                                backend: args.backend,
+                            };
+                            // Fonts and caches of the previewer are not needed by the player.
+                            drop(previewer);
+                            play(video, &options, &request).map(|()| ExitCode::SUCCESS)
+                        }
+                        Command::Render(_) => unreachable!(),
+                    })
+            }
+        };
+
+        result.unwrap_or_else(|message| fail(json, message))
+    }
+}
+
+fn fail(json: bool, message: impl std::fmt::Display) -> ExitCode {
+    if json {
+        println!("{}", serde_json::json!({ "error": message.to_string() }));
+    } else {
+        eprintln!("error: {message}");
+    }
+    ExitCode::FAILURE
+}
+
+fn print<T: Serialize>(json: bool, value: &T, text: impl FnOnce() -> String) {
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(value)
+                .unwrap_or_else(|e| format!("{{\"error\":\"{e}\"}}"))
+        );
+    } else {
+        let text = text();
+        if !text.is_empty() {
+            println!("{text}");
+        }
+    }
+}
+
+fn scenes_label(scenes: &[String]) -> String {
+    if scenes.is_empty() {
+        String::new()
+    } else {
+        format!(" [{}]", scenes.join(" + "))
+    }
+}
+
+/// Warnings and errors of a frame; informational findings only as a count (they are in
+/// the --json output).
+fn diagnostics_text(report: &FrameReport, indent: &str) -> String {
+    let mut text: String = report
+        .diagnostics
+        .iter()
+        .filter(|d| d.severity > Severity::Info)
+        .map(|d| format!("{indent}{:?}: {}\n", d.severity, d.message).to_lowercase_first())
+        .collect();
+    let info = report
+        .diagnostics
+        .iter()
+        .filter(|d| d.severity == Severity::Info)
+        .count();
+    if info > 0 {
+        let _ = writeln!(
+            text,
+            "{indent}({info} info findings, e.g. text outside the canvas, see --json)"
+        );
+    }
+    text
+}
+
+trait LowercaseFirst {
+    fn to_lowercase_first(self) -> String;
+}
+
+impl LowercaseFirst for String {
+    fn to_lowercase_first(self) -> String {
+        let mut chars = self.chars();
+        let leading: String = chars.by_ref().take_while(|c| c.is_whitespace()).collect();
+        let rest: String = self.chars().skip(leading.len()).collect();
+        let mut rest_chars = rest.chars();
+        match rest_chars.next() {
+            Some(first) => format!("{leading}{}{}", first.to_lowercase(), rest_chars.as_str()),
+            None => self,
+        }
+    }
+}
+
+fn resolve_frames<'a, 'm: 'a, V: Video>(
+    previewer: &Previewer<'a, 'm, V>,
+    specs: &[String],
+) -> CliResult<Vec<(String, usize)>> {
+    specs
+        .iter()
+        .flat_map(|spec| spec.split_whitespace())
+        .map(|spec| {
+            previewer
+                .timeline()
+                .resolve_frame(spec)
+                .map(|frame| (spec.to_owned(), frame))
+                .map_err(err)
+        })
+        .collect()
+}
+
+/// `count` frames evenly spread over a range, first and last included.
+fn spread(range: std::ops::Range<usize>, count: usize) -> Vec<usize> {
+    let count = count.clamp(1, range.len());
+    if count == 1 {
+        return vec![range.start];
+    }
+    let last = range.end - 1;
+    (0..count)
+        .map(|i| {
+            range.start
+                + ((last - range.start) as f64 * i as f64 / (count - 1) as f64).round() as usize
+        })
+        .collect()
+}
+
+fn ensure_parent(path: &Path) -> CliResult<()> {
+    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent).map_err(err)?;
+    }
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct RenderResult {
+    output: PathBuf,
+    frames: std::ops::Range<usize>,
+    start_seconds: f32,
+    end_seconds: f32,
+    width: usize,
+    height: usize,
+    elapsed_seconds: f32,
+}
+
+fn render<'a, 'media: 'a, V: Video + Send + Sync, B: FFramesRenderBackend>(
+    json: bool,
+    scale: Option<f64>,
+    video: &'a V,
+    mut options: RenderOptions<'a, 'media>,
+    args: RenderArgs,
+    backend: B,
+) -> CliResult {
+    let started = Instant::now();
+    let previewer = Previewer::new(video, &options).map_err(err)?;
+    let timeline = previewer.timeline().clone();
+    drop(previewer);
+
+    let range = match &args.range {
+        Some(spec) => timeline.resolve_range(spec).map_err(err)?,
+        None => timeline.full_range(),
+    };
+    options.frame_range = Some(range.clone());
+
+    if args.draft {
+        if scale.is_none() {
+            options.scale_resolution = 0.5;
+        }
+        let encoder = options.video_encoder_options.preferred_encoder;
+        if matches!(encoder, None | Some("libx264" | "libx265")) {
+            options.video_encoder_options.codec_params =
+                Some(&[("preset", "ultrafast"), ("crf", "30")]);
+        }
+    }
+
+    let output = args.output.unwrap_or_else(|| PathBuf::from("out.mp4"));
+    ensure_parent(&output)?;
+    super::render(&output, video, backend, &options).map_err(err)?;
+
+    let size = crate::VideoSize::new_scaled(V::WIDTH, V::HEIGHT, options.scale_resolution);
+    let result = RenderResult {
+        output,
+        start_seconds: timeline.frame_to_seconds(range.start),
+        end_seconds: timeline.frame_to_seconds(range.end),
+        frames: range,
+        width: size.width,
+        height: size.height,
+        elapsed_seconds: started.elapsed().as_secs_f32(),
+    };
+    print(json, &result, || {
+        format!(
+            "{} frames {}..{} ({:.2}s..{:.2}s) {}x{} in {:.1}s",
+            result.output.display(),
+            result.frames.start,
+            result.frames.end,
+            result.start_seconds,
+            result.end_seconds,
+            result.width,
+            result.height,
+            result.elapsed_seconds
+        )
+    });
+    Ok(ExitCode::SUCCESS)
+}
+
+#[derive(Serialize)]
+struct FrameResult {
+    spec: String,
+    path: PathBuf,
+    svg: Option<PathBuf>,
+    /// Elements with an `id` in the frame (or the crop), with `--ids`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    elements: Option<Vec<LabelledElement>>,
+    #[serde(flatten)]
+    report: FrameReport,
+}
+
+/// How many labelled elements the text output lists; --json has all of them.
+const LISTED_ELEMENTS: usize = 40;
+
+fn elements_text(elements: &[LabelledElement]) -> String {
+    let mut text = String::new();
+    for element in elements.iter().take(LISTED_ELEMENTS) {
+        let _ = writeln!(
+            text,
+            "  #{} {} {:.0},{:.0} {:.0}x{:.0}",
+            element.id, element.kind, element.x, element.y, element.width, element.height
+        );
+    }
+    if elements.len() > LISTED_ELEMENTS {
+        let _ = writeln!(
+            text,
+            "  ... {} more, see --json",
+            elements.len() - LISTED_ELEMENTS
+        );
+    }
+    if elements.is_empty() {
+        text.push_str("  no elements with an `id`\n");
+    }
+    text
+}
+
+fn frame<'a, 'm: 'a, V: Video>(
+    json: bool,
+    previewer: &mut Previewer<'a, 'm, V>,
+    renderer: &mut dyn FrameRenderer,
+    args: FrameArgs,
+) -> CliResult {
+    std::fs::create_dir_all(&args.output).map_err(err)?;
+    let zoom = args.zoom.unwrap_or_else(|| {
+        args.crop
+            .map_or(1., |crop| (960. / crop.width).clamp(1., 8.))
+    });
+    if !(zoom > 0. && zoom.is_finite()) {
+        return Err(format!("--zoom {zoom} must be a positive number"));
+    }
+    let scale = previewer.options().scale_resolution * zoom;
+    check_render_size::<V>(scale)?;
+    previewer.set_scale(scale);
+
+    let specs = resolve_frames(previewer, &args.at)?;
+    let frames: Vec<usize> = specs.iter().map(|(_, frame)| *frame).collect();
+    let mut rendered = Vec::with_capacity(frames.len());
+    previewer
+        .render_inspected_each(&frames, renderer, |mut pixels, report| {
+            // The labels of `--ids` need the whole frame. Without them only the crop stays in
+            // memory until all frames are done, which is small also at a large zoom.
+            if !args.ids
+                && let Some(crop) = args.crop
+            {
+                pixels = crop_frame::<V>(&pixels, crop);
+            }
+            rendered.push((pixels, report));
+            Ok(())
+        })
+        .map_err(err)?;
+
+    let mut results = Vec::new();
+    let mut images = Vec::new();
+    for ((spec, frame), (mut pixels, report)) in specs.into_iter().zip(rendered) {
+        let elements = if args.ids {
+            let tree = previewer.svg_tree(frame).map_err(err)?;
+            let mut elements = element_labels::labelled_elements(&tree);
+            if let Some(crop) = args.crop {
+                elements.retain(|e| {
+                    f64::from(e.x) < crop.x + crop.width
+                        && f64::from(e.x + e.width) > crop.x
+                        && f64::from(e.y) < crop.y + crop.height
+                        && f64::from(e.y + e.height) > crop.y
+                });
+            }
+            pixels = element_labels::draw_labels(
+                &pixels,
+                &tree,
+                &elements,
+                previewer.font_db(),
+                previewer.options().default_font,
+            )
+            .map_err(err)?;
+            Some(elements)
+        } else {
+            None
+        };
+        if args.ids
+            && let Some(crop) = args.crop
+        {
+            pixels = crop_frame::<V>(&pixels, crop);
+        }
+        let name = file_name(&spec);
+        let path = args.output.join(format!("{name}.png"));
+        let svg = if args.svg {
+            let svg_path = args.output.join(format!("{name}.svg"));
+            std::fs::write(&svg_path, previewer.svg(frame).map_err(err)?).map_err(err)?;
+            Some(svg_path)
+        } else {
+            None
+        };
+        images.push(pixels);
+        results.push(FrameResult {
+            spec,
+            path,
+            svg,
+            elements,
+            report,
+        });
+    }
+    // The PNGs encode on several threads.
+    {
+        use rayon::prelude::*;
+        images
+            .par_iter()
+            .zip(&results)
+            .try_for_each(|(pixels, result)| pixels.save_png(&result.path))
+            .map_err(err)?;
+    }
+
+    print(json, &results, || {
+        results
+            .iter()
+            .fold(String::new(), |mut text, r| {
+                let _ = write!(
+                    text,
+                    "{} frame {} {:.2}s{} -> {}\n{}",
+                    r.spec,
+                    r.report.frame,
+                    r.report.seconds,
+                    scenes_label(&r.report.scenes),
+                    r.path.display(),
+                    diagnostics_text(&r.report, "  ")
+                );
+                if let Some(elements) = &r.elements {
+                    text.push_str(&elements_text(elements));
+                }
+                text
+            })
+            .trim_end()
+            .to_owned()
+    });
+    Ok(ExitCode::SUCCESS)
+}
+
+#[derive(Serialize)]
+struct SheetResult {
+    output: PathBuf,
+    frames: Vec<usize>,
+    diagnostics: Vec<FrameReport>,
+}
+
+fn render_cells<'a, 'm: 'a, V: Video>(
+    previewer: &mut Previewer<'a, 'm, V>,
+    renderer: &mut dyn FrameRenderer,
+    frames: &[usize],
+    crop: Option<Region>,
+) -> CliResult<(Vec<sheet::SheetCell>, Vec<FrameReport>)> {
+    let mut cells = Vec::new();
+    let mut reports = Vec::new();
+    previewer
+        .render_inspected_each(frames, renderer, |mut pixels, report| {
+            if let Some(crop) = crop {
+                pixels = crop_frame::<V>(&pixels, crop);
+            }
+            cells.push(sheet::SheetCell {
+                frame: pixels,
+                label: format!(
+                    "{:.2}s  f{}{}",
+                    report.seconds,
+                    report.frame,
+                    scenes_label(&report.scenes)
+                ),
+            });
+            if report
+                .diagnostics
+                .iter()
+                .any(|d| d.severity > Severity::Info)
+            {
+                reports.push(report);
+            }
+            Ok(())
+        })
+        .map_err(err)?;
+    Ok((cells, reports))
+}
+
+fn sheet_text(result: &SheetResult) -> String {
+    let mut text = format!(
+        "{} ({} frames: {})",
+        result.output.display(),
+        result.frames.len(),
+        result
+            .frames
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    for report in &result.diagnostics {
+        let _ = write!(text, "\nframe {} {:.2}s:\n", report.frame, report.seconds);
+        text.push_str(diagnostics_text(report, "  ").trim_end());
+    }
+    text
+}
+
+fn strip<'a, 'm: 'a, V: Video>(
+    json: bool,
+    previewer: &mut Previewer<'a, 'm, V>,
+    renderer: &mut dyn FrameRenderer,
+    args: StripArgs,
+) -> CliResult {
+    let frames = if args.range.contains(',') {
+        let specs: Vec<String> = args.range.split(',').map(str::to_owned).collect();
+        resolve_frames(previewer, &specs)?
+            .into_iter()
+            .map(|(_, frame)| frame)
+            .collect()
+    } else {
+        let range = previewer
+            .timeline()
+            .resolve_range(&args.range)
+            .map_err(err)?;
+        spread(range, args.count)
+    };
+    let visible_width = args.crop.map_or(V::WIDTH as f64, |crop| crop.width);
+    let scale = f64::from(args.width) / visible_width;
+    check_render_size::<V>(scale)?;
+    previewer.set_scale(scale);
+    let (cells, diagnostics) = render_cells(previewer, renderer, &frames, args.crop)?;
+    let image = sheet::contact_sheet(
+        &cells,
+        args.columns,
+        previewer.font_db(),
+        previewer.options().default_font,
+    )
+    .map_err(err)?;
+    ensure_parent(&args.output)?;
+    image.save_png(&args.output).map_err(err)?;
+
+    let result = SheetResult {
+        output: args.output,
+        frames,
+        diagnostics,
+    };
+    print(json, &result, || sheet_text(&result));
+    Ok(ExitCode::SUCCESS)
+}
+
+fn onion<'a, 'm: 'a, V: Video>(
+    json: bool,
+    previewer: &mut Previewer<'a, 'm, V>,
+    renderer: &mut dyn FrameRenderer,
+    scale: Option<f64>,
+    args: OnionArgs,
+) -> CliResult {
+    let range = previewer
+        .timeline()
+        .resolve_range(&args.range)
+        .map_err(err)?;
+    let frames = spread(range, args.count);
+    if scale.is_none() {
+        previewer.set_scale(0.5);
+    }
+    let (cells, diagnostics) = render_cells(previewer, renderer, &frames, None)?;
+    let pixels: Vec<RgbaFrame> = cells.into_iter().map(|c| c.frame).collect();
+    let image = sheet::onion_skin(&pixels).map_err(err)?;
+    ensure_parent(&args.output)?;
+    image.save_png(&args.output).map_err(err)?;
+
+    let result = SheetResult {
+        output: args.output,
+        frames,
+        diagnostics,
+    };
+    print(json, &result, || sheet_text(&result));
+    Ok(ExitCode::SUCCESS)
+}
+
+fn svg<'a, 'm: 'a, V: Video>(
+    json: bool,
+    previewer: &mut Previewer<'a, 'm, V>,
+    args: SvgArgs,
+) -> CliResult {
+    let frame = previewer.timeline().resolve_frame(&args.at).map_err(err)?;
+    let svg = previewer.svg(frame).map_err(err)?;
+    match &args.output {
+        Some(path) => {
+            ensure_parent(path)?;
+            std::fs::write(path, &svg).map_err(err)?;
+            print(
+                json,
+                &serde_json::json!({ "frame": frame, "output": path }),
+                || path.display().to_string(),
+            );
+        }
+        None => print(
+            json,
+            &serde_json::json!({ "frame": frame, "svg": svg }),
+            || svg.clone(),
+        ),
+    }
+    Ok(ExitCode::SUCCESS)
+}
+
+// Every command shares the `CliResult` signature.
+#[allow(clippy::unnecessary_wraps)]
+fn timeline<'a, 'm: 'a, V: Video>(json: bool, previewer: &Previewer<'a, 'm, V>) -> CliResult {
+    let report = previewer.timeline_report();
+    print(json, &report, || {
+        let mut text = format!(
+            "{}x{} @ {} fps, {} frames ({:.2}s)\n",
+            report.width,
+            report.height,
+            report.fps,
+            report.duration_frames,
+            report.duration_seconds
+        );
+        if report.scenes.is_empty() {
+            text.push_str("no scenes\n");
+        }
+        for scene in &report.scenes {
+            let _ = writeln!(
+                text,
+                "#{:<3} {:<28} frames {:>14} {:>18}",
+                scene.index,
+                scene.name,
+                format!("{}..{}", scene.start_frame, scene.end_frame),
+                format!("{:.2}s..{:.2}s", scene.start_seconds, scene.end_seconds)
+            );
+        }
+        for track in &report.audio {
+            let mix = &track.mix;
+            let mut extra = Vec::new();
+            if mix.gain_db != 0. {
+                extra.push(format!("{:+.1} dB", mix.gain_db));
+            }
+            if mix.pan != 0. {
+                extra.push(format!("pan {:+.2}", mix.pan));
+            }
+            if mix.fade_in > 0. || mix.fade_out > 0. {
+                extra.push(format!("fades {:.2}s/{:.2}s", mix.fade_in, mix.fade_out));
+            }
+            if mix.offset > 0. {
+                extra.push(format!("from {:.2}s of the file", mix.offset));
+            }
+            if mix.voice {
+                extra.push("voice".into());
+            }
+            if mix.duck.is_some() {
+                extra.push("ducked".into());
+            }
+            let processing = track_processing(mix.rate, &mix.effects);
+            if let Some(processing) = processing.strip_prefix(", ") {
+                extra.push(processing.to_owned());
+            }
+            let _ = writeln!(
+                text,
+                "audio {:<28} {:>8.3}s..{:.3}s {}",
+                track.file,
+                track.start_seconds,
+                track.end_seconds,
+                extra.join(", ")
+            );
+        }
+        text.trim_end().to_owned()
+    });
+    Ok(ExitCode::SUCCESS)
+}
+
+#[derive(Serialize)]
+struct Finding {
+    severity: Severity,
+    #[serde(skip)]
+    key: String,
+    /// The message as seen in the first frame.
+    message: String,
+    first_frame: usize,
+    last_frame: usize,
+    first_seconds: f32,
+    last_seconds: f32,
+    /// Number of checked frames it was found in.
+    frames: usize,
+    scenes: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct InspectResult {
+    checked_frames: usize,
+    /// Frames rendered and compared with `--pops`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pop_scanned_frames: Option<usize>,
+    findings: Vec<Finding>,
+}
+
+/// Width in pixels of the frames `inspect --pops` compares.
+const POP_SCAN_WIDTH: f64 = 480.;
+
+/// Renders every frame of `range` small and reports pops, see [`super::continuity`].
+fn scan_pops<'a, 'm: 'a, V: Video>(
+    json: bool,
+    previewer: &mut Previewer<'a, 'm, V>,
+    renderer: &mut dyn FrameRenderer,
+    range: std::ops::Range<usize>,
+) -> CliResult<Vec<Finding>> {
+    previewer.set_scale((POP_SCAN_WIDTH / V::WIDTH as f64).min(1.));
+    let (width, height) = previewer.size();
+    let mut detector = PopDetector::new(width, height);
+    let progress = !json && std::io::stderr().is_terminal();
+    let total = range.len();
+    let frames: Vec<usize> = range.clone().collect();
+    previewer
+        .render_each(&frames, renderer, |frame, pixels| {
+            if (pixels.width, pixels.height) != (width, height) {
+                return Err(FFramesRendererError::Custom(format!(
+                    "the renderer returned a {}x{} frame instead of {width}x{height}",
+                    pixels.width, pixels.height
+                )));
+            }
+            detector.push(pixels);
+            let i = frame - range.start;
+            if progress && i.is_multiple_of(30) {
+                eprint!("\rscanning for pops: frame {i}/{total}");
+            }
+            Ok(())
+        })
+        .map_err(err)?;
+    if progress {
+        eprint!("\r{}\r", " ".repeat(48));
+    }
+
+    // The same region popping again and again is one finding (a counter, a blinking light),
+    // so that a single pop elsewhere stands out.
+    let mut groups: Vec<(crate::renderer::continuity::Pop, Vec<usize>)> = Vec::new();
+    for pop in detector.finish() {
+        let overlapping = groups.iter_mut().find(|(group, _)| {
+            group.kind == pop.kind
+                && pop.x < group.x + group.width
+                && group.x < pop.x + pop.width
+                && pop.y < group.y + group.height
+                && group.y < pop.y + pop.height
+        });
+        if let Some((group, frames)) = overlapping {
+            let (right, bottom) = (
+                (group.x + group.width).max(pop.x + pop.width),
+                (group.y + group.height).max(pop.y + pop.height),
+            );
+            group.x = group.x.min(pop.x);
+            group.y = group.y.min(pop.y);
+            group.width = right - group.x;
+            group.height = bottom - group.y;
+            group.strength = group.strength.max(pop.strength);
+            frames.push(pop.frame);
+        } else {
+            let frame = pop.frame;
+            groups.push((pop, vec![frame]));
+        }
+    }
+
+    let to_video = V::WIDTH as f32 / width as f32;
+    let timeline = previewer.timeline();
+    Ok(groups
+        .into_iter()
+        .map(|(pop, frames)| {
+            let frames: Vec<usize> = frames.into_iter().map(|f| range.start + f).collect();
+            let (first, last) = (frames[0], frames[frames.len() - 1]);
+            let margin = 16.;
+            let x = (pop.x as f32 * to_video - margin).max(0.);
+            let y = (pop.y as f32 * to_video - margin).max(0.);
+            let w = pop.width as f32 * to_video + 2. * margin;
+            let h = pop.height as f32 * to_video + 2. * margin;
+            let (what, compare) = match pop.kind {
+                PopKind::Step => (
+                    "changes in one frame between still frames: something appears, vanishes \
+                     or jumps in front of something else",
+                    format!("{},{first}", first.saturating_sub(1)),
+                ),
+                PopKind::Flash => (
+                    "differs in a single frame from the frames before and after it",
+                    format!("{},{first},{}", first.saturating_sub(1), first + 1),
+                ),
+            };
+            let (first_seconds, last_seconds) = (
+                timeline.frame_to_seconds(first),
+                timeline.frame_to_seconds(last),
+            );
+            let repeats = if frames.len() > 1 {
+                format!(
+                    " ({} times until {last_seconds:.2}s, like a counter or a blinking element)",
+                    frames.len()
+                )
+            } else {
+                String::new()
+            };
+            let mut scenes: Vec<String> = Vec::new();
+            for &frame in &frames {
+                for scene in timeline.scenes_at(frame) {
+                    if !scenes.contains(&scene.name) {
+                        scenes.push(scene.name.clone());
+                    }
+                }
+            }
+            Finding {
+                severity: Severity::Warning,
+                key: format!("pop:{first}:{}:{}", pop.x, pop.y),
+                message: format!(
+                    "pop at {x:.0},{y:.0} {w:.0}x{h:.0}{repeats}: the picture {what}; compare \
+                     `frame {compare} --crop {x:.0},{y:.0},{w:.0},{h:.0}`"
+                ),
+                first_frame: first,
+                last_frame: last,
+                first_seconds,
+                last_seconds,
+                frames: frames.len(),
+                scenes,
+            }
+        })
+        .collect())
+}
+
+fn inspect<'a, 'm: 'a, V: Video>(
+    json: bool,
+    previewer: &mut Previewer<'a, 'm, V>,
+    renderer: &mut dyn FrameRenderer,
+    args: InspectArgs,
+) -> CliResult {
+    let timeline = previewer.timeline().clone();
+    let range = timeline.resolve_range(&args.range).map_err(err)?;
+    let step = if args.all_frames {
+        1
+    } else {
+        // `every` is a duration: resolve it as an offset from the start.
+        timeline
+            .resolve_range(&format!("0..{}", args.every))
+            .map_err(err)?
+            .end
+            .max(1)
+    };
+
+    let mut frames: Vec<usize> = range.clone().step_by(step).collect();
+    for scene in &timeline.scenes {
+        for frame in [scene.frames.start, scene.frames.end.saturating_sub(1)] {
+            if range.contains(&frame) {
+                frames.push(frame);
+            }
+        }
+    }
+    frames.push(range.end - 1);
+    frames.sort_unstable();
+    frames.dedup();
+
+    let mut findings: Vec<Finding> = Vec::new();
+    previewer
+        .inspect_each(&frames, |report| {
+            let frame = report.frame;
+            for diagnostic in report.diagnostics {
+                if diagnostic.severity == Severity::Info && !args.info {
+                    continue;
+                }
+                match findings.iter_mut().find(|f| f.key == diagnostic.key) {
+                    Some(finding) => {
+                        finding.last_frame = frame;
+                        finding.last_seconds = report.seconds;
+                        finding.frames += 1;
+                        for scene in &report.scenes {
+                            if !finding.scenes.contains(scene) {
+                                finding.scenes.push(scene.clone());
+                            }
+                        }
+                    }
+                    None => findings.push(Finding {
+                        severity: diagnostic.severity,
+                        key: diagnostic.key,
+                        message: diagnostic.message,
+                        first_frame: frame,
+                        last_frame: frame,
+                        first_seconds: report.seconds,
+                        last_seconds: report.seconds,
+                        frames: 1,
+                        scenes: report.scenes.clone(),
+                    }),
+                }
+            }
+            Ok(())
+        })
+        .map_err(err)?;
+    let pop_scanned_frames = if args.pops {
+        findings.extend(scan_pops(json, previewer, renderer, range.clone())?);
+        Some(range.len())
+    } else {
+        None
+    };
+    findings.sort_by(|a, b| {
+        b.severity
+            .cmp(&a.severity)
+            .then(a.first_frame.cmp(&b.first_frame))
+    });
+
+    let failed = findings.iter().any(|f| match args.fail_on {
+        FailOn::Error => f.severity >= Severity::Error,
+        FailOn::Warning => f.severity >= Severity::Warning,
+        FailOn::Never => false,
+    });
+
+    let result = InspectResult {
+        checked_frames: frames.len(),
+        pop_scanned_frames,
+        findings,
+    };
+    print(json, &result, || {
+        let mut text = format!("checked {} frames", result.checked_frames);
+        if let Some(scanned) = result.pop_scanned_frames {
+            let _ = write!(text, ", compared {scanned} frames for pops");
+        }
+        text.push_str(": ");
+        if result.findings.is_empty() {
+            text.push_str("no problems found");
+        } else {
+            let _ = write!(text, "{} findings", result.findings.len());
+        }
+        for f in &result.findings {
+            let _ = write!(
+                text,
+                "\n{:?} {:.2}s..{:.2}s (frames {}..{}, seen in {}){}: {}",
+                f.severity,
+                f.first_seconds,
+                f.last_seconds,
+                f.first_frame,
+                f.last_frame,
+                f.frames,
+                scenes_label(&f.scenes),
+                f.message
+            );
+        }
+        text
+    });
+
+    Ok(if failed {
+        ExitCode::from(2)
+    } else {
+        ExitCode::SUCCESS
+    })
+}
+
+/// One time of `audio at`.
+#[derive(Serialize)]
+struct AudioAt {
+    spec: String,
+    frame: usize,
+    seconds: f64,
+    tracks: Vec<crate::ActiveTrack>,
+}
+
+/// `, rate 0.50, highpass 80 Hz Q 0.71, ...` for a track that has them.
+fn track_processing(rate: f32, effects: &[crate::Effect]) -> String {
+    let mut text = String::new();
+    #[expect(clippy::float_cmp, reason = "1.0 is the exact default")]
+    if rate != 1. {
+        let _ = write!(text, ", rate {rate:.2}");
+    }
+    for effect in effects {
+        let _ = write!(text, ", {effect}");
+    }
+    text
+}
+
+fn mixer_for<'a, 'm: 'a, V: Video>(
+    previewer: &Previewer<'a, 'm, V>,
+    range: std::ops::Range<usize>,
+) -> (AudioMixer<'m>, std::ops::Range<usize>) {
+    let options = previewer.options();
+    let time_base = crate::TimeBase {
+        fps: V::FPS,
+        sample_rate: options.audio_encoder_options.sample_rate,
+    };
+    let samples = AudioTimelineSamples::from_frames(range.start, &time_base).as_usize()
+        ..AudioTimelineSamples::from_frames(range.end, &time_base).as_usize();
+    let total =
+        AudioTimelineSamples::from_frames(previewer.timeline().duration_in_frames, &time_base)
+            .as_usize();
+    let mixer = AudioMixer::new(
+        previewer.resolved_timeline().audio_map.as_ref(),
+        previewer.media(),
+        time_base.sample_rate,
+        samples.clone(),
+        total,
+        options.audio_mix,
+    );
+    (mixer, samples)
+}
+
+fn audio<'a, 'm: 'a, V: Video>(
+    json: bool,
+    previewer: &Previewer<'a, 'm, V>,
+    command: AudioCommand,
+) -> CliResult {
+    let timeline = previewer.timeline().clone();
+    let resolve = |range: &Option<String>| match range {
+        Some(spec) => timeline.resolve_range(spec).map_err(err),
+        None => Ok(timeline.full_range()),
+    };
+    let sample_rate = previewer.options().audio_encoder_options.sample_rate;
+
+    match command {
+        AudioCommand::Render {
+            range,
+            output,
+            float,
+        } => {
+            let (mut mixer, samples) = mixer_for(previewer, resolve(&range)?);
+            let (left, right) = mixer.render_all();
+            ensure_parent(&output)?;
+            std::fs::write(
+                &output,
+                crate::encode_wav(&left, &right, sample_rate, float),
+            )
+            .map_err(err)?;
+            print(
+                json,
+                &serde_json::json!({
+                    "output": output,
+                    "start_seconds": samples.start as f64 / sample_rate as f64,
+                    "end_seconds": samples.end as f64 / sample_rate as f64,
+                    "missing_files": mixer.missing_files(),
+                }),
+                || {
+                    let mut text = format!(
+                        "{} {:.2}s..{:.2}s",
+                        output.display(),
+                        samples.start as f64 / sample_rate as f64,
+                        samples.end as f64 / sample_rate as f64
+                    );
+                    for file in mixer.missing_files() {
+                        let _ = write!(
+                            text,
+                            "\nwarning: audio \"{file}\" is not in the media provider"
+                        );
+                    }
+                    text
+                },
+            );
+        }
+        AudioCommand::Analyze { range, waveform } => {
+            let frames = resolve(&range)?;
+            let (mut mixer, samples) = mixer_for(previewer, frames.clone());
+            let (left, right) = mixer.render_all();
+            let to_samples = |frame: usize| {
+                ((frame as f64 / V::FPS as f64 * sample_rate as f64).round() as usize)
+                    .clamp(samples.start, samples.end)
+                    - samples.start
+            };
+            let sections: Vec<(String, std::ops::Range<usize>)> = timeline
+                .scenes
+                .iter()
+                .filter(|s| s.frames.start < frames.end && s.frames.end > frames.start)
+                .map(|s| {
+                    (
+                        s.name.clone(),
+                        to_samples(s.frames.start)..to_samples(s.frames.end),
+                    )
+                })
+                .collect();
+            let mut report = crate::analyze_audio(&left, &right, sample_rate, &sections);
+            let offset = samples.start as f64 / sample_rate as f64;
+            report.sections.iter_mut().for_each(|s| {
+                s.start_seconds += offset;
+                s.end_seconds += offset;
+            });
+            report.silent_ranges.iter_mut().for_each(|r| {
+                r[0] += offset;
+                r[1] += offset;
+            });
+
+            if let Some(path) = &waveform {
+                let cues: Vec<(String, f64)> = previewer
+                    .timeline_report()
+                    .audio
+                    .into_iter()
+                    .map(|t| (t.file, t.start_seconds - offset))
+                    .collect();
+                let scenes: Vec<(String, f64)> = sections
+                    .iter()
+                    .map(|(name, range)| (name.clone(), range.start as f64 / sample_rate as f64))
+                    .collect();
+                let image = waveform_image(
+                    &left,
+                    &right,
+                    sample_rate,
+                    offset,
+                    &scenes,
+                    &cues,
+                    previewer,
+                )?;
+                ensure_parent(path)?;
+                image.save_png(path).map_err(err)?;
+            }
+
+            let missing = mixer.missing_files().to_vec();
+            print(
+                json,
+                &serde_json::json!({ "report": report, "waveform": waveform, "missing_files": missing }),
+                || audio_report_text(&report, waveform.as_deref(), &missing),
+            );
+        }
+        AudioCommand::At { at } => {
+            let (mixer, _) = mixer_for(previewer, timeline.full_range());
+            let mut results = Vec::new();
+            for (spec, frame) in resolve_frames(previewer, &at)? {
+                let sample = (frame as f64 / V::FPS as f64 * sample_rate as f64).round() as usize;
+                results.push(AudioAt {
+                    spec,
+                    frame,
+                    seconds: frame as f64 / V::FPS as f64,
+                    tracks: mixer.active_tracks_at(sample),
+                });
+            }
+            print(json, &results, || {
+                results
+                    .iter()
+                    .map(|r| {
+                        let mut text = format!("{} ({:.3}s):", r.spec, r.seconds);
+                        if r.tracks.is_empty() {
+                            text.push_str(" silence");
+                        }
+                        for t in &r.tracks {
+                            let _ = write!(
+                                text,
+                                "\n  {} at {:.3}s of the file, {:.1} dB",
+                                t.file, t.file_seconds, t.gain_db
+                            );
+                            if t.voice {
+                                text.push_str(", voice");
+                            }
+                            if t.ducked_db < -0.05 {
+                                let _ = write!(text, ", ducked {:.1} dB", t.ducked_db);
+                            }
+                            text.push_str(&track_processing(t.rate, &t.effects));
+                        }
+                        text
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            });
+        }
+    }
+    Ok(ExitCode::SUCCESS)
+}
+
+fn audio_report_text(
+    report: &crate::AudioReport,
+    waveform: Option<&Path>,
+    missing: &[String],
+) -> String {
+    let db =
+        |v: Option<f64>, unit: &str| v.map_or("silent".to_owned(), |v| format!("{v:.1} {unit}"));
+    let mut text = format!(
+        "integrated {}, range {}, max momentary {}, max short-term {}\n\
+         sample peak {}, true peak {}, clipped samples {}",
+        db(report.integrated_lufs, "LUFS"),
+        report
+            .loudness_range_lu
+            .map_or("-".to_owned(), |v| format!("{v:.1} LU")),
+        db(report.max_momentary_lufs, "LUFS"),
+        db(report.max_short_term_lufs, "LUFS"),
+        db(report.sample_peak_dbfs, "dBFS"),
+        db(report.true_peak_dbtp, "dBTP"),
+        report.clipped_samples
+    );
+    for range in &report.silent_ranges {
+        let _ = write!(text, "\nsilent {:.2}s..{:.2}s", range[0], range[1]);
+    }
+    for section in &report.sections {
+        let _ = write!(
+            text,
+            "\n{:<28} {:>18} {} / peak {}",
+            section.name,
+            format!("{:.2}s..{:.2}s", section.start_seconds, section.end_seconds),
+            db(section.integrated_lufs, "LUFS"),
+            db(section.true_peak_dbtp, "dBTP")
+        );
+    }
+    for file in missing {
+        let _ = write!(
+            text,
+            "\nwarning: audio \"{file}\" is not in the media provider"
+        );
+    }
+    if let Some(path) = waveform {
+        let _ = write!(text, "\nwaveform {}", path.display());
+    }
+    text
+}
+
+/// Waveform (min/max per column), momentary loudness, scene starts and cue starts.
+fn waveform_image<'a, 'm: 'a, V: Video>(
+    left: &[f32],
+    right: &[f32],
+    sample_rate: usize,
+    offset_seconds: f64,
+    scenes: &[(String, f64)],
+    cues: &[(String, f64)],
+    previewer: &Previewer<'a, 'm, V>,
+) -> CliResult<RgbaFrame> {
+    let (width, height) = (1600usize, 420usize);
+    let (top, wave_h) = (28usize, 300usize);
+    let duration = left.len().max(1) as f64 / sample_rate as f64;
+    let x_of = |seconds: f64| seconds / duration * width as f64;
+    let per_column = (left.len() / width).max(1);
+
+    let mut wave = String::new();
+    for x in 0..width {
+        let from = (x * per_column).min(left.len());
+        let to = ((x + 1) * per_column).min(left.len());
+        let (mut lo, mut hi) = (0f32, 0f32);
+        for i in from..to {
+            let v = f32::midpoint(left[i], right[i]);
+            lo = lo.min(v);
+            hi = hi.max(v);
+        }
+        let mid = top as f32 + wave_h as f32 / 2.;
+        let scale = wave_h as f32 / 2.;
+        let _ = write!(
+            wave,
+            "M{x} {:.1}V{:.1}",
+            mid - hi * scale,
+            mid - lo * scale + 0.5
+        );
+    }
+
+    let loudness = crate::LoudnessAnalysis::new(left, right, sample_rate).momentary();
+    let loudness_y = |lufs: f64| top as f64 + wave_h as f64 * (lufs.clamp(-60., 0.) / -60.);
+    let loudness_path = loudness
+        .iter()
+        .enumerate()
+        .fold(String::new(), |mut path, (i, lufs)| {
+            let x = x_of((i as f64 + 4.) * 0.1);
+            let _ = write!(
+                path,
+                "{}{x:.1} {:.1}",
+                if i == 0 { "M" } else { "L" },
+                loudness_y(*lufs)
+            );
+            path
+        });
+
+    let mut markers = String::new();
+    for (name, seconds) in scenes {
+        let x = x_of(*seconds);
+        let _ = write!(
+            markers,
+            r##"<path d="M{x:.1} {top}V{}" stroke="#a78bfa" stroke-width="1"/><text x="{:.1}" y="{}" font-size="13" fill="#c4b5fd">{}</text>"##,
+            top + wave_h,
+            x + 3.,
+            top - 8,
+            name.replace('&', "&amp;").replace('<', "&lt;")
+        );
+    }
+    for (_, seconds) in cues.iter().filter(|(_, s)| *s >= 0. && *s <= duration) {
+        let x = x_of(*seconds);
+        let _ = write!(
+            markers,
+            r##"<path d="M{x:.1} {}V{}" stroke="#fbbf24" stroke-width="1.5"/>"##,
+            top + wave_h + 4,
+            top + wave_h + 16
+        );
+    }
+    let tick = [1., 2., 5., 10., 15., 30., 60.]
+        .into_iter()
+        .find(|t| duration / t <= 16.)
+        .unwrap_or(120.);
+    let mut t = 0.;
+    while t <= duration {
+        let _ = write!(
+            markers,
+            r##"<text x="{:.1}" y="{}" font-size="12" fill="#a1a1aa">{:.0}s</text>"##,
+            x_of(t) + 2.,
+            height - 12,
+            t + offset_seconds
+        );
+        t += tick;
+    }
+
+    let family = previewer.options().default_font;
+    let svg = format!(
+        r##"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" font-family="'{family}', sans-serif">
+<rect width="100%" height="100%" fill="#18181b"/>
+<path d="M0 {mid}H{width}" stroke="#3f3f46"/>
+<path d="{wave}" stroke="#38bdf8" stroke-width="1"/>
+<path d="{loudness_path}" stroke="#f472b6" stroke-width="1.5" fill="none"/>
+{markers}
+<text x="8" y="{legend}" font-size="12" fill="#a1a1aa">waveform (blue), momentary loudness -60..0 LUFS (pink), scenes (purple), audio cues (yellow)</text>
+</svg>"##,
+        mid = top + wave_h / 2,
+        legend = height - 30,
+    );
+
+    let tree =
+        crate::usvgr::Tree::from_str(&svg, &crate::usvgr::Options::default(), previewer.font_db())
+            .map_err(err)?;
+    CpuFrameRenderer::new(0)
+        .render_tree(&tree, crate::Color::BLACK, width as u32, height as u32)
+        .map_err(err)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_names_are_safe() {
+        assert_eq!(file_name("Intro@1.5s"), "intro_1.5s");
+        assert_eq!(file_name("50%"), "50p");
+        assert_eq!(file_name("#3"), "3");
+    }
+
+    #[test]
+    fn spread_includes_both_ends() {
+        assert_eq!(spread(0..101, 5), vec![0, 25, 50, 75, 100]);
+        assert_eq!(spread(10..11, 5), vec![10]);
+        assert_eq!(spread(0..3, 10), vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn parses_commands() {
+        let cli =
+            Cli::<NoArgs>::try_parse_from(["video", "frame", "1s,Intro@50%", "--json"]).unwrap();
+        assert!(cli.json);
+        assert!(
+            matches!(cli.command, Some(Command::Frame(FrameArgs { ref at, .. })) if at.len() == 2)
+        );
+
+        let cli = Cli::<NoArgs>::try_parse_from(["video", "render", "Intro", "--draft"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Some(Command::Render(RenderArgs { draft: true, .. }))
+        ));
+
+        let cli = Cli::<NoArgs>::try_parse_from(["video"]).unwrap();
+        assert!(cli.command.is_none());
+
+        let cli = Cli::<NoArgs>::try_parse_from(["video", "preview", "Intro", "--paused"]).unwrap();
+        assert!(
+            matches!(cli.command, Some(Command::Preview(PreviewArgs { paused: true, ref at, .. })) if at == "Intro")
+        );
+
+        let cli =
+            Cli::<NoArgs>::try_parse_from(["video", "audio", "analyze", "--waveform", "w.png"])
+                .unwrap();
+        assert!(matches!(
+            cli.command,
+            Some(Command::Audio(AudioCommand::Analyze { .. }))
+        ));
+
+        let cli = Cli::<NoArgs>::try_parse_from([
+            "video",
+            "frame",
+            "1s,2s",
+            "--crop",
+            "100,50.5,240,120",
+            "--zoom",
+            "3",
+            "--ids",
+        ])
+        .unwrap();
+        let Some(Command::Frame(args)) = cli.command else {
+            panic!("frame expected");
+        };
+        assert_eq!(args.at, ["1s", "2s"]);
+        assert_eq!(
+            args.crop,
+            Some(Region {
+                x: 100.,
+                y: 50.5,
+                width: 240.,
+                height: 120.
+            })
+        );
+        assert_eq!(args.zoom, Some(3.));
+        assert!(args.ids);
+
+        let cli = Cli::<NoArgs>::try_parse_from([
+            "video",
+            "strip",
+            "1s,Intro@end,50%",
+            "--crop",
+            "0,0,960,540",
+        ])
+        .unwrap();
+        assert!(
+            matches!(cli.command, Some(Command::Strip(StripArgs { ref range, crop: Some(_), .. })) if range == "1s,Intro@end,50%")
+        );
+
+        let cli = Cli::<NoArgs>::try_parse_from(["video", "inspect", "Intro", "--pops"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Some(Command::Inspect(InspectArgs { pops: true, .. }))
+        ));
+    }
+
+    #[test]
+    fn parses_regions() {
+        assert!(parse_region("1,2,3,4").is_ok());
+        assert!(parse_region("1, 2, 3.5, 4").is_ok());
+        assert!(parse_region("1,2,3").is_err());
+        assert!(parse_region("1,2,0,4").is_err());
+        assert!(parse_region("a,2,3,4").is_err());
+    }
+}

@@ -1,0 +1,40 @@
+[package]
+name = "low-poly-art-example"
+version = "1.3.0"
+edition = "2024"
+
+[dependencies]
+libm = "0.2.1"
+rand = "0.8.5"
+fframes = { workspace = true }
+
+[dev-dependencies]
+fframes_test_utils = { path = "../../fframes-test-utils" }
+
+# `--renderer cpu|skia-cpu|gpu`: Skia on Metal on macOS, on Vulkan everywhere else
+[target.'cfg(target_os = "macos")'.dependencies]
+fframes_skia_renderer = { workspace = true, features = ["metal", "cli"] }
+
+[target.'cfg(not(any(target_os = "macos", target_arch = "wasm32")))'.dependencies]
+fframes_skia_renderer = { workspace = true, features = ["vulkan", "cli"] }
+
+# Keep FFmpeg source fallbacks portable across CI runner CPUs (see README).
+[target.'cfg(not(any(target_arch = "wasm32", windows)))'.dependencies]
+fframes = { workspace = true, features = ["build-portable"] }
+
+[features]
+default = ["renderer"]
+renderer = ["fframes/compile-time-svgtree", "fframes/cli"]
+
+[lib]
+name = "low_poly_art_example"
+path = "src/lib.rs"
+doctest = false
+
+[[bin]]
+name = "low_poly_art_example_bin"
+path = "src/main.rs"
+required-features = ["renderer"]
+
+[lints]
+workspace = true
