@@ -27,17 +27,22 @@ impl std::fmt::Debug for RgbaFrame {
     }
 }
 
+/// Turns premultiplied RGBA pixels (what tiny-skia and Skia produce) into straight RGBA in place.
+pub(crate) fn unpremultiply(pixels: &mut [u8]) {
+    for px in pixels.as_chunks_mut::<4>().0 {
+        let a = px[3];
+        if a != 255 && a != 0 {
+            for c in &mut px[..3] {
+                *c = ((u32::from(*c) * 255 + u32::from(a) / 2) / u32::from(a)).min(255) as u8;
+            }
+        }
+    }
+}
+
 impl RgbaFrame {
     /// Wraps premultiplied RGBA pixels (what tiny-skia and Skia produce).
     pub fn from_premultiplied(width: u32, height: u32, mut pixels: Vec<u8>) -> Self {
-        for px in pixels.as_chunks_mut::<4>().0 {
-            let a = px[3];
-            if a != 255 && a != 0 {
-                for c in &mut px[..3] {
-                    *c = ((u32::from(*c) * 255 + u32::from(a) / 2) / u32::from(a)).min(255) as u8;
-                }
-            }
-        }
+        unpremultiply(&mut pixels);
 
         Self {
             width,

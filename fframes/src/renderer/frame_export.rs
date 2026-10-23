@@ -572,10 +572,16 @@ impl Drop for FramePool {
 
 /// Converts RGBA8 pixels into frames of a software pixel format on the CPU: the built-in
 /// SIMD converter for yuv420p, swscale for every other format.
+///
+/// The pixels are premultiplied, as the rasterizers draw them. swscale reads RGBA as straight
+/// alpha, so for a format with an alpha channel they are unpremultiplied first; without one,
+/// the premultiplied colors are what a transparent pixel looks like once its alpha is dropped.
 pub struct RgbaFrameConverter {
     pool: FramePool,
     sws: *mut SwsContext,
     matrix: YuvMatrix,
+    /// Straight copy of the pixels, used when the output format has an alpha channel.
+    straight: Option<Vec<u8>>,
 }
 
 unsafe impl Send for RgbaFrameConverter {}
@@ -629,7 +635,17 @@ impl RgbaFrameConverter {
             sws
         };
 
-        Ok(Self { pool, sws, matrix })
+        let has_alpha = unsafe {
+            let descriptor = av_pix_fmt_desc_get(format);
+            !descriptor.is_null() && (*descriptor).flags & AV_PIX_FMT_FLAG_ALPHA as u64 != 0
+        };
+
+        Ok(Self {
+            pool,
+            sws,
+            matrix,
+            straight: has_alpha.then(Vec::new),
+        })
     }
 
     /// For the frames `input` asks for.
@@ -664,6 +680,15 @@ impl RgbaFrameConverter {
                     raw.data[2],
                 );
             } else {
+                let rgba = match &mut self.straight {
+                    Some(straight) => {
+                        straight.clear();
+                        straight.extend_from_slice(rgba);
+                        super::preview::unpremultiply(straight);
+                        straight.as_slice()
+                    }
+                    None => rgba,
+                };
                 let source = [
                     rgba.as_ptr(),
                     std::ptr::null(),
