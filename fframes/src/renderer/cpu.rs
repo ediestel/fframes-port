@@ -1,11 +1,13 @@
 use super::{
     EncoderFrameRenderer, EncoderInput, FrameRenderer, FrameScheduler, RgbaFrameConverter,
-    SegmentWriter, VideoFrame, get_thread_count, render_backend::FFramesRenderBackend,
+    SegmentWriter, VideoFrame, get_thread_count,
+    render_backend::FFramesRenderBackend,
     renderer_error::RenderEncodingError,
+    svg_parse_cache::{SvgParseCache, content_hash_bytes},
 };
 use crate::{
-    AbortSignal, AudioTimelineSamples, Frame, RenderOptions, ResolvedRenderingTimeline, SvgrImages,
-    TextCache, Video, VideoDecodersWorker, usvgr,
+    AbortSignal, AudioTimelineSamples, Frame, RenderOptions, ResolvedRenderingTimeline, Svgr,
+    SvgrImages, TextCache, Video, VideoDecodersWorker, usvgr,
 };
 use std::{
     path::Path,
@@ -117,6 +119,31 @@ impl EncoderFrameRenderer for CpuEncoderFrameRenderer {
     }
 }
 
+/// Converts a frame's `Svgr` into a tree. A document parsed from text is looked up in the
+/// worker's parse cache first, so a frame that repeats the previous frame's text is not parsed
+/// again; a tree built by the `svgr!` macro at compile time is converted directly.
+fn frame_tree(
+    svg: Svgr<'_>,
+    parse_cache: &mut SvgParseCache,
+    usvg_options: &usvgr::Options,
+    converter_cache: &mut usvgr::Cache,
+    font_db: &fontdb::Database,
+) -> crate::error::Result<Arc<usvgr::Tree>> {
+    match svg
+        .runtime_document()
+        .map(|text| content_hash_bytes(text.as_bytes()))
+    {
+        Some(hash) => parse_cache
+            .get_or_parse(hash, || {
+                svg.into_svg_tree(usvg_options, converter_cache, font_db)
+            })
+            .map(|(tree, _hit)| tree),
+        None => svg
+            .into_svg_tree(usvg_options, converter_cache, font_db)
+            .map(Arc::new),
+    }
+}
+
 /// Renders the trees of `FFramesContext::render_svgr` with tiny-skia, the rasterizer of the
 /// CPU backend. The default [`FFramesRenderBackend::svgr_rasterizer`].
 #[derive(Debug, Clone, Copy, Default)]
@@ -217,6 +244,7 @@ impl FFramesRenderBackend for CpuRenderingBackend {
             let worker_local_decoders = VideoDecodersWorker::new(1);
             let break_lines_cache = TextCache::new(self.text_cache_capacity);
             let mut converter_cache = usvgr::Cache::new_with_text_cache(self.text_cache_capacity);
+            let mut parse_cache = SvgParseCache::with_default_capacity();
             let mut renderer = self.encoder_frame_renderer(
                 writer.encoder_input(),
                 video_size.width as u32,
@@ -245,7 +273,13 @@ impl FFramesRenderBackend for CpuRenderingBackend {
                     ctx,
                 )?;
 
-                let rtree = svg.into_svg_tree(usvg_options, &mut converter_cache, font_db)?;
+                let rtree = frame_tree(
+                    svg,
+                    &mut parse_cache,
+                    usvg_options,
+                    &mut converter_cache,
+                    font_db,
+                )?;
 
                 let frame = renderer.render_tree(&rtree, TVideo::BACKGROUND_COLOR)?;
 
@@ -328,5 +362,75 @@ impl FFramesRenderBackend for CpuRenderingBackend {
         )?;
 
         Ok(frame.pixels)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const HELD: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="red"/></svg>"#;
+    const NEXT: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="blue"/></svg>"#;
+
+    fn tree(svg: Svgr<'_>, cache: &mut SvgParseCache) -> Arc<usvgr::Tree> {
+        frame_tree(
+            svg,
+            cache,
+            &usvgr::Options::default(),
+            &mut usvgr::Cache::default(),
+            &fontdb::Database::new(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn held_runtime_document_is_parsed_once() {
+        let mut cache = SvgParseCache::with_default_capacity();
+        let first = tree(Svgr::from(HELD), &mut cache);
+        let second = tree(Svgr::from(HELD), &mut cache);
+        assert!(
+            Arc::ptr_eq(&first, &second),
+            "the held frame must reuse the parsed tree"
+        );
+        assert_eq!((cache.hits(), cache.misses()), (1, 1));
+    }
+
+    #[test]
+    fn changed_runtime_document_is_parsed_again() {
+        let mut cache = SvgParseCache::with_default_capacity();
+        let first = tree(Svgr::from(HELD), &mut cache);
+        let second = tree(Svgr::from(NEXT), &mut cache);
+        assert!(!Arc::ptr_eq(&first, &second));
+        assert_eq!((cache.hits(), cache.misses()), (0, 2));
+    }
+
+    #[test]
+    fn parse_errors_are_not_cached() {
+        let mut cache = SvgParseCache::with_default_capacity();
+        let parse = |cache: &mut SvgParseCache| {
+            frame_tree(
+                Svgr::from("<svg><rect"),
+                cache,
+                &usvgr::Options::default(),
+                &mut usvgr::Cache::default(),
+                &fontdb::Database::new(),
+            )
+        };
+        assert!(parse(&mut cache).is_err());
+        assert!(parse(&mut cache).is_err());
+        assert_eq!((cache.hits(), cache.misses()), (0, 2));
+    }
+
+    #[cfg(feature = "compile-time-svgtree")]
+    #[test]
+    fn macro_built_trees_bypass_the_cache() {
+        let mut cache = SvgParseCache::with_default_capacity();
+        for _ in 0..2 {
+            tree(
+                crate::svgr!(<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="red" /></svg>),
+                &mut cache,
+            );
+        }
+        assert_eq!((cache.hits(), cache.misses()), (0, 0));
     }
 }
