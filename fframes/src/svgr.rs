@@ -233,7 +233,10 @@ mod tests {
 
     #[test]
     fn from_svg_string_validates() {
-        assert!(Svgr::from_svg_string(r#"<svg xmlns="http://www.w3.org/2000/svg"/>"#.to_owned()).is_ok());
+        assert!(
+            Svgr::from_svg_string(r#"<svg xmlns="http://www.w3.org/2000/svg"/>"#.to_owned())
+                .is_ok()
+        );
         assert!(matches!(
             Svgr::from_svg_string(String::new()),
             Err(FFramesError::ValidationError(_))
@@ -269,7 +272,8 @@ mod tests {
         let Some(usvgr::Node::Path(path)) = tree.root().children().first() else {
             panic!("expected the rect as a path");
         };
-        let usvgr::Paint::Color(color) = path.fill().expect("fill from the style sheet").paint() else {
+        let usvgr::Paint::Color(color) = path.fill().expect("fill from the style sheet").paint()
+        else {
             panic!("expected a color fill");
         };
         assert_eq!((color.red, color.green, color.blue), (0, 255, 0));
@@ -285,6 +289,9 @@ mod tests {
             validation_kind(parse(Svgr::from("<html/>"))),
             ValidationIssueKind::WrongRootElement
         );
-        assert_eq!(validation_kind(parse(Svgr::from(""))), ValidationIssueKind::Empty);
+        assert_eq!(
+            validation_kind(parse(Svgr::from(""))),
+            ValidationIssueKind::Empty
+        );
     }
 }

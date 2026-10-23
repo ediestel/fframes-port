@@ -239,7 +239,10 @@ mod tests {
 
     #[test]
     fn rejects_non_svg_root() {
-        expect_kind(r#"<html><body/></html>"#, ValidationIssueKind::WrongRootElement);
+        expect_kind(
+            r#"<html><body/></html>"#,
+            ValidationIssueKind::WrongRootElement,
+        );
     }
 
     #[test]
@@ -272,7 +275,11 @@ mod tests {
         match err {
             FFramesError::ValidationError(issue) => {
                 assert_eq!(issue.kind, ValidationIssueKind::WrongRootElement);
-                assert!(issue.line >= 1, "issue line was {} (issue={issue:?})", issue.line);
+                assert!(
+                    issue.line >= 1,
+                    "issue line was {} (issue={issue:?})",
+                    issue.line
+                );
             }
             other => panic!("expected ValidationError, got {other:?}"),
         }

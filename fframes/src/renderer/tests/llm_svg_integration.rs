@@ -3,8 +3,8 @@
 //! single colour, and malformed ones fail with a `ValidationError`.
 
 use crate::{
-    AudioMap, CpuFrameRenderer, FFramesContext, Frame, Previewer, RenderOptions, Svgr, Video,
-    ValidationIssueKind, error::FFramesError,
+    AudioMap, CpuFrameRenderer, FFramesContext, Frame, Previewer, RenderOptions, Svgr,
+    ValidationIssueKind, Video, error::FFramesError,
 };
 
 const LLM_STYLE_SVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
@@ -50,7 +50,11 @@ fn complex_llm_style_svg_produces_non_trivial_pixels() {
 
     for index in 0..3 {
         let frame = previewer.render(index, &mut renderer).unwrap();
-        assert_eq!(frame.pixels.len(), 64 * 64 * 4, "frame {index} has unexpected byte count");
+        assert_eq!(
+            frame.pixels.len(),
+            64 * 64 * 4,
+            "frame {index} has unexpected byte count"
+        );
 
         let non_black_pixels = frame
             .pixels
@@ -71,7 +75,10 @@ fn complex_llm_style_svg_produces_non_trivial_pixels() {
             non_black_pixels > 64 * 64 / 2,
             "frame {index}: only {non_black_pixels} of 4096 pixels are not black"
         );
-        assert!(distinct_hues >= 4, "frame {index}: only {distinct_hues} distinct quantised hues");
+        assert!(
+            distinct_hues >= 4,
+            "frame {index}: only {distinct_hues} distinct quantised hues"
+        );
     }
 }
 
@@ -79,7 +86,11 @@ fn complex_llm_style_svg_produces_non_trivial_pixels() {
 fn malformed_svg_fails_at_ingest() {
     match Svgr::from_svg_string("<html><body>not svg</body></html>".to_owned()) {
         Err(FFramesError::ValidationError(issue)) => {
-            assert_eq!(issue.kind, ValidationIssueKind::WrongRootElement, "got {issue:?}");
+            assert_eq!(
+                issue.kind,
+                ValidationIssueKind::WrongRootElement,
+                "got {issue:?}"
+            );
         }
         other => panic!("expected ValidationError, got {other:?}"),
     }
@@ -88,7 +99,9 @@ fn malformed_svg_fails_at_ingest() {
 #[test]
 fn empty_svg_fails_validation() {
     match Svgr::from_svg_string(String::new()) {
-        Err(FFramesError::ValidationError(issue)) => assert_eq!(issue.kind, ValidationIssueKind::Empty),
+        Err(FFramesError::ValidationError(issue)) => {
+            assert_eq!(issue.kind, ValidationIssueKind::Empty)
+        }
         other => panic!("expected ValidationError, got {other:?}"),
     }
 }
@@ -97,7 +110,12 @@ fn empty_svg_fails_validation() {
 fn malformed_svg_fails_at_render_with_validation_error() {
     let video = RuntimeSvgVideo("<svg><rect");
     let mut previewer = Previewer::new(&video, &RenderOptions::default()).unwrap();
-    let err = previewer.render(0, &mut CpuFrameRenderer::default()).unwrap_err();
+    let err = previewer
+        .render(0, &mut CpuFrameRenderer::default())
+        .unwrap_err();
     let debug = format!("{err:?}");
-    assert!(debug.contains("ValidationError") && debug.contains("MalformedXml"), "got {debug}");
+    assert!(
+        debug.contains("ValidationError") && debug.contains("MalformedXml"),
+        "got {debug}"
+    );
 }
