@@ -112,8 +112,8 @@ mod tests {
 
     #[test]
     fn try_new_accepts_valid_svg() {
-        let doc =
-            SvgDocument::try_new(r#"<svg xmlns="http://www.w3.org/2000/svg"/>"#.to_owned()).unwrap();
+        let doc = SvgDocument::try_new(r#"<svg xmlns="http://www.w3.org/2000/svg"/>"#.to_owned())
+            .unwrap();
         assert!(!doc.is_empty());
     }
 
@@ -125,8 +125,7 @@ mod tests {
 
     #[test]
     fn try_new_rejects_non_svg_xml() {
-        let err =
-            SvgDocument::try_new(r#"<html><body/></html>"#.to_owned()).unwrap_err();
+        let err = SvgDocument::try_new(r#"<html><body/></html>"#.to_owned()).unwrap_err();
         assert!(matches!(err, FFramesError::ValidationError(_)));
     }
 

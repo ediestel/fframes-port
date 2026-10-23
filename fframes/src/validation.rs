@@ -96,7 +96,10 @@ mod tests {
         }
 
         fn overlap(&self) -> Overlap {
-            Overlap::PreviousAndNext { previous: self.previous, next: self.next }
+            Overlap::PreviousAndNext {
+                previous: self.previous,
+                next: self.next,
+            }
         }
     }
 
@@ -109,12 +112,18 @@ mod tests {
     #[test]
     fn missing_duration_audio_is_rejected() {
         let result = validate_video(&Duration::FromAudio("music.mp3"), &Scenes::empty(), None);
-        assert!(matches!(result, Err(FFramesError::RequiredAudioNotFound(name)) if name == "music.mp3"));
+        assert!(
+            matches!(result, Err(FFramesError::RequiredAudioNotFound(name)) if name == "music.mp3")
+        );
     }
 
     #[test]
     fn overlap_longer_than_scene_is_rejected() {
-        let scene = TestScene { seconds: 1.0, previous: 0.0, next: 1.5 };
+        let scene = TestScene {
+            seconds: 1.0,
+            previous: 0.0,
+            next: 1.5,
+        };
         let scenes = Scenes::from(vec![&scene as &dyn Scene]);
         let result = validate_video(&Duration::Auto, &scenes, None);
         assert!(matches!(result, Err(FFramesError::Overflow(_, 500))));
@@ -122,8 +131,16 @@ mod tests {
 
     #[test]
     fn valid_scenes_pass() {
-        let first = TestScene { seconds: 2.0, previous: 0.0, next: 0.5 };
-        let second = TestScene { seconds: 2.0, previous: 0.5, next: 0.0 };
+        let first = TestScene {
+            seconds: 2.0,
+            previous: 0.0,
+            next: 0.5,
+        };
+        let second = TestScene {
+            seconds: 2.0,
+            previous: 0.5,
+            next: 0.0,
+        };
         let scenes = Scenes::from(vec![&first as &dyn Scene, &second]);
         assert!(validate_video(&Duration::Auto, &scenes, None).is_ok());
     }
