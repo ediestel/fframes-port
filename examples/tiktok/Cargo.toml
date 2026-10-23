@@ -1,0 +1,37 @@
+[package]
+name = "tiktok-example"
+version = "1.3.0"
+edition = "2024"
+
+[dependencies]
+fframes.workspace = true
+tiktok-media ={path="./media"}
+libm="0.2.8"
+
+# `--renderer cpu|skia-cpu|gpu`: Skia on Metal on macOS, on Vulkan everywhere else
+[target.'cfg(target_os = "macos")'.dependencies]
+fframes_skia_renderer = { workspace = true, features = ["metal", "cli"] }
+
+[target.'cfg(not(any(target_os = "macos", target_arch = "wasm32")))'.dependencies]
+fframes_skia_renderer = { workspace = true, features = ["vulkan", "cli"] }
+
+# FFmpeg codecs, portable so cached source builds work across CI runner CPUs. Windows
+# links a prebuilt FFmpeg instead (see README).
+[target.'cfg(not(any(target_arch = "wasm32", windows)))'.dependencies]
+fframes = { workspace = true, features = ["vpx", "opus", "build-portable"] }
+
+[features]
+default=["renderer"]
+renderer = ["fframes/compile-time-svgtree", "fframes/cli"]
+
+[lib]
+name = "tiktok_example"
+path = "src/lib.rs"
+
+[[bin]]
+name = "tiktok_example_bin"
+path = "src/main.rs"
+required-features=["renderer"]
+
+[lints]
+workspace = true

@@ -1,0 +1,39 @@
+{
+  "name": "@fframes/editor",
+  "version": "0.0.1",
+  "sources": {
+    "dir": "src",
+    "subdirs": true
+  },
+  "package-specs": {
+    "module": "es6",
+    "in-source": true
+  },
+  "reason": { "react-jsx": 3 },
+  "suffix": ".bs.js",
+  "bs-dependencies": [
+    "@rescript/react",
+    "bs-webapi",
+    "rescript-js",
+    "rescript-classnames",
+    "@ryyppy/rescript-promise"
+  ],
+  "warnings": {
+    "error": "+101"
+  },
+  "bsc-flags": ["-open ReScriptJs"],
+  "gentypeconfig": {
+    "language": "typescript",
+    "module": "es6",
+    "importPath": "relative",
+    "exportInterfaces": false,
+    "shims": {
+      "Js": "Js",
+      "ReScriptJs": "shims/Js"
+    },
+    "debug": {
+      "all": false,
+      "basic": false
+    }
+  }
+}

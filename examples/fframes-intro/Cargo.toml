@@ -1,0 +1,37 @@
+[package]
+name = "fframes-intro"
+version = "1.3.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+fframes = { workspace = true, features = ["compile-time-svgtree", "cli"] }
+
+# `--renderer cpu|skia-cpu|gpu`: Skia on Metal on macOS, on Vulkan everywhere else
+# `preview`: real-time GPU window
+[target.'cfg(target_os = "macos")'.dependencies]
+fframes_skia_renderer = { workspace = true, features = ["metal", "cli"] }
+fframes_native_player = { workspace = true, features = ["metal", "audio"] }
+
+[target.'cfg(not(any(target_os = "macos", target_arch = "wasm32")))'.dependencies]
+fframes_skia_renderer = { workspace = true, features = ["vulkan", "cli"] }
+fframes_native_player = { workspace = true, features = ["vulkan", "audio"] }
+
+[target.'cfg(not(windows))'.dependencies]
+fframes = { workspace = true, features = ["h264", "libav-agree-gpl"] }
+
+# Keep FFmpeg source fallbacks portable across CI runner CPUs (see README).
+[target.'cfg(not(any(target_arch = "wasm32", windows)))'.dependencies]
+fframes = { workspace = true, features = ["build-portable"] }
+
+[lib]
+name = "fframes_intro"
+path = "src/lib.rs"
+doctest = false
+
+[[bin]]
+name = "fframes-intro"
+path = "src/main.rs"
+
+[lints]
+workspace = true

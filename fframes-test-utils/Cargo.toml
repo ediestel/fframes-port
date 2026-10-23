@@ -1,0 +1,20 @@
+[package]
+name = "fframes_test_utils"
+version = "1.3.0"
+edition = "2024"
+
+[lib]
+path = "./src/lib.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+fframes.workspace = true
+futures = "0.3"
+
+[features]
+default = ["compile-time-svgtree"]
+compile-time-svgtree = ["fframes/compile-time-svgtree"]
+
+[lints]
+workspace = true

@@ -1,0 +1,47 @@
+[package]
+name = "conference-splash-screen-example"
+version = "1.3.0"
+edition = "2024"
+
+[dependencies]
+fframes.workspace = true
+clap = { version = "4.3.4", features = ["derive"] }
+serde = "1.0.210"
+serde_json = "1.0.132"
+rayon = "1.10.0"
+image = "0.25.4"
+
+# `--renderer cpu|skia-cpu|gpu`: Skia on Metal on macOS, on Vulkan everywhere else
+[target.'cfg(target_os = "macos")'.dependencies]
+fframes_skia_renderer = { workspace = true, features = ["metal", "cli"] }
+
+[target.'cfg(not(any(target_os = "macos", target_arch = "wasm32")))'.dependencies]
+fframes_skia_renderer = { workspace = true, features = ["vulkan", "cli"] }
+
+# FFmpeg codecs, portable so cached source builds work across CI runner CPUs. Windows
+# links a prebuilt FFmpeg instead (see README).
+[target.'cfg(not(any(target_arch = "wasm32", windows)))'.dependencies]
+fframes = { workspace = true, features = ["h264", "h265", "libav-agree-gpl", "build-portable"] }
+
+[features]
+default = ["renderer"]
+renderer = ["fframes/compile-time-svgtree", "fframes/cli"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "conference_splash_screen"
+path = "src/lib.rs"
+doctest = false
+
+[[bin]]
+name = "conference_splash_screen_bin"
+path = "src/main.rs"
+required-features = ["renderer"]
+
+[[bin]]
+name = "render_all"
+path = "src/bin/render_all.rs"
+required-features = ["renderer"]
+
+[lints]
+workspace = true

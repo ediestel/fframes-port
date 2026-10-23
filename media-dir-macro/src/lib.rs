@@ -1,0 +1,675 @@
+mod parser;
+use crate::parser::IncludeMediaDirInput;
+use fframes_media::PreloadedImageData;
+use proc_macro::TokenStream;
+use proc_macro2::{Literal, Span};
+use quote::{ToTokens, quote};
+use std::{
+    error::Error,
+    path::{Path, PathBuf},
+};
+use syn::{Ident, parse_macro_input};
+
+/// Embed the contents of a directory in your crate.
+///
+/// ```ignore
+/// include_media_dir!(pub struct Media, "examples/my-video/media");
+/// // Keep both channels of stereo audio files (twice the embedded size):
+/// include_media_dir!(pub struct Media, "examples/my-video/media", stereo);
+/// ```
+///
+/// Every file becomes a field of the struct. Fonts are embedded as they are; images,
+/// subtitles and audio are decoded at compile time. Audio is mixed down to mono unless the
+/// `stereo` option is given; mono files stay mono either way.
+#[proc_macro]
+pub fn include_media_dir(input: TokenStream) -> TokenStream {
+    let fframes_crate_ident = resolve_fframes_crate_ident();
+
+    let IncludeMediaDirInput {
+        visibility,
+        ident,
+        path,
+        stereo,
+    } = parse_macro_input!(input as parser::IncludeMediaDirInput);
+
+    let media_files = read_media_files_dir(&path, stereo);
+    let fields = media_files
+        .iter()
+        .map(|field| MediaFile::to_type_tokens(field, &fframes_crate_ident));
+
+    let instantiate_fields = media_files
+        .iter()
+        .map(|field| MediaFile::to_instantiate_tokens(field, &fframes_crate_ident))
+        .collect::<Vec<_>>();
+
+    let audio_handle_tokens = media_files
+        .iter()
+        .filter_map(|file| {
+            file.to_manual_selection_match_variant(MediaVariant::Audio, &fframes_crate_ident)
+        })
+        .collect::<Vec<_>>();
+    let images_handle_tokens = media_files
+        .iter()
+        .filter_map(|file| {
+            file.to_manual_selection_match_variant(MediaVariant::Image, &fframes_crate_ident)
+        })
+        .collect::<Vec<_>>();
+    let subtitles_handle_tokens = media_files
+        .iter()
+        .filter_map(|file| {
+            file.to_manual_selection_match_variant(MediaVariant::Subtitles, &fframes_crate_ident)
+        })
+        .collect::<Vec<_>>();
+    // The method and the `Lottie` type exist only with the `lottie` feature.
+    let resolve_lottie = cfg!(feature = "lottie").then(|| {
+        let lottie_handle_tokens = media_files.iter().filter_map(|file| {
+            file.to_manual_selection_match_variant(MediaVariant::Lottie, &fframes_crate_ident)
+        });
+        let lottie_identifiers = media_files
+            .iter()
+            .filter(|file| file.variant == MediaVariant::Lottie)
+            .map(
+                |MediaFile {
+                     ident, filename, ..
+                 }| quote! { (&self.#ident, #filename) },
+            );
+        quote! {
+            fn get_all_lottie_data(&self) -> Vec<(&#fframes_crate_ident::Lottie, &str)> {
+                vec![#(#lottie_identifiers),*]
+            }
+
+            fn resolve_lottie(&self, name: &str) -> Option<&#fframes_crate_ident::Lottie> {
+                match name {
+                    #(#lottie_handle_tokens)*
+                    _ => None
+                }
+            }
+        }
+    });
+
+    // These are the values we give to the renderer/editor to access all of the media dynamically.
+    let populate_fonts_expressions = media_files
+        .iter()
+        .filter_map(
+            |MediaFile {
+                 variant,
+                 ident,
+                 filename,
+                 ..
+             }| {
+                matches!(variant, MediaVariant::Font).then_some(quote! {
+                    font_source.add_font(String::from(#filename), std::sync::Arc::new(self.#ident));
+                })
+            },
+        )
+        .collect::<Vec<_>>();
+    let populate_images_expressions = media_files
+        .iter()
+        .filter_map(|MediaFile { variant, ident, filename, .. }| {
+            matches!(variant, MediaVariant::Image).then_some(quote! {
+                image_data.insert(String::from(#filename), std::sync::Arc::clone(&self.#ident.href()));
+            })
+        })
+        .collect::<Vec<_>>();
+
+    // Cargo rebuilds a crate when a file it pulled in with `include_bytes!` changes. Fonts are
+    // embedded that way; images, audio and subtitles are decoded here instead, so they are
+    // registered in a dead function. A `const` would keep the bytes in the crate metadata
+    // (about 4x the file size in the .rlib); a function body only costs reading the file.
+    let dependency_paths = media_files
+        .iter()
+        .filter(|file| !matches!(file.variant, MediaVariant::Font))
+        .filter_map(|file| Some(file.path.canonicalize().ok()?.to_str()?.to_owned()))
+        .collect::<Vec<_>>();
+    let dependency_count = dependency_paths.len();
+    let rebuild_triggers = quote! {
+        const _: () = {
+            #[allow(dead_code)]
+            fn media_dependencies() -> [usize; #dependency_count] {
+                [#(include_bytes!(#dependency_paths).len()),*]
+            }
+        };
+    };
+
+    // These are used mainly for editor and provides direct access to all the static media as
+    // 'static borrow which significantly simplifies wasm code
+    let mut audio_identifiers = Vec::new();
+    let mut font_identifiers = Vec::new();
+    let mut image_identifiers = Vec::new();
+
+    for MediaFile {
+        filename,
+        ident,
+        variant,
+        ..
+    } in &media_files
+    {
+        match variant {
+            MediaVariant::Audio => {
+                audio_identifiers.push(quote! { ( &self.#ident, #filename )});
+            }
+            MediaVariant::Image => {
+                image_identifiers.push(quote! { ( &self.#ident, #filename )});
+            }
+            MediaVariant::Font => {
+                font_identifiers.push(quote! { ( &self.#ident, #filename )});
+            }
+            MediaVariant::Subtitles | MediaVariant::Lottie => {}
+        }
+    }
+
+    let doc = format!(
+        "This struct is generated automatically from the flat content of the `{}` directory.\nEvery individual field represents a statically inlined media file from the folder ready to use with fframes.\nFile name encoding is the following: `file.mp3` -> `file_mp3`",
+        path.display()
+    );
+
+    quote! {
+        // This is a workaround to force include_bytes which is the way we inline bytes to force
+        // the alignment of the plain &'static [u8] to match alignment of f32 which we need for audio
+        //
+        // More info here https://jack.wrenn.fyi/blog/include-transmute/
+        #rebuild_triggers
+
+        #[repr(C)]
+        struct FFramesForceAlignTo<Align, Bytes: ?Sized> {
+            pub _align: [Align; 0],
+            pub bytes: Bytes
+        }
+
+        #[derive(Debug)]
+        #[doc = #doc]
+        #visibility struct #ident {
+            #(#fields)*
+        }
+
+        impl #ident {
+            // we have this only to avoid the requirement of importing the trait
+            pub fn new() -> #fframes_crate_ident::error::Result<Self> {
+                Ok(Self {
+                    #(#instantiate_fields)*
+                })
+            }
+        }
+
+        impl #fframes_crate_ident::StaticMediaProvider<'_> for #ident {
+            fn prepare() -> #fframes_crate_ident::error::Result<Self> {
+                Ok(Self {
+                    #(#instantiate_fields)*
+                })
+            }
+        }
+
+        impl #fframes_crate_ident::MediaProvider<'_> for #ident {
+            fn resolve_video(&self, _name: &str) -> Option<&#fframes_crate_ident::media::VideoMedia> {
+                None
+            }
+
+            fn resolve_audio(&self, name: &str) -> Option<&#fframes_crate_ident::AudioData> {
+                match name {
+                    #(#audio_handle_tokens)*
+                    _ => None
+                }
+            }
+
+            fn resolve_image(&self, name: &str) -> Option<&#fframes_crate_ident::media::ImageData> {
+                match name {
+                    #(#images_handle_tokens)*
+                    _ => None
+                }
+            }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            fn resolve_subtitles(&self, name: &str) -> Option<&#fframes_crate_ident::media::Subtitles> {
+                match name {
+                    #(#subtitles_handle_tokens)*
+                    _ => None
+                }
+            }
+
+            #[cfg(target_arch = "wasm32")]
+            fn resolve_subtitles(&self, name: &str) -> Option<&#fframes_crate_ident::media::Subtitles> {
+                fframes::log!("Warning: subtitles dynamic resolution in editor mode is not supported, please use the direct field of the autogenerated inline media struct.");
+
+                None
+            }
+
+            #resolve_lottie
+
+            fn populate_font_source(&self, font_source: &mut dyn #fframes_crate_ident::FontSource) {
+               #(#populate_fonts_expressions);*
+            }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            fn populate_image_source(&self, image_data: &mut std::collections::HashMap<String, std::sync::Arc<#fframes_crate_ident::media::PreloadedImageData>>) {
+               #(#populate_images_expressions);*
+            }
+
+            fn get_all_audio_data(&self) -> Vec<(&#fframes_crate_ident::AudioData, &str)> {
+                vec![#(#audio_identifiers),*]
+            }
+
+            fn get_all_font_data(&self) -> Vec<(&[u8], &str)> {
+                vec![#(#font_identifiers),*]
+            }
+
+            fn get_all_image_data(&self) -> Vec<(&#fframes_crate_ident::media::ImageData, &str)> {
+                vec![#(#image_identifiers),*]
+            }
+
+        }
+    }
+    .into()
+}
+
+fn resolve_fframes_crate_ident() -> Ident {
+    match proc_macro_crate::crate_name("fframes")
+        .expect("fframes crate must be present in Cargo.toml")
+    {
+        proc_macro_crate::FoundCrate::Itself => Ident::new("crate", Span::call_site()),
+        proc_macro_crate::FoundCrate::Name(name) => Ident::new(&name, Span::call_site()),
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum MediaVariant {
+    Audio,
+    Image,
+    Font,
+    Subtitles,
+    Lottie,
+}
+
+impl MediaVariant {
+    fn from_extension(file_name: &str, path: &Path) -> Option<Self> {
+        match path.extension()?.to_str()? {
+            // Decoded to samples at compile time (mono unless `stereo`), every format ffmpeg
+            // reads works.
+            "mp3" | "wav" | "flac" | "aac" | "ogg" | "m4a" => Some(MediaVariant::Audio),
+            "ttf" | "ttc" | "otf" | "otc" => Some(MediaVariant::Font),
+            "jpeg" | "png" | "jpg" => Some(MediaVariant::Image),
+            "vtt" => Some(MediaVariant::Subtitles),
+            "json" if cfg!(feature = "lottie") => Some(MediaVariant::Lottie),
+            "json" => panic!(
+                "{}: a `.json` file is a Lottie animation. Enable the `lottie` feature of fframes to embed it.",
+                path.display()
+            ),
+            _ if file_name.starts_with('.') => None,
+            _ => panic!(
+                "Can not parse the media file {}. File type is not supported, please remove all the unsupported files from the static media folder",
+                path.display()
+            ),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct MediaFile {
+    path: PathBuf,
+    filename: String,
+    ident: syn::Ident,
+    variant: MediaVariant,
+    /// Audio only: keep the right channel of stereo files.
+    stereo: bool,
+}
+
+/// A `&'static [f32]` expression for samples embedded as an aligned byte literal.
+fn samples_tokens(samples: &[f32], fframes_crate_ident: &syn::Ident) -> proc_macro2::TokenStream {
+    let literal = Literal::byte_string(bytemuck::cast_slice::<f32, u8>(samples));
+    quote! {
+        {
+            static ALIGNED_LITERAL: &FFramesForceAlignTo<f32, [u8]> = &FFramesForceAlignTo {
+                _align: [],
+                bytes: *#literal
+            };
+
+            std::borrow::Cow::Borrowed(
+                #fframes_crate_ident::bytemuck::cast_slice::<u8, f32>(&ALIGNED_LITERAL.bytes)
+            )
+        }
+    }
+}
+
+impl MediaFile {
+    fn to_type_tokens(&self, fframes_crate_ident: &syn::Ident) -> proc_macro2::TokenStream {
+        let ident = &self.ident;
+        let type_identifier = match self.variant {
+            MediaVariant::Audio => quote! { #fframes_crate_ident::AudioData<'static> },
+            MediaVariant::Image => quote! { #fframes_crate_ident::media::ImageData<'static> },
+            // In wasm or dynamic media provider we load the Subtitles type, but in the static
+            // compilation we expose direct Vtt struct that does not allocate.
+            MediaVariant::Subtitles => quote! { #fframes_crate_ident::media::Vtt<'static> },
+            MediaVariant::Lottie => quote! { #fframes_crate_ident::Lottie },
+            MediaVariant::Font => {
+                quote! { &'static [u8] }
+            }
+        };
+
+        quote! {
+            pub #ident: #type_identifier,
+        }
+    }
+
+    fn to_instantiate_tokens(&self, fframes_crate_ident: &syn::Ident) -> proc_macro2::TokenStream {
+        let ident = &self.ident;
+        let bytes_tokens = &self.inline_file(fframes_crate_ident);
+
+        quote! {
+            #ident: #bytes_tokens,
+        }
+    }
+
+    fn inline_file(&self, fframes_crate_ident: &syn::Ident) -> proc_macro2::TokenStream {
+        match self.variant {
+            MediaVariant::Audio => {
+                let decoded = if self.stereo {
+                    fframes_media::PreloadedAudioData::decode_raw_file_stereo(None, &self.path)
+                } else {
+                    fframes_media::PreloadedAudioData::decode_raw_file(None, &self.path)
+                };
+                let fframes_media::PreloadedAudioData {
+                    samples,
+                    sample_rate,
+                    right,
+                } = decoded.unwrap_or_else(|err| {
+                    panic!(
+                        "Unable to decode the audio file {}: {err:?}",
+                        self.path.display()
+                    )
+                });
+
+                let samples = samples_tokens(&samples, fframes_crate_ident);
+                let right = if let Some(right) = right {
+                    let right = samples_tokens(&right, fframes_crate_ident);
+                    quote! { Some(#right) }
+                } else {
+                    quote! { None }
+                };
+
+                quote! {
+                    #fframes_crate_ident::AudioData::Preloaded(
+                        #fframes_crate_ident::media::PreloadedAudioData {
+                            samples: #samples,
+                            sample_rate: #sample_rate,
+                            right: #right,
+                        }
+                    )
+                }
+            }
+            // the font file is basically and adhoc byte stream that is parsed on read at runtime
+            MediaVariant::Font => read_file_bytes_as_tokens(&self.path),
+            MediaVariant::Subtitles => {
+                let file_str = std::fs::read_to_string(&self.path).unwrap();
+                let file_str_literal = Literal::string(&file_str);
+
+                quote! {
+                    #fframes_crate_ident::media::Vtt::parse(
+                        #file_str_literal
+                    ).map_err(#fframes_crate_ident::media::FFramesMediaError::VttError)?
+                }
+            }
+            // `prepare()` parses the file. An invalid file makes `prepare()` fail.
+            MediaVariant::Lottie => {
+                let json = Literal::string(&std::fs::read_to_string(&self.path).unwrap());
+                quote! { #fframes_crate_ident::Lottie::parse(#json)? }
+            }
+            MediaVariant::Image => {
+                let file_name = self.path.file_name().and_then(|f| f.to_str()).unwrap();
+                let file_bytes = std::fs::read(&self.path).unwrap();
+
+                let image_data = &fframes_media::decode_image(file_name, &file_bytes).unwrap();
+
+                let platform_specific_identifier = create_image_identifier_for_platform(
+                    fframes_crate_ident,
+                    image_data,
+                    file_name,
+                );
+                let platform_specific_identifier_wasm = create_image_identifier_for_platform_wasm(
+                    fframes_crate_ident,
+                    file_name,
+                    &self.path,
+                    image_data,
+                    &file_bytes,
+                );
+
+                quote! {
+                    {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        #platform_specific_identifier
+                        #[cfg(target_arch = "wasm32")]
+                        #platform_specific_identifier_wasm
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn to_manual_selection_match_variant(
+        &self,
+        target_variant: MediaVariant,
+        fframes_crate_ident: &syn::Ident,
+    ) -> Option<impl ToTokens> {
+        let MediaFile {
+            variant,
+            ident,
+            filename,
+            ..
+        } = self;
+
+        if variant == &target_variant && target_variant == MediaVariant::Font {
+            return Some(quote! {
+                #filename => Some(Box::new(self.#ident) as Box<dyn #fframes_crate_ident::FontFace>),
+            });
+        }
+
+        (variant == &target_variant).then_some(quote! {
+             #filename => Some(&self.#ident),
+        })
+    }
+}
+
+fn create_image_identifier_for_platform(
+    fframes_crate_ident: &syn::Ident,
+    PreloadedImageData {
+        data,
+        width,
+        height,
+        id,
+    }: &PreloadedImageData,
+    file_name: &str,
+) -> impl ToTokens {
+    let bytes_literal = Literal::byte_string(data);
+
+    quote! {
+        {
+            // This is basically the u32 rgba images under the hood so we must align them correctly
+            // they will be again casted via bytemuch to the u32
+            static ALIGNED_LITERAL: &FFramesForceAlignTo<u32, [u8]> = &FFramesForceAlignTo {
+                _align: [],
+                bytes: *#bytes_literal
+            };
+
+            let image_data = std::sync::Arc::new(
+                #fframes_crate_ident::usvgr::PreloadedImageData {
+                    id: String::from(#id),
+                    data: std::borrow::Cow::Borrowed(
+                        &ALIGNED_LITERAL.bytes
+                    ),
+                    width: #width,
+                    height: #height,
+                }
+            );
+
+            #fframes_crate_ident::media::ImageData::new_from_raw_data(
+                image_data,
+                String::from(#file_name),
+                #fframes_crate_ident::media::ImageMetadata {
+                    width: #width,
+                    height: #height,
+                }
+            )
+        }
+    }
+}
+
+fn create_image_identifier_for_platform_wasm(
+    fframes_crate_ident: &syn::Ident,
+    file_name: &str,
+    path: impl AsRef<Path>,
+    image_data: &PreloadedImageData,
+    file_bytes: &[u8],
+) -> impl ToTokens {
+    use base64::Engine;
+    let encoded: String = base64::engine::general_purpose::STANDARD_NO_PAD.encode(file_bytes);
+    let extension = file_name.split('.').next_back();
+
+    let mime_type = match extension {
+        Some("png") => "image/png",
+        Some("jpg" | "jpeg") => "image/jpeg",
+        _ => panic!("File {file_name} is not a valid image file"),
+    };
+
+    let width = image_data.width;
+    let height = image_data.height;
+    let base64_web_png = format!("data:{mime_type};base64,{encoded}");
+    let dev_server_url = format!(
+        "/@fs/{}",
+        path.as_ref()
+            .canonicalize()
+            .expect("Failed to canonicalize image path")
+            .display()
+    );
+
+    quote! {
+        #fframes_crate_ident::media::ImageData::new_from_web_source(
+            #fframes_crate_ident::media::OwnedSharedString::BorrowedStatic(#base64_web_png),
+            String::from(#dev_server_url),
+            String::from(#file_name),
+            #fframes_crate_ident::media::ImageMetadata {
+                width: #width,
+                height: #height,
+            }
+        )
+    }
+}
+
+fn read_media_files_dir(path: &Path, stereo: bool) -> Vec<MediaFile> {
+    let children = read_dir(path).unwrap_or_else(|e| {
+        panic!(
+            "Unable to read the entries in \"{}\": {}",
+            path.display(),
+            e
+        )
+    });
+
+    let mut media_files = Vec::new();
+
+    for child in children {
+        if child.is_file() {
+            let file_name = child
+                .file_name()
+                .and_then(|f| f.to_str())
+                .unwrap_or_else(|| {
+                    panic!("Unable to get the file name from \"{}\"", child.display())
+                });
+
+            if let Some(variant) = MediaVariant::from_extension(file_name, &child) {
+                media_files.push(MediaFile {
+                    ident: syn::Ident::new(&to_valid_rust_identifier(file_name), Span::call_site()),
+                    variant,
+                    filename: file_name.to_owned(),
+                    path: child,
+                    stereo,
+                });
+            }
+        } else {
+            // We do not process nested folders because it allows to nest media structure as
+            // different static media provider per scene seamlessly
+        }
+    }
+
+    media_files
+}
+
+fn to_valid_rust_identifier(input: &str) -> String {
+    // Remove invalid characters
+    let cleaned = input
+        .to_lowercase()
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+
+    // Ensure the identifier starts with a letter or underscore
+    let mut result = cleaned;
+    if let Some(first_char) = result.chars().next()
+        && !first_char.is_alphabetic()
+        && first_char != '_'
+    {
+        result.insert(0, '_');
+    }
+
+    result
+}
+
+fn read_file_bytes_as_tokens(path: &Path) -> proc_macro2::TokenStream {
+    let abs = path
+        .canonicalize()
+        .unwrap_or_else(|e| panic!("failed to resolve \"{}\": {}", path.display(), e));
+
+    if let Some(abs) = abs.to_str() {
+        quote!(include_bytes!(#abs))
+    } else {
+        let contents = read_file(path);
+        let literal = Literal::byte_string(&contents);
+        quote!(#literal)
+    }
+}
+
+fn read_dir(dir: &Path) -> Result<Vec<PathBuf>, Box<dyn Error>> {
+    assert!(dir.is_dir(), "\"{}\" is not a directory", dir.display());
+
+    track_path(dir);
+
+    let mut paths = Vec::new();
+
+    for entry in dir.read_dir()? {
+        let entry = entry?;
+        paths.push(entry.path());
+    }
+
+    paths.sort();
+
+    Ok(paths)
+}
+
+fn read_file(path: &Path) -> Vec<u8> {
+    track_path(path);
+    std::fs::read(path).unwrap_or_else(|e| panic!("Unable to read \"{}\": {}", path.display(), e))
+}
+
+#[test]
+fn verify_correct_algiment_of_the_file() {
+    use bytemuck::cast_slice;
+
+    let initial_slize: &[f32] = &fframes_media::PreloadedAudioData::decode_raw_file(
+        Some(44100),
+        &PathBuf::from("../examples/marketing/media/marketing.mp3"),
+    )
+    .unwrap()
+    .samples;
+
+    let u8_slice: &[u8] = cast_slice::<f32, u8>(initial_slize);
+    let f32_slice: &[f32] = cast_slice::<u8, f32>(u8_slice);
+
+    assert_eq!(initial_slize, f32_slice);
+}
+
+fn track_path(_path: &Path) {
+    #[cfg(feature = "nightly")]
+    proc_macro::tracked_path::path(_path.to_string_lossy());
+}

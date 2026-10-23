@@ -1,0 +1,112 @@
+clippy *ARGS:
+  cargo clippy {{ARGS}} -- -D warnings
+
+clippy-fix *ARGS:
+  @just clippy --fix {{ARGS}}
+
+syncpack:
+  pnpm syncpack lint
+
+build:
+  cargo build
+  cd fframes-editor && pnpm build
+
+init-repo:
+  ffmpeg -version
+  rustc --version
+  pnpm --version
+
+  cargo build
+  pnpm install
+  cd fframes-editor && pnpm rescript:build && pnpm bundle:dev
+
+watch-editor:
+  cd fframes-editor && pnpm dev
+
+watch-example-build example:
+  cd examples/{{example}}/editor/editor-bridge && \
+  cargo watch -i pkg -s "wasm-pack build  --target web --dev"
+
+start-example example:
+  cd examples/{{example}}/editor && pnpm dev
+
+run example:
+  #!/bin/bash
+  set -eou pipefail
+  trap 'echo "Killing background jobs..."; kill $(jobs -p) 2>/dev/null; exit 1' EXIT INT TERM
+  
+  just watch-example-build {{example}} &
+  just start-example {{example}} &
+  just watch-editor
+
+render example *ARGS:
+  cd examples/{{example}} && cargo run --release {{ARGS}} && just play {{example}}
+
+play example:
+  #!/bin/bash
+  cd examples/{{example}}
+  if command -v vlc >/dev/null 2>&1; then
+    vlc out.mp4
+  elif command -v iina >/dev/null 2>&1; then
+    iina out.mp4
+  elif command -v mpv >/dev/null 2>&1; then
+    mpv out.mp4
+  elif command -v ffplay >/dev/null 2>&1; then
+    ffplay out.mp4
+  else
+    echo "No supported media player found. Please install iina, mpv, or vlc."
+    exit 1
+  fi
+
+bench example *ARGS:
+  cd examples/{{example}} && cargo build --release {{ARGS}} && time cargo run --release {{ARGS}}
+
+# Per-stage and end-to-end CPU/GPU rendering benchmark over every example,
+# e.g. `just render-bench --json before.json` then `just render-bench --compare before.json`
+render-bench *ARGS:
+  DYLD_LIBRARY_PATH=/opt/homebrew/lib:${DYLD_LIBRARY_PATH:-} cargo run --release -p render-bench -- {{ARGS}}
+
+hyperfine example *ARGS:
+  #!/bin/bash
+  set -eou pipefail
+
+  cd examples/{{example}}
+  EXECUTABLE=$(
+    cargo build --release {{ARGS}} --message-format=json |
+    jq -r 'select(.executable != null) | .executable'
+  )
+  hyperfine $EXECUTABLE --warmup 2
+
+# Create a video crate in examples/ (flags: --format portrait --fps 60 --backend skia-metal ...)
+new name *ARGS:
+  cargo run -q -p cargo-fframes -- fframes new {{name}} --dir examples/{{name}} --yes {{ARGS}}
+
+check-wasm example:
+  cd examples/{{example}}/editor/editor-bridge && cargo check --lib --target wasm32-unknown-unknown
+
+check-examples:
+  just check-wasm hello-world && just check-wasm podcast && just check-wasm tiktok && just check-wasm beta && just check-wasm low-poly-art && just check-wasm teej-podcast && just check-wasm shaders && just check-wasm neon-triangle
+
+install-ffmpeg version: 
+  git clone https://git.ffmpeg.org/ffmpeg.git ffmpeg
+  cd ffmpeg && git fetch --tags
+  cd ffmpeg && git checkout n{{version}}
+
+  cd ffmpeg && ./configure --enable-shared --disable-x86asm
+  cd ffmpeg && make 
+  cd ffmpeg && sudo make install
+test *ARGS: 
+  cargo test {{ARGS}}
+  cargo test -p fframes_test_utils --no-default-features {{ARGS}}
+
+# Key frames of every example on one renderer against e2e/snapshots; --update accepts changes
+e2e renderer *ARGS:
+  node scripts/e2e.mjs {{renderer}} {{ARGS}}
+
+# Render a markdown file in the terminal (defaults to the agent guidelines)
+md file="AGENTS.md":
+  bat {{file}}
+
+# Encode a rendered video into the landing page's AV1 + H.264 demo files
+landing-video input:
+  scripts/landing-video.sh {{input}}
