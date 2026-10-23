@@ -55,8 +55,10 @@ impl<'a> Svgr<'a> {
         parse_runtime_document(&self.value, opt, fontdb)
     }
 
+    /// The text of a complete SVG document parsed at runtime, `None` for a tree built by the
+    /// `svgr!` macro at compile time. The renderer keys its parse cache on this text.
     #[cfg(all(feature = "compile-time-svgtree", not(target_arch = "wasm32")))]
-    fn runtime_document(&self) -> Option<&str> {
+    pub(crate) fn runtime_document(&self) -> Option<&str> {
         match self.svg_tree.nodes.as_slice() {
             [
                 Some(usvgr::svgtree::NestedNodeData {
@@ -66,6 +68,11 @@ impl<'a> Svgr<'a> {
             ] => Some(text.as_str()),
             _ => None,
         }
+    }
+
+    #[cfg(any(not(feature = "compile-time-svgtree"), target_arch = "wasm32"))]
+    pub(crate) fn runtime_document(&self) -> Option<&str> {
+        Some(&self.value)
     }
 
     /// Validates a complete SVG document produced at runtime (LLM output, user input, a template
