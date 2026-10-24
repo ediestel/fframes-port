@@ -49,16 +49,20 @@ impl PixelFormat {
         )
     }
 
-    pub const fn bytes_per_pixel(&self) -> usize {
+    /// Bytes of one `width` x `height` frame. A 4:2:0 frame has one chroma sample per 2x2 block
+    /// (1.5 samples per pixel), so its size is not a whole number of bytes per pixel.
+    pub const fn frame_bytes(&self, width: usize, height: usize) -> usize {
+        let pixels = width * height;
+        let chroma_420 = width.div_ceil(2) * height.div_ceil(2);
         match self {
-            PixelFormat::Rgba8 => 4,
-            PixelFormat::Rgba16 => 8,
-            PixelFormat::ExrHalf => 8,
-            PixelFormat::Yuv420P => 2,
-            PixelFormat::Yuv420P10Le => 3,
-            PixelFormat::Yuv444P => 3,
-            PixelFormat::Yuv444P10Le => 6,
-            PixelFormat::Yuva444P10Le => 8,
+            PixelFormat::Rgba8 => pixels * 4,
+            PixelFormat::Rgba16 => pixels * 8,
+            PixelFormat::ExrHalf => pixels * 8,
+            PixelFormat::Yuv420P => pixels + 2 * chroma_420,
+            PixelFormat::Yuv420P10Le => 2 * (pixels + 2 * chroma_420),
+            PixelFormat::Yuv444P => pixels * 3,
+            PixelFormat::Yuv444P10Le => pixels * 6,
+            PixelFormat::Yuva444P10Le => pixels * 8,
         }
     }
 
@@ -254,8 +258,16 @@ mod tests {
         assert_eq!(PixelFormat::Yuv420P10Le.bit_depth(), 10);
         assert!(PixelFormat::Yuva444P10Le.has_alpha());
         assert!(!PixelFormat::Yuv420P.has_alpha());
-        assert_eq!(PixelFormat::Rgba8.bytes_per_pixel(), 4);
+        assert_eq!(PixelFormat::Rgba8.frame_bytes(2, 2), 16);
         assert_eq!(PixelFormat::Yuva444P10Le.color_depth(), ColorDepth::Bits10);
+    }
+
+    #[test]
+    fn yuv420_frame_bytes() {
+        assert_eq!(PixelFormat::Yuv420P.frame_bytes(1920, 1080), 1920 * 1080 * 3 / 2);
+        assert_eq!(PixelFormat::Yuv420P10Le.frame_bytes(1920, 1080), 1920 * 1080 * 3);
+        // An odd size rounds the chroma planes up: 3x3 luma, 2x2 for each chroma plane.
+        assert_eq!(PixelFormat::Yuv420P.frame_bytes(3, 3), 9 + 2 * 4);
     }
 
     #[test]
