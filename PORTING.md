@@ -36,5 +36,28 @@ you'd want and I'll port them the same way.
   not finished.
 - **MANUAL.md**: a manual for non-programmers (producers, marketers, data teams).
 
+## Planned, not implemented yet
+
+Planned in fframes-workspace and not implemented since; topics to come back to.
+
+- **Encoding layer refactor.** Split the encoder into a codec part that
+  produces packets and an output sink that writes them, so one encoder can
+  write to a file, a buffer or a stream, and backends other than FFmpeg can
+  plug in. Partly done; design, status and remaining steps are on the
+  `encoding-refactor` branch of fframes-port.
+- **Authoring helpers.** Design tokens loaded from JSON, procedural SVG
+  geometry, gradient and glow `<defs>`, number formatting for on-screen data.
+- **Layout.** Bounding boxes and vertical / horizontal stacking instead of
+  hand-computed coordinates.
+- **Compositing.** Video layers with blend modes.
+- **Bundled fonts**, so text renders the same on every machine.
+- **Render stages and tracing.** Named stages per frame with a trace hook.
+- **Incremental rendering.** Render again only the frames affected by a change.
+- **Supersampling** for antialiasing. `RenderSubstrate::Bits16` describes it;
+  it is not wired into the renderer yet.
+- **Plugin lifecycle.** Explicit setup, per-run and teardown phases.
+- **Videos from a brief.** A JSON brief describing scenes, timing, brand and
+  audio, with a validator, as input for generating the scene code.
+
 Left out on purpose: project-specific templates (stained glass, medieval city),
 client data, and an unfinished refactor of the encoding layer.
