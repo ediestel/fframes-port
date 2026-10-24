@@ -1,39 +1,13 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-const FNV_OFFSET: u64 = 0xcbf29ce484222325;
-const FNV_PRIME: u64 = 0x100000001b3;
-
-fn fnv1a(bytes: &[u8]) -> u64 {
-    let mut h = FNV_OFFSET;
-    for &b in bytes {
-        h ^= b as u64;
-        h = h.wrapping_mul(FNV_PRIME);
-    }
-    h
-}
-
+/// A BLAKE3 hash: two inputs with the same hash have the same bytes.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ContentHash([u8; 32]);
 
 impl ContentHash {
     pub fn from_bytes(input: &[u8]) -> Self {
-        let mut out = [0_u8; 32];
-        let mut state = [FNV_OFFSET; 3];
-        for (i, chunk) in input.chunks(4096).enumerate() {
-            let mix = fnv1a(chunk).rotate_left(((i * 7) % 64) as u32);
-            state[i % 3] = state[i % 3].wrapping_mul(FNV_PRIME) ^ mix;
-        }
-        let final_hash = fnv1a(input);
-        for (i, b) in final_hash.to_le_bytes().iter().enumerate() {
-            out[i] = *b;
-        }
-        for (i, s) in state.iter().enumerate() {
-            for (j, b) in s.to_le_bytes().iter().enumerate() {
-                out[8 + i * 8 + j] = *b;
-            }
-        }
-        ContentHash(out)
+        ContentHash(*blake3::hash(input).as_bytes())
     }
 
     pub fn to_hex(&self) -> String {
@@ -205,6 +179,14 @@ mod tests {
         let a = ContentHash::from_bytes(b"hello");
         let b = ContentHash::from_bytes(b"hello");
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn hash_is_blake3() {
+        assert_eq!(
+            ContentHash::from_bytes(b"").to_hex(),
+            "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+        );
     }
 
     #[test]
