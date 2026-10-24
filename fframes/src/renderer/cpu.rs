@@ -18,7 +18,6 @@ use std::{
 };
 use svgr::{PixmapPool, SvgrCache, tiny_skia::Color};
 use usvgr::fontdb;
-use uuid::Uuid;
 
 use super::{
     concatenator,
@@ -201,12 +200,8 @@ impl FFramesRenderBackend for CpuRenderingBackend {
             .extension()
             .ok_or(FFramesRendererError::InvalidOutput)?;
 
-        let session = Uuid::new_v4();
-        let tmp_path = std::env::temp_dir().join(format!("fframes-{session}"));
-        let directory = render_options.tmp_files_directory.unwrap_or(&tmp_path);
-        if !directory.exists() {
-            std::fs::create_dir(directory)?;
-        }
+        let segments_directory = super::SegmentsDirectory::new(render_options, "fframes")?;
+        let directory = segments_directory.path();
 
         // The scheduler and segments work in output frames; `frame_offset` maps them back to
         // video frames when only a range is rendered.
@@ -335,7 +330,7 @@ impl FFramesRenderBackend for CpuRenderingBackend {
             .map_err(FFramesRendererError::ConcatChunkError)?;
         }
 
-        logger.success(output, Some(directory));
+        logger.success(output, segments_directory.kept());
         Ok(())
     }
 

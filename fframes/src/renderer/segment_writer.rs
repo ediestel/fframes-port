@@ -23,6 +23,48 @@ struct Segment {
 
 type SegmentSlot = Arc<Mutex<Option<Segment>>>;
 
+/// The directory a render writes its segments to. A directory the render created in the
+/// system temp dir is removed when the render ends, also when it fails; a
+/// [`RenderOptions::tmp_files_directory`] is kept.
+#[doc(hidden)]
+pub struct SegmentsDirectory {
+    path: PathBuf,
+    owned: bool,
+}
+
+impl SegmentsDirectory {
+    pub fn new(render_options: &RenderOptions<'_, '_>, prefix: &str) -> std::io::Result<Self> {
+        let (path, owned) = match render_options.tmp_files_directory {
+            Some(path) => (path.clone(), false),
+            None => (
+                std::env::temp_dir().join(format!("{prefix}-{}", uuid::Uuid::new_v4())),
+                true,
+            ),
+        };
+        if !path.exists() {
+            std::fs::create_dir(&path)?;
+        }
+        Ok(Self { path, owned })
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// The directory that stays on disk after the render.
+    pub fn kept(&self) -> Option<&PathBuf> {
+        (!self.owned).then_some(&self.path)
+    }
+}
+
+impl Drop for SegmentsDirectory {
+    fn drop(&mut self) {
+        if self.owned {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+}
+
 /// Encodes the frames handed out by a [`super::FrameScheduler`] into one intermediate
 /// file per segment. Frames of a segment may arrive out of order from several threads;
 /// they are encoded in order and the file is finalized as soon as its last frame is in.

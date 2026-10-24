@@ -63,8 +63,40 @@ impl SkiaPipelineConfig {
 
 /// Memory a software encoder holds per pixel of the video (x264 medium at 1080p: ~290 MB).
 const SOFTWARE_ENCODER_BYTES_PER_PIXEL: usize = 150;
-/// Memory budget for the software encoders running at once.
-const SOFTWARE_ENCODERS_MEMORY: usize = 8 << 30;
+/// Memory budget for the software encoders running at once: a quarter of the RAM, at most
+/// 8 GiB. A fixed 8 GiB is all the RAM of an 8 GB Mac and pushes it into swap.
+fn software_encoders_memory() -> usize {
+    const MAX: usize = 8 << 30;
+    physical_memory().map_or(MAX, |ram| (ram / 4).min(MAX))
+}
+
+#[cfg(target_os = "macos")]
+fn physical_memory() -> Option<usize> {
+    let out = std::process::Command::new("sysctl")
+        .args(["-n", "hw.memsize"])
+        .output()
+        .ok()?;
+    String::from_utf8_lossy(&out.stdout).trim().parse().ok()
+}
+
+#[cfg(target_os = "linux")]
+fn physical_memory() -> Option<usize> {
+    let meminfo = std::fs::read_to_string("/proc/meminfo").ok()?;
+    let kb: usize = meminfo
+        .lines()
+        .find_map(|line| line.strip_prefix("MemTotal:"))?
+        .trim()
+        .trim_end_matches("kB")
+        .trim()
+        .parse()
+        .ok()?;
+    Some(kb * 1024)
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+fn physical_memory() -> Option<usize> {
+    None
+}
 
 pub(crate) struct Pipeline<'p, 'a, 'media, TVideo: Video + Sync + Send, TBackend: SkiaBackend> {
     pub(crate) ctx: &'a FFramesContext<'a, 'media>,
@@ -146,11 +178,8 @@ pub(crate) fn render<'p, 'a, 'media: 'a, TVideo: Video + Sync + Send, TBackend: 
         .ok_or(FFramesRendererError::InvalidOutput)?
         .to_string_lossy()
         .into_owned();
-    let tmp_path = std::env::temp_dir().join(format!("fframes-skia-{}", uuid::Uuid::new_v4()));
-    let directory = render_options.tmp_files_directory.unwrap_or(&tmp_path);
-    if !directory.exists() {
-        std::fs::create_dir(directory)?;
-    }
+    let segments_directory = fframes::SegmentsDirectory::new(render_options, "fframes-skia")?;
+    let directory = segments_directory.path();
 
     let writer = SegmentWriter::new(
         directory,
@@ -177,7 +206,7 @@ pub(crate) fn render<'p, 'a, 'media: 'a, TVideo: Video + Sync + Send, TBackend: 
     // render, so we start more segments than threads: while some encoders wait for a frame,
     // the rest keep the cores busy. With 1.5x the threads, the 1080p60 x264 fframes-intro
     // renders twice as fast as with half. Each encoder buffers its lookahead frames, so
-    // `SOFTWARE_ENCODERS_MEMORY` caps the count (4K stays at half of the threads).
+    // `software_encoders_memory` caps the count (4K stays at half of the threads).
     let generators = (workers / 2).max(1);
     let generators = if hardware_encoder {
         generators
@@ -186,7 +215,7 @@ pub(crate) fn render<'p, 'a, 'media: 'a, TVideo: Video + Sync + Send, TBackend: 
             * ctx.current_video_size.height
             * SOFTWARE_ENCODER_BYTES_PER_PIXEL;
         (workers + workers / 2)
-            .min(SOFTWARE_ENCODERS_MEMORY / frame_bytes.max(1))
+            .min(software_encoders_memory() / frame_bytes.max(1))
             .max(generators)
     };
     // The scheduler and segments work in output frames; `frame_offset` maps them back to
@@ -339,7 +368,7 @@ pub(crate) fn render<'p, 'a, 'media: 'a, TVideo: Video + Sync + Send, TBackend: 
         .map_err(FFramesRendererError::ConcatChunkError)?;
     }
 
-    logger.success(output, Some(directory));
+    logger.success(output, segments_directory.kept());
     Ok(())
 }
 
