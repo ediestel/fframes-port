@@ -33,29 +33,23 @@ explains the design and what was left out.
   with alpha; before, partly transparent pixels came out too dark in ProRes
   4444, VP9 alpha and similar.
 
-## Plans for future work
+## Planned, not implemented yet
 
 - **Encoding layer refactor.** Split the encoder into a codec part that
   produces packets and an output sink that writes them, so one encoder can
-  write to a file, a buffer or a browser stream, and backends other than
-  FFmpeg can plug in. Partly done; design, status and remaining steps are on
-  the `encoding-refactor` branch.
-- **Authoring helpers.** Design tokens loaded from JSON, animation envelopes,
-  procedural SVG geometry, gradient and glow `<defs>`, number formatting for
-  on-screen data.
+  write to a file, a buffer or a stream, and backends other than FFmpeg can
+  plug in. Partly done; design, status and remaining steps are on the
+  `encoding-refactor` branch.
+- **Authoring helpers.** Design tokens loaded from JSON, procedural SVG
+  geometry, gradient and glow `<defs>`, number formatting for on-screen data.
 - **Layout.** Bounding boxes and vertical / horizontal stacking instead of
   hand-computed coordinates.
 - **Compositing.** Video layers with blend modes.
 - **Bundled fonts**, so text renders the same on every machine.
-- **Audio mixing graph.** Gain automation per source and ducking.
 - **Render stages and tracing.** Named stages per frame with a trace hook.
 - **Incremental rendering.** Render again only the frames affected by a change.
-- **Supersampling** for antialiasing.
+- **Supersampling** for antialiasing. `RenderSubstrate::Bits16` describes it;
+  it is not wired into the renderer yet.
 - **Plugin lifecycle.** Explicit setup, per-run and teardown phases.
-- **Timeline inspection.** Which scene a frame is in and where.
-- **Browser build (WASM).** Rendering with tiny-skia, encoding with WebCodecs
-  (or openh264 / rav1e), streaming output to JavaScript, an npm package.
-- **Scene graph with GPU rendering.** A backend-independent 2D scene graph
-  rendered with Vello on the GPU or CPU, or as SVG.
 - **Videos from a brief.** A JSON brief describing scenes, timing, brand and
   audio, with a validator, as input for generating the scene code.
