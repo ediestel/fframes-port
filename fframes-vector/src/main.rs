@@ -190,6 +190,40 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some("gltf") if args.len() >= 3 => {
+            // gltf doc.json out.glb [--depth N] [--unit M] [--tolerance T] [--per-piece] [--no-outline] [--group name]
+            let doc = match PieceDocument::load(&args[1]) {
+                Ok(d) => d,
+                Err(e) => {
+                    eprintln!("{}: {e}", args[1]);
+                    return ExitCode::FAILURE;
+                }
+            };
+            let p = fframes_vector::gltf::GltfParams {
+                tolerance: opt(&args, "--tolerance").unwrap_or(0.5),
+                depth: opt(&args, "--depth").unwrap_or(0.0),
+                unit: opt(&args, "--unit"),
+                per_piece: args.iter().any(|a| a == "--per-piece"),
+                skip_outline: args.iter().any(|a| a == "--no-outline"),
+                group: opt::<String>(&args, "--group"),
+            };
+            let glb = fframes_vector::gltf::to_glb(&doc, &p);
+            match std::fs::write(&args[2], &glb) {
+                Ok(()) => {
+                    eprintln!(
+                        "{} ({:.1} MB, {:.1} s)",
+                        args[2],
+                        glb.len() as f64 / 1e6,
+                        start.elapsed().as_secs_f32()
+                    );
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{}: {e}", args[2]);
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some("sprites") if args.len() >= 3 => {
             // sprites doc.json out_dir [--density 1,2,3] [--group name] [--max 4096] [--pad 2] [--no-outline]
             let (doc_path, dir) = (&args[1], &args[2]);

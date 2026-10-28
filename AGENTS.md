@@ -629,7 +629,12 @@ for most pictures, 3x when the camera goes close to faces. `VectorizeParams::dra
 (`--preset drawing`) for scans and photos of drawings: paper levelled to white, gaps in the
 lines closed up to `--gap` source pixels (10), so every drawn area is its own piece.
 `examples/golden_spurs` is the worked example (window → film, `golden-spurs-demo` shows
-objects, clusters and spotlights).
+objects, clusters and spotlights; `golden-spurs-3d` the window as glTF tiles).
+
+3D: `fframes-vector gltf pieces.json out.glb --depth 24` (or `vector::gltf::to_glb`) writes
+the pieces as glTF meshes, flat or as tiles, one node per object following the nested names
+(`--per-piece` for a node per piece). Load it with `three_d::Model::from_gltf` and move the
+object nodes (`inst.find(&scene, "battle")`), or open it in Blender or three.js.
 
 Objects: `fframes-vector group pieces.json zones.svg --check check.svg` names every piece by
 pixel majority from hints: a zone SVG (any shape, any editor, source-picture coordinates,
