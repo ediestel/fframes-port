@@ -58,10 +58,10 @@ are the units hints snap to, and an unnamed split to look at. `clusters` writes 
 
 Hints without drawing: `tools/propose_zones.py picture.png objects.txt zones.svg` asks a
 vision model (xAI grok-4.7) for polygons per object from a text list (`name: what it looks
-like`), on the picture with a labelled grid; `tools/propose_mask.py` asks the image editor
-(Grok Imagine) for a colour mask plus legend instead. On the Golden Spurs window, snapped with
-`--clusters`, they named 78 % (polygons) and 65 % (mask) of the glass area like the
-hand-drawn zones: good placement for large objects, rough for small ones (lion, lances,
+like`), on the picture with a labelled grid. On the Golden Spurs window, snapped with
+`--clusters`, the polygons named 78 % of the glass area like the hand-drawn zones (masks
+from the image editor reached 65 % at best and were dropped): good placement for large
+objects, rough for small ones (lion, lances,
 spurs). Treat them as a first draft to correct, and look at the check picture.
 
 Names are paths: `tree.group("rider")` includes `rider/spurs`, `tree.others("rider")` is
