@@ -72,12 +72,18 @@ fn group_node(children: Vec<Option<NestedNodeData<'static>>>, key: u64) -> Neste
     }
 }
 
-/// The document as cached subtrees: the whole picture, and one subtree per group.
+type Nodes = Arc<Vec<Option<NestedNodeData<'static>>>>;
+
+/// The document as cached subtrees: the whole picture, one subtree per object (with its
+/// sub-objects: `rider` holds `rider/spurs`), and the pieces of no object.
 pub struct PieceTree {
-    all: Arc<Vec<Option<NestedNodeData<'static>>>>,
-    groups: HashMap<String, Arc<Vec<Option<NestedNodeData<'static>>>>>,
+    all: Nodes,
+    /// Per object name and per parent of a nested name.
+    groups: HashMap<String, Nodes>,
+    /// Pieces whose group is exactly this name, in first-appearance order.
+    exact: Vec<(String, Nodes)>,
     /// Pieces that belong to no group, as one subtree.
-    rest: Arc<Vec<Option<NestedNodeData<'static>>>>,
+    rest: Nodes,
 }
 
 impl PieceTree {
@@ -100,6 +106,7 @@ impl PieceTree {
         ]);
         let mut all = Vec::with_capacity(doc.pieces.len());
         let mut by_group: HashMap<String, Vec<Option<NestedNodeData<'static>>>> = HashMap::new();
+        let mut exact: Vec<(String, Vec<Option<NestedNodeData<'static>>>)> = Vec::new();
         let mut rest = Vec::new();
         for p in &doc.pieces {
             let fill = palette.get(p.color as usize).copied().unwrap_or([0, 0, 0]);
@@ -110,11 +117,23 @@ impl PieceTree {
             all.push(Some(node.clone()));
             if p.group.is_empty() {
                 rest.push(Some(node));
-            } else {
+                continue;
+            }
+            // the object itself and every parent of a nested name
+            let ends = p
+                .group
+                .match_indices('/')
+                .map(|(i, _)| i)
+                .chain(std::iter::once(p.group.len()));
+            for end in ends {
                 by_group
-                    .entry(p.group.clone())
+                    .entry(p.group[..end].to_string())
                     .or_default()
-                    .push(Some(node));
+                    .push(Some(node.clone()));
+            }
+            match exact.iter_mut().find(|(n, _)| *n == p.group) {
+                Some((_, v)) => v.push(Some(node)),
+                None => exact.push((p.group.clone(), vec![Some(node)])),
             }
         }
         let wrap = |nodes: Vec<Option<NestedNodeData<'static>>>, name: &str| {
@@ -127,11 +146,38 @@ impl PieceTree {
                 (k, node)
             })
             .collect();
+        let exact = exact
+            .into_iter()
+            .map(|(k, v)| {
+                let node = wrap(v, &format!("exact:{k}"));
+                (k, node)
+            })
+            .collect();
         PieceTree {
             all: wrap(all, "all"),
             groups,
+            exact,
             rest: wrap(rest, "rest"),
         }
+    }
+
+    /// Everything except the object `name` and its sub-objects: the pieces of no object
+    /// first, then the other objects, each still its own cached subtree. With
+    /// [`Self::group`] this splits the picture for a spotlight, a cut-out or a move.
+    #[must_use]
+    pub fn others(&self, name: &str) -> fframes_svgr::Svgr<'static> {
+        let nodes = self
+            .rest
+            .iter()
+            .chain(
+                self.exact
+                    .iter()
+                    .filter(|(n, _)| !crate::group::in_group(n, name))
+                    .flat_map(|(_, v)| v.iter()),
+            )
+            .cloned()
+            .collect();
+        fframes_svgr::from_nodes(nodes)
     }
 
     fn svgr(nodes: &Arc<Vec<Option<NestedNodeData<'static>>>>) -> fframes_svgr::Svgr<'static> {

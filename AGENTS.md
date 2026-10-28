@@ -628,11 +628,15 @@ Golden Spurs film went from 315 s to 58 s). Presets: `VectorizeParams::outlined(
 for most pictures, 3x when the camera goes close to faces. `examples/golden_spurs` is the
 worked example (window → film).
 
-Objects: `fframes-vector group pieces.json zones.svg --check check.svg` assigns every piece
-to the first zone of a hand-drawn SVG (`<rect>`, `<circle>`, `<polygon>` with `id="name"`,
-source-picture coordinates, specific objects first) that holds its centre and most of its
-box; look at the check SVG before trusting the map. Then `tree.group("french_banner")` is its
-own cached subtree for motion or light, `svg --grouped` writes `<g id="name">` per object,
+Objects: `fframes-vector group pieces.json zones.svg --check check.svg` names every piece by
+pixel majority from hints: a zone SVG (any shape, any editor, source-picture coordinates,
+specific objects first, `<g id="rider">` nests names as `rider/spurs`) and/or a colour mask
+(`--mask m.png --legend l.json`, from any segmentation tool). `--clusters` votes per automatic
+cluster (like-coloured pieces across the lead) so coarse hints snap to the glass;
+`clusters` + `rename names.json` name clusters without zones. Look at the check SVG before
+trusting the map. Then `tree.group("rider")` (with `rider/...`) and `tree.others("rider")`
+are cached subtrees for motion, light or a spotlight, `doc.group_bbox("rider")` frames it,
+`svg --grouped` writes `<g id="name">` per object,
 and `sprites pieces.json dir --density 1,2 [--group name] [--no-outline]` writes
 TexturePacker-style atlases (PNG + JSON per page, frames carry `group`, `color`, `source`).
 

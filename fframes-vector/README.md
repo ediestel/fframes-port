@@ -30,12 +30,36 @@ the groups are separate cached subtrees.
 
 ## Groups and sprites
 
-`group::GroupMap` assigns pieces to named objects from a hand-drawn zone file: an SVG of
-`<rect>`, `<circle>` and `<polygon>` elements with `id="name"` in source-picture
-coordinates. A piece joins the first zone in the file that contains its centre and most of
-its bounding box, so the file lists specific objects first (spurs before the meadow they lie
-in) and backgrounds last; shapes may share a name. `--check` writes an SVG with every piece
-in its group's colour, the picture to look at before trusting the map.
+Grouping names pieces as objects. The process is the same for every picture; only the
+hints belong to one picture.
+
+1. `raster::PieceRaster`: the pieces filled into a label image once (4096 px on the longest
+   side by default), the common ground for everything below.
+2. Hints become a `group::LabelLayer`, a name per pixel:
+   - a zone SVG drawn in any editor over the source picture: `rect`, `circle`, `ellipse`,
+     `polygon`, `polyline`, `path`, with `transform`s. The name is `data-group`, else
+     `inkscape:label`, else `id`. Shapes in a named `<g>` are nested under it
+     (`<g id="rider"><path id="spurs"/></g>` = `rider/spurs`); unnamed shapes in it take its
+     name. Earlier shapes win where they overlap, so specific objects come first.
+   - a colour mask (`--mask`, any size, from any segmentation tool or painted by hand), with
+     a legend `{"horse": "#ff0000"}` or named by its colours. Transparent = no object.
+   - both: the zones are drawn over the mask, as corrections.
+3. Units: every piece alone, or with `--clusters` every automatic cluster as a whole, so a
+   coarse hint snaps to the lead lines.
+4. Vote: a unit takes the name covering most of its pixels when that is at least `--share`
+   (0.5). Pieces too small to own a pixel take the name at their centre.
+
+`cluster` is the hint-free part: pieces that face each other across at most `--gap` source
+pixels of outline and look alike (CIELAB ΔE) merge, after Felzenszwalb and Huttenlocher, on
+the piece graph. Clusters are not objects (brown and white glass of one horse stay two); they
+are the units hints snap to, and an unnamed split to look at. `clusters` writes them as
+`c0`, `c1`, ... (largest first), `rename` turns them into objects:
+`{"horse": ["c12", "c40"], "battle/knights": ["knights"]}`.
+
+Names are paths: `tree.group("rider")` includes `rider/spurs`, `tree.others("rider")` is
+everything else, `doc.group_bbox("rider")` frames it for a camera. `--check` writes an SVG
+with every piece in its group's colour and the names written on: look at it before trusting
+the map. On the Golden Spurs window (6,765 pieces, 25 zones) a run takes 0.3 s.
 
 `atlas` rasterizes pieces (with the renderer fframes uses) at a density relative to the
 source picture, packs them into power-of-two pages and writes PNG + JSON per page in the
@@ -49,7 +73,9 @@ can lay the pieces back into the picture. `--group` makes an atlas of one object
 ```bash
 cargo build --release -p fframes_vector
 fframes-vector vectorize picture.png pieces.json [--scale 2] [--colors 96] [--svg pieces.svg] [--flat flat.png]
-fframes-vector group pieces.json zones.svg [--scale N] [--check check.svg] [-o out.json]
+fframes-vector group pieces.json zones.svg [--mask m.png [--legend l.json]] [--clusters] [--share 0.5] [--raster 4096] [--scale N] [--check check.svg] [-o out.json]
+fframes-vector clusters pieces.json [--k 3000] [--gap 6] [--min-area 400] [--check check.svg] [-o out.json]
+fframes-vector rename pieces.json names.json [--check check.svg] [-o out.json]
 fframes-vector sprites pieces.json out_dir [--density 1,2,3] [--group name] [--max 4096] [--pad 2] [--no-outline]
 fframes-vector svg pieces.json pieces.svg [--grouped]
 ```
@@ -74,7 +100,7 @@ fn tree() -> &'static PieceTree {
 }
 
 // in render_frame
-let pieces = Svgr::from(tree().all());        // or tree().group("banner"), tree().rest()
+let pieces = Svgr::from(tree().all());        // or tree().group("banner"), tree().others("banner"), tree().rest()
 fframes::svgr!(<g transform={camera}>{pieces}</g>)
 ```
 
