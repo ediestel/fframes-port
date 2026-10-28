@@ -1374,6 +1374,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
+ "svgr",
  "usvgr",
 ]
 

@@ -28,12 +28,30 @@ record such a tree once and replay it under any transform, so a camera move over
 of pieces costs one transform per frame. The whole picture, one group, or everything outside
 the groups are separate cached subtrees.
 
+## Groups and sprites
+
+`group::GroupMap` assigns pieces to named objects from a hand-drawn zone file: an SVG of
+`<rect>`, `<circle>` and `<polygon>` elements with `id="name"` in source-picture
+coordinates. A piece joins the first zone in the file that contains its centre and most of
+its bounding box, so the file lists specific objects first (spurs before the meadow they lie
+in) and backgrounds last; shapes may share a name. `--check` writes an SVG with every piece
+in its group's colour, the picture to look at before trusting the map.
+
+`atlas` rasterizes pieces (with the renderer fframes uses) at a density relative to the
+source picture, packs them into power-of-two pages and writes PNG + JSON per page in the
+TexturePacker "hash" layout that PixiJS, Phaser, Godot and Unity read. Each frame also
+carries `group`, `color` and `source` (the piece's place in the source picture), so a game
+can lay the pieces back into the picture. `--group` makes an atlas of one object,
+`--no-outline` leaves the lead lines on the board.
+
 ## Command line
 
 ```bash
 cargo build --release -p fframes_vector
 fframes-vector vectorize picture.png pieces.json [--scale 2] [--colors 96] [--svg pieces.svg] [--flat flat.png]
-fframes-vector svg pieces.json pieces.svg
+fframes-vector group pieces.json zones.svg [--scale N] [--check check.svg] [-o out.json]
+fframes-vector sprites pieces.json out_dir [--density 1,2,3] [--group name] [--max 4096] [--pad 2] [--no-outline]
+fframes-vector svg pieces.json pieces.svg [--grouped]
 ```
 
 `--scale` upscales before flattening (Catmull-Rom): 2 for most pictures, 3 when faces will be

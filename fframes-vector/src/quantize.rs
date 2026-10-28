@@ -6,17 +6,31 @@ use std::collections::HashMap;
 
 fn srgb_to_linear(c: u8) -> f64 {
     let c = f64::from(c) / 255.0;
-    if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+    if c <= 0.04045 {
+        c / 12.92
+    } else {
+        ((c + 0.055) / 1.055).powf(2.4)
+    }
 }
 
 /// sRGB to CIE Lab (D65).
 #[must_use]
 pub fn lab(c: [u8; 3]) -> [f64; 3] {
-    let (r, g, b) = (srgb_to_linear(c[0]), srgb_to_linear(c[1]), srgb_to_linear(c[2]));
+    let (r, g, b) = (
+        srgb_to_linear(c[0]),
+        srgb_to_linear(c[1]),
+        srgb_to_linear(c[2]),
+    );
     let x = (0.412_456_4 * r + 0.357_576_1 * g + 0.180_437_5 * b) / 0.950_47;
     let y = 0.212_672_9 * r + 0.715_152_2 * g + 0.072_175 * b;
     let z = (0.019_333_9 * r + 0.119_192 * g + 0.950_304_1 * b) / 1.088_83;
-    let f = |t: f64| if t > 0.008_856 { t.cbrt() } else { 7.787 * t + 16.0 / 116.0 };
+    let f = |t: f64| {
+        if t > 0.008_856 {
+            t.cbrt()
+        } else {
+            7.787 * t + 16.0 / 116.0
+        }
+    };
     let (fx, fy, fz) = (f(x), f(y), f(z));
     [116.0 * fy - 16.0, 500.0 * (fx - fy), 200.0 * (fy - fz)]
 }
@@ -52,7 +66,9 @@ pub fn quantize(rgb: &[u8], colors: usize) -> (Vec<[u8; 3]>, Vec<u16>) {
             }
             let weight: u64 = b.iter().map(|&i| uniq[i].1).sum();
             for ch in 0..3 {
-                let (lo, hi) = b.iter().fold((255u8, 0u8), |(lo, hi), &i| (lo.min(uniq[i].0[ch]), hi.max(uniq[i].0[ch])));
+                let (lo, hi) = b.iter().fold((255u8, 0u8), |(lo, hi), &i| {
+                    (lo.min(uniq[i].0[ch]), hi.max(uniq[i].0[ch]))
+                });
                 let score = f64::from(hi - lo) * (weight as f64).sqrt();
                 if best.is_none_or(|(_, _, s)| score > s) {
                     best = Some((bi, ch, score));
@@ -118,10 +134,11 @@ pub fn quantize(rgb: &[u8], colors: usize) -> (Vec<[u8; 3]>, Vec<u16>) {
     let mut rgb_sums = vec![[0.0f64; 4]; centers.len()];
     for (i, &a) in assign.iter().enumerate() {
         let w = uniq[i].1 as f64;
-        for k in 0..3 {
-            rgb_sums[a][k] += f64::from(uniq[i].0[k]) * w;
+        let s = &mut rgb_sums[a];
+        for (sum, &v) in s.iter_mut().zip(&uniq[i].0) {
+            *sum += f64::from(v) * w;
         }
-        rgb_sums[a][3] += w;
+        s[3] += w;
     }
     let mut palette: Vec<[u8; 3]> = vec![[0, 0, 0]];
     let mut index_of_center = vec![0u16; centers.len()];
@@ -135,12 +152,19 @@ pub fn quantize(rgb: &[u8], colors: usize) -> (Vec<[u8; 3]>, Vec<u16>) {
             ]);
         }
     }
-    let lookup: HashMap<[u8; 3], u16> =
-        uniq.iter().zip(&assign).map(|((c, _), &a)| (*c, index_of_center[a])).collect();
+    let lookup: HashMap<[u8; 3], u16> = uniq
+        .iter()
+        .zip(&assign)
+        .map(|((c, _), &a)| (*c, index_of_center[a]))
+        .collect();
     let indices: Vec<u16> = (0..n)
         .map(|i| {
             let c = [rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2]];
-            if c == [0, 0, 0] { 0 } else { lookup.get(&c).copied().unwrap_or(0) }
+            if c == [0, 0, 0] {
+                0
+            } else {
+                lookup.get(&c).copied().unwrap_or(0)
+            }
         })
         .collect();
     (palette, indices)

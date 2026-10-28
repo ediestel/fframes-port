@@ -30,7 +30,14 @@ impl FlattenParams {
     #[must_use]
     pub fn outlined(scale: u32) -> Self {
         let s = scale.max(1) as usize;
-        FlattenParams { dark: 0.42, min_piece: 16 * s * s, line_w: 4 * s, speck: 20 * s * s, tol: 24.0, soft_t: 32 }
+        FlattenParams {
+            dark: 0.42,
+            min_piece: 16 * s * s,
+            line_w: 4 * s,
+            speck: 20 * s * s,
+            tol: 24.0,
+            soft_t: 32,
+        }
     }
 }
 
@@ -82,7 +89,11 @@ fn closing_u8(v: &[u8], w: usize, h: usize, r: usize) -> Vec<u8> {
             for x in 0..w {
                 let (x0, x1) = (x.saturating_sub(r), (x + r).min(w - 1));
                 let it = (x0..=x1).map(|xx| src[y * w + xx]);
-                tmp[y * w + x] = if max { it.max().unwrap_or(0) } else { it.min().unwrap_or(0) };
+                tmp[y * w + x] = if max {
+                    it.max().unwrap_or(0)
+                } else {
+                    it.min().unwrap_or(0)
+                };
             }
         }
         let mut out = vec![0u8; w * h];
@@ -90,7 +101,11 @@ fn closing_u8(v: &[u8], w: usize, h: usize, r: usize) -> Vec<u8> {
             let (y0, y1) = (y.saturating_sub(r), (y + r).min(h - 1));
             for x in 0..w {
                 let it = (y0..=y1).map(|yy| tmp[yy * w + x]);
-                out[y * w + x] = if max { it.max().unwrap_or(0) } else { it.min().unwrap_or(0) };
+                out[y * w + x] = if max {
+                    it.max().unwrap_or(0)
+                } else {
+                    it.min().unwrap_or(0)
+                };
             }
         }
         out
@@ -106,16 +121,22 @@ fn opening(mask: &[bool], w: usize, h: usize, r: usize) -> Vec<bool> {
         for y in 0..h {
             for x in 0..w {
                 let (x0, x1) = (x.saturating_sub(r), (x + r).min(w - 1));
-                tmp[y * w + x] =
-                    if all { (x0..=x1).all(|xx| src[y * w + xx]) } else { (x0..=x1).any(|xx| src[y * w + xx]) };
+                tmp[y * w + x] = if all {
+                    (x0..=x1).all(|xx| src[y * w + xx])
+                } else {
+                    (x0..=x1).any(|xx| src[y * w + xx])
+                };
             }
         }
         let mut out = vec![false; w * h];
         for y in 0..h {
             let (y0, y1) = (y.saturating_sub(r), (y + r).min(h - 1));
             for x in 0..w {
-                out[y * w + x] =
-                    if all { (y0..=y1).all(|yy| tmp[yy * w + x]) } else { (y0..=y1).any(|yy| tmp[yy * w + x]) };
+                out[y * w + x] = if all {
+                    (y0..=y1).all(|yy| tmp[yy * w + x])
+                } else {
+                    (y0..=y1).any(|yy| tmp[yy * w + x])
+                };
             }
         }
         out
@@ -140,8 +161,9 @@ pub fn flatten(rgb: &[u8], w: usize, h: usize, p: &FlattenParams) -> Vec<u8> {
     // 1. hard outlines: dark, thin, not a speck
     let thick = opening(&darkm, w, h, p.line_w);
     let (dlabel, dsizes) = components(&darkm, w, h);
-    let hard: Vec<bool> =
-        (0..n).map(|i| darkm[i] && !thick[i] && dsizes[dlabel[i] as usize] >= p.speck).collect();
+    let hard: Vec<bool> = (0..n)
+        .map(|i| darkm[i] && !thick[i] && dsizes[dlabel[i] as usize] >= p.speck)
+        .collect();
 
     // soft lines: black-hat of the brightness
     let bright: Vec<u8> = (0..n)
@@ -151,8 +173,9 @@ pub fn flatten(rgb: &[u8], w: usize, h: usize, p: &FlattenParams) -> Vec<u8> {
         })
         .collect();
     let closed = closing_u8(&bright, w, h, p.line_w);
-    let softm: Vec<bool> =
-        (0..n).map(|i| !hard[i] && !darkm[i] && closed[i].saturating_sub(bright[i]) >= p.soft_t).collect();
+    let softm: Vec<bool> = (0..n)
+        .map(|i| !hard[i] && !darkm[i] && closed[i].saturating_sub(bright[i]) >= p.soft_t)
+        .collect();
     let (slabel, ssizes) = components(&softm, w, h);
     let mut ssum = vec![[0u64; 3]; ssizes.len()];
     for i in 0..n {
@@ -169,10 +192,16 @@ pub fn flatten(rgb: &[u8], w: usize, h: usize, p: &FlattenParams) -> Vec<u8> {
         .zip(&ssizes)
         .map(|(s, &k)| {
             let k = k.max(1) as u64;
-            [(s[0] / k * 80 / 100) as u8, (s[1] / k * 80 / 100) as u8, (s[2] / k * 80 / 100) as u8]
+            [
+                (s[0] / k * 80 / 100) as u8,
+                (s[1] / k * 80 / 100) as u8,
+                (s[2] / k * 80 / 100) as u8,
+            ]
         })
         .collect();
-    let soft: Vec<bool> = (0..n).map(|i| softm[i] && ssizes[slabel[i] as usize] >= p.speck).collect();
+    let soft: Vec<bool> = (0..n)
+        .map(|i| softm[i] && ssizes[slabel[i] as usize] >= p.speck)
+        .collect();
     let line: Vec<bool> = (0..n).map(|i| hard[i] || soft[i]).collect();
 
     // 2. pieces grown by colour similarity between the outlines
@@ -252,7 +281,10 @@ pub fn flatten(rgb: &[u8], w: usize, h: usize, p: &FlattenParams) -> Vec<u8> {
                     continue;
                 }
                 let m = label[ny as usize * w + nx as usize];
-                if m != u32::MAX && m != l && best.is_none_or(|b| sizes[m as usize] > sizes[b as usize]) {
+                if m != u32::MAX
+                    && m != l
+                    && best.is_none_or(|b| sizes[m as usize] > sizes[b as usize])
+                {
                     best = Some(m);
                 }
             }

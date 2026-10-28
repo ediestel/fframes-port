@@ -12,14 +12,17 @@
 //! ([`FlattenParams::outlined`], [`TraceParams::outlined`]) for pictures with drawn outlines
 //! (stained glass, comics, flat illustration).
 
+pub mod atlas;
 pub mod document;
 pub mod flatten;
+pub mod group;
 pub mod quantize;
 pub mod trace;
 pub mod tree;
 
 pub use document::{Piece, PieceDocument};
 pub use flatten::FlattenParams;
+pub use group::GroupMap;
 pub use trace::TraceParams;
 pub use tree::PieceTree;
 
@@ -38,7 +41,12 @@ impl VectorizeParams {
     /// The preset for pictures with drawn outlines.
     #[must_use]
     pub fn outlined(scale: u32) -> Self {
-        VectorizeParams { scale, colors: 96, flatten: FlattenParams::outlined(scale), trace: TraceParams::outlined(scale) }
+        VectorizeParams {
+            scale,
+            colors: 96,
+            flatten: FlattenParams::outlined(scale),
+            trace: TraceParams::outlined(scale),
+        }
     }
 }
 
@@ -48,7 +56,12 @@ pub fn upscale(img: &image::RgbImage, scale: u32) -> image::RgbImage {
     if scale <= 1 {
         return img.clone();
     }
-    image::imageops::resize(img, img.width() * scale, img.height() * scale, image::imageops::FilterType::CatmullRom)
+    image::imageops::resize(
+        img,
+        img.width() * scale,
+        img.height() * scale,
+        image::imageops::FilterType::CatmullRom,
+    )
 }
 
 /// The flattened picture, for review and as the puzzle piece map.

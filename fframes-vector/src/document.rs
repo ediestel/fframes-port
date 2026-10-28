@@ -52,7 +52,48 @@ impl PieceDocument {
 
     #[must_use]
     pub fn color_hex(&self, piece: &Piece) -> &str {
-        self.palette.get(piece.color as usize).map_or("#000000", String::as_str)
+        self.palette
+            .get(piece.color as usize)
+            .map_or("#000000", String::as_str)
+    }
+
+    /// An SVG with one `<g id="group">` per object group (pieces in document order inside
+    /// it, ungrouped pieces in `<g id="_rest">` first), one `<path id="pN">` per piece.
+    #[must_use]
+    pub fn to_svg_grouped(&self) -> String {
+        use std::fmt::Write;
+        let mut order: Vec<&str> = Vec::new();
+        for p in &self.pieces {
+            if !p.group.is_empty() && !order.contains(&p.group.as_str()) {
+                order.push(&p.group);
+            }
+        }
+        let mut s = String::with_capacity(self.pieces.len() * 200);
+        let _ = write!(
+            s,
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">"#,
+            w = self.width,
+            h = self.height
+        );
+        let emit = |s: &mut String, name: &str, group: &str| {
+            let _ = write!(s, r#"<g id="{name}">"#);
+            for p in self.pieces.iter().filter(|p| p.group == group) {
+                let _ = write!(
+                    s,
+                    r#"<path id="p{}" fill="{}" d="{}"/>"#,
+                    p.id,
+                    self.color_hex(p),
+                    p.d
+                );
+            }
+            s.push_str("</g>");
+        };
+        emit(&mut s, "_rest", "");
+        for g in order {
+            emit(&mut s, g, g);
+        }
+        s.push_str("</svg>");
+        s
     }
 
     /// A plain SVG: one `<g>` per colour in draw order, one `<path>` per piece with its id.
@@ -78,7 +119,11 @@ impl PieceDocument {
             if p.group.is_empty() {
                 let _ = write!(s, r#"<path id="p{}" d="{}"/>"#, p.id, p.d);
             } else {
-                let _ = write!(s, r#"<path id="p{}" data-group="{}" d="{}"/>"#, p.id, p.group, p.d);
+                let _ = write!(
+                    s,
+                    r#"<path id="p{}" data-group="{}" d="{}"/>"#,
+                    p.id, p.group, p.d
+                );
             }
         }
         if current.is_some() {
