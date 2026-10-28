@@ -628,6 +628,14 @@ Golden Spurs film went from 315 s to 58 s). Presets: `VectorizeParams::outlined(
 for most pictures, 3x when the camera goes close to faces. `examples/golden_spurs` is the
 worked example (window → film).
 
+Objects: `fframes-vector group pieces.json zones.svg --check check.svg` assigns every piece
+to the first zone of a hand-drawn SVG (`<rect>`, `<circle>`, `<polygon>` with `id="name"`,
+source-picture coordinates, specific objects first) that holds its centre and most of its
+box; look at the check SVG before trusting the map. Then `tree.group("french_banner")` is its
+own cached subtree for motion or light, `svg --grouped` writes `<g id="name">` per object,
+and `sprites pieces.json dir --density 1,2 [--group name] [--no-outline]` writes
+TexturePacker-style atlases (PNG + JSON per page, frames carry `group`, `color`, `source`).
+
 ### 7e. Your own wgpu passes (`fframes::wgpu_layer`)
 
 With `fframes = { features = ["wgpu"] }` and the Skia Vulkan backend's `wgpu` feature,

@@ -14,7 +14,8 @@ use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::sync::Arc;
 use usvgr::svgtree::{
-    AId, Attribute, EId, NestedNodeData, NestedNodeKind, StaticPathData, SvgAttributeValue, svgrtypes,
+    AId, Attribute, EId, NestedNodeData, NestedNodeKind, StaticPathData, SvgAttributeValue,
+    svgrtypes,
 };
 
 const HASH_SEED: u64 = 0x5b0f_1302_0002;
@@ -34,10 +35,18 @@ fn path_node(d: &str, fill: [u8; 3], key: u64) -> Option<NestedNodeData<'static>
     let data: &'static StaticPathData = Box::leak(Box::new(StaticPathData::new(segments)));
     let color = svgrtypes::Color::new_rgb(fill[0], fill[1], fill[2]);
     Some(NestedNodeData {
-        kind: NestedNodeKind::Element { tag_name: EId::Path },
+        kind: NestedNodeKind::Element {
+            tag_name: EId::Path,
+        },
         attrs: Box::new([
-            Attribute { name: AId::D, value: SvgAttributeValue::StaticPath(data) },
-            Attribute { name: AId::Fill, value: SvgAttributeValue::Color(color) },
+            Attribute {
+                name: AId::D,
+                value: SvgAttributeValue::StaticPath(data),
+            },
+            Attribute {
+                name: AId::Fill,
+                value: SvgAttributeValue::Color(color),
+            },
         ]),
         children: vec![],
         static_hash: Some(key),
@@ -47,7 +56,9 @@ fn path_node(d: &str, fill: [u8; 3], key: u64) -> Option<NestedNodeData<'static>
 struct PathSegments;
 impl PathSegments {
     fn parse(d: &str) -> Option<Vec<svgrtypes::PathSegment>> {
-        let v: Vec<_> = svgrtypes::PathParser::from(d).collect::<Result<_, _>>().ok()?;
+        let v: Vec<_> = svgrtypes::PathParser::from(d)
+            .collect::<Result<_, _>>()
+            .ok()?;
         if v.is_empty() { None } else { Some(v) }
     }
 }
@@ -82,29 +93,45 @@ impl PieceTree {
                 [c.red, c.green, c.blue]
             })
             .collect();
-        let base = hash(&[salt.to_string(), doc.width.to_string(), doc.height.to_string()]);
+        let base = hash(&[
+            salt.to_string(),
+            doc.width.to_string(),
+            doc.height.to_string(),
+        ]);
         let mut all = Vec::with_capacity(doc.pieces.len());
         let mut by_group: HashMap<String, Vec<Option<NestedNodeData<'static>>>> = HashMap::new();
         let mut rest = Vec::new();
         for p in &doc.pieces {
             let fill = palette.get(p.color as usize).copied().unwrap_or([0, 0, 0]);
             let key = hash(&[base, u64::from(p.id), u64::from(p.color), p.d.len() as u64]);
-            let Some(node) = path_node(&p.d, fill, key) else { continue };
+            let Some(node) = path_node(&p.d, fill, key) else {
+                continue;
+            };
             all.push(Some(node.clone()));
             if p.group.is_empty() {
                 rest.push(Some(node));
             } else {
-                by_group.entry(p.group.clone()).or_default().push(Some(node));
+                by_group
+                    .entry(p.group.clone())
+                    .or_default()
+                    .push(Some(node));
             }
         }
         let wrap = |nodes: Vec<Option<NestedNodeData<'static>>>, name: &str| {
             Arc::new(vec![Some(group_node(nodes, hash(&[base, hash(&[name])])))])
         };
-        let groups = by_group.into_iter().map(|(k, v)| {
-            let node = wrap(v, &k);
-            (k, node)
-        }).collect();
-        PieceTree { all: wrap(all, "all"), groups, rest: wrap(rest, "rest") }
+        let groups = by_group
+            .into_iter()
+            .map(|(k, v)| {
+                let node = wrap(v, &k);
+                (k, node)
+            })
+            .collect();
+        PieceTree {
+            all: wrap(all, "all"),
+            groups,
+            rest: wrap(rest, "rest"),
+        }
     }
 
     fn svgr(nodes: &Arc<Vec<Option<NestedNodeData<'static>>>>) -> fframes_svgr::Svgr<'static> {
@@ -120,7 +147,9 @@ impl PieceTree {
     /// One group, or nothing if the name is unknown.
     #[must_use]
     pub fn group(&self, name: &str) -> fframes_svgr::Svgr<'static> {
-        self.groups.get(name).map_or_else(fframes_svgr::empty, Self::svgr)
+        self.groups
+            .get(name)
+            .map_or_else(fframes_svgr::empty, Self::svgr)
     }
 
     /// Everything that is in no group.

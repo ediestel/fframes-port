@@ -10,6 +10,9 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 use usvgr::svgtree::svgrtypes::{PathParser, PathSegment};
 
+/// One colour's trace: its palette index and (path data, bbox, area) of every shape.
+type Traced = (usize, Vec<(String, [f32; 4], f32)>);
+
 #[derive(Clone, Copy, Debug)]
 pub struct TraceParams {
     /// Speckles of fewer pixels than this are dropped (potrace `-t`).
@@ -26,11 +29,23 @@ impl TraceParams {
     #[must_use]
     pub fn outlined(scale: u32) -> Self {
         let s = scale.max(1);
-        TraceParams { turd: 4 * s * s, turd_outline: 8 * s * s, alpha: 1.0, opt: 0.4 }
+        TraceParams {
+            turd: 4 * s * s,
+            turd_outline: 8 * s * s,
+            alpha: 1.0,
+            opt: 0.4,
+        }
     }
 }
 
-fn potrace_svg(mask: &[bool], w: usize, h: usize, turd: u32, alpha: f32, opt: f32) -> Result<String, String> {
+fn potrace_svg(
+    mask: &[bool],
+    w: usize,
+    h: usize,
+    turd: u32,
+    alpha: f32,
+    opt: f32,
+) -> Result<String, String> {
     let exe = std::env::var("POTRACE").unwrap_or_else(|_| "potrace".to_string());
     // PBM P4: 1 bits are black = the shape
     let row = w.div_ceil(8);
@@ -45,7 +60,20 @@ fn potrace_svg(mask: &[bool], w: usize, h: usize, turd: u32, alpha: f32, opt: f3
     }
     pbm.extend_from_slice(&bits);
     let mut child = Command::new(&exe)
-        .args(["-s", "-u", "10", "-t", &turd.to_string(), "-a", &alpha.to_string(), "-O", &opt.to_string(), "-o", "-", "-"])
+        .args([
+            "-s",
+            "-u",
+            "10",
+            "-t",
+            &turd.to_string(),
+            "-a",
+            &alpha.to_string(),
+            "-O",
+            &opt.to_string(),
+            "-o",
+            "-",
+            "-",
+        ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -105,9 +133,20 @@ fn absolute_path(d: &str, height: f64) -> Option<(String, [f32; 4], f32)> {
                 let (px, py) = map(nx, ny);
                 let _ = write!(out, "L{px:.1} {py:.1}");
             }
-            PathSegment::CurveTo { abs, x1, y1, x2, y2, x, y } => {
-                let (ax1, ay1, ax2, ay2, nx, ny) =
-                    if abs { (x1, y1, x2, y2, x, y) } else { (cx + x1, cy + y1, cx + x2, cy + y2, cx + x, cy + y) };
+            PathSegment::CurveTo {
+                abs,
+                x1,
+                y1,
+                x2,
+                y2,
+                x,
+                y,
+            } => {
+                let (ax1, ay1, ax2, ay2, nx, ny) = if abs {
+                    (x1, y1, x2, y2, x, y)
+                } else {
+                    (cx + x1, cy + y1, cx + x2, cy + y2, cx + x, cy + y)
+                };
                 if in_first {
                     contour_area += cx * ny - nx * cy;
                 }
@@ -138,7 +177,16 @@ fn absolute_path(d: &str, height: f64) -> Option<(String, [f32; 4], f32)> {
     if bb[0] == f64::MAX {
         return None;
     }
-    Some((out, [bb[0] as f32, bb[1] as f32, (bb[2] - bb[0]) as f32, (bb[3] - bb[1]) as f32], area as f32))
+    Some((
+        out,
+        [
+            bb[0] as f32,
+            bb[1] as f32,
+            (bb[2] - bb[0]) as f32,
+            (bb[3] - bb[1]) as f32,
+        ],
+        area as f32,
+    ))
 }
 
 fn paths_in(svg: &str) -> Vec<&str> {
@@ -172,13 +220,16 @@ pub fn trace(
     order.sort_by_key(|&c| (std::cmp::Reverse(counts[c]), c));
     order.push(0);
 
-    let traced: Vec<Result<(usize, Vec<(String, [f32; 4], f32)>), String>> = order
+    let traced: Vec<Result<Traced, String>> = order
         .par_iter()
         .map(|&c| {
             let mask: Vec<bool> = indices.iter().map(|&i| i as usize == c).collect();
             let turd = if c == 0 { p.turd_outline } else { p.turd };
             let svg = potrace_svg(&mask, w, h, turd, p.alpha, p.opt)?;
-            let pieces = paths_in(&svg).into_iter().filter_map(|d| absolute_path(d, h as f64)).collect();
+            let pieces = paths_in(&svg)
+                .into_iter()
+                .filter_map(|d| absolute_path(d, h as f64))
+                .collect();
             Ok((c, pieces))
         })
         .collect();
@@ -189,14 +240,24 @@ pub fn trace(
         let (c, ps) = r?;
         for (d, bbox, area) in ps {
             id += 1;
-            pieces.push(Piece { id, color: c as u16, d, bbox, area, group: String::new() });
+            pieces.push(Piece {
+                id,
+                color: c as u16,
+                d,
+                bbox,
+                area,
+                group: String::new(),
+            });
         }
     }
     Ok(PieceDocument {
         width: w as u32,
         height: h as u32,
         scale,
-        palette: palette.iter().map(|c| format!("#{:02x}{:02x}{:02x}", c[0], c[1], c[2])).collect(),
+        palette: palette
+            .iter()
+            .map(|c| format!("#{:02x}{:02x}{:02x}", c[0], c[1], c[2]))
+            .collect(),
         pieces,
     })
 }
