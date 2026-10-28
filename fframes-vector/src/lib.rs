@@ -18,6 +18,7 @@
 pub mod atlas;
 pub mod cluster;
 pub mod document;
+pub mod drawing;
 pub mod flatten;
 pub mod group;
 pub mod quantize;
@@ -42,6 +43,8 @@ pub struct VectorizeParams {
     pub colors: usize,
     pub flatten: FlattenParams,
     pub trace: TraceParams,
+    /// Clean a scanned or photographed drawing first (even white paper).
+    pub scan: Option<drawing::ScanParams>,
 }
 
 impl VectorizeParams {
@@ -53,6 +56,19 @@ impl VectorizeParams {
             colors: 96,
             flatten: FlattenParams::outlined(scale),
             trace: TraceParams::outlined(scale),
+            scan: None,
+        }
+    }
+
+    /// The preset for scans and photos of drawings: paper levelled to white, gaps in the
+    /// lines closed, a smaller palette.
+    #[must_use]
+    pub fn drawing(scale: u32) -> Self {
+        VectorizeParams {
+            colors: 32,
+            flatten: FlattenParams::drawing(scale),
+            scan: Some(drawing::ScanParams::new(1)),
+            ..Self::outlined(scale)
         }
     }
 }
@@ -74,6 +90,14 @@ pub fn upscale(img: &image::RgbImage, scale: u32) -> image::RgbImage {
 /// The flattened picture, for review and as the puzzle piece map.
 #[must_use]
 pub fn flat_image(img: &image::RgbImage, p: &VectorizeParams) -> image::RgbImage {
+    let cleaned;
+    let img = match &p.scan {
+        Some(s) => {
+            cleaned = drawing::clean_scan(img, s);
+            &cleaned
+        }
+        None => img,
+    };
     let big = upscale(img, p.scale);
     let (w, h) = (big.width() as usize, big.height() as usize);
     let flat = flatten::flatten(big.as_raw(), w, h, &p.flatten);
