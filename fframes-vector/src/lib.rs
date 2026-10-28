@@ -5,24 +5,31 @@
 //! 3. [`trace`]: every colour traced with `potrace` into closed pieces.
 //! 4. [`document::PieceDocument`]: the pieces with ids, colours, bounds and groups; saved as
 //!    JSON, exported as SVG.
-//! 5. [`tree::PieceTree`]: the document as a static, cached `svgr` tree for fframes, whole or
-//!    per group.
+//! 5. [`group`]: pieces named as objects from hints (zone SVG, colour mask), piece by
+//!    piece or by automatic [`cluster`]s, on a [`raster::PieceRaster`].
+//! 6. [`tree::PieceTree`]: the document as a static, cached `svgr` tree for fframes, whole,
+//!    per object, or everything but one object.
+//! 7. [`atlas`]: sprite atlases for game engines.
 //!
 //! [`vectorize`] runs 1 to 4 on an RGB image. Settings come as presets
 //! ([`FlattenParams::outlined`], [`TraceParams::outlined`]) for pictures with drawn outlines
 //! (stained glass, comics, flat illustration).
 
 pub mod atlas;
+pub mod cluster;
 pub mod document;
 pub mod flatten;
 pub mod group;
 pub mod quantize;
+pub mod raster;
 pub mod trace;
 pub mod tree;
 
+pub use cluster::ClusterParams;
 pub use document::{Piece, PieceDocument};
 pub use flatten::FlattenParams;
-pub use group::GroupMap;
+pub use group::{AssignParams, GroupMap, LabelLayer};
+pub use raster::PieceRaster;
 pub use trace::TraceParams;
 pub use tree::PieceTree;
 
