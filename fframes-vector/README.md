@@ -68,6 +68,21 @@ carries `group`, `color` and `source` (the piece's place in the source picture),
 can lay the pieces back into the picture. `--group` makes an atlas of one object,
 `--no-outline` leaves the lead lines on the board.
 
+## 3D (glTF)
+
+`gltf::to_glb` writes the pieces as a binary glTF 2.0 for Blender, three.js, game engines
+and `fframes::three_d`. Outlines are flattened within `--tolerance` document pixels, rings
+sorted into contours and holes by nesting, and triangulated by ear cutting (`earcutr`).
+`--depth N` turns the pieces into tiles N pixels thick (front, back, side walls). One
+material per palette colour. Nodes follow the object names (`battle/french/knights` is
+`knights` under `french` under `battle`, ungrouped pieces in `_rest`), each with one mesh
+per object; `--per-piece` gives every piece its own node (`p<id>`, `extras.id`,
+`extras.color`). Y is up, centred, the picture 2 m high unless `--unit` says otherwise.
+
+The Golden Spurs window as 24 px tiles is 66 MB and exports in 0.3 s;
+`examples/golden_spurs` (`golden-spurs-3d`) loads it with `Model::from_gltf`, orbits it and
+slides the objects out one by one.
+
 ## Drawings
 
 Scans and photos of drawings (`--preset drawing`, `VectorizeParams::drawing`):
@@ -94,6 +109,7 @@ fframes-vector clusters pieces.json [--k 3000] [--gap 6] [--min-area 400] [--che
 fframes-vector rename pieces.json names.json [--check check.svg] [-o out.json]
 fframes-vector sprites pieces.json out_dir [--density 1,2,3] [--group name] [--max 4096] [--pad 2] [--no-outline]
 fframes-vector svg pieces.json pieces.svg [--grouped]
+fframes-vector gltf pieces.json pieces.glb [--depth N] [--per-piece] [--no-outline] [--group name] [--unit M] [--tolerance 0.5]
 ```
 
 `--scale` upscales before flattening (Catmull-Rom): 2 for most pictures, 3 when faces will be

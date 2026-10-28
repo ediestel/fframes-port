@@ -20,6 +20,7 @@ pub mod cluster;
 pub mod document;
 pub mod drawing;
 pub mod flatten;
+pub mod gltf;
 pub mod group;
 pub mod quantize;
 pub mod raster;
