@@ -86,6 +86,8 @@
 //! - `exif`: EXIF orientation of loaded images.
 //! - `3d`: [`three_d`], 3D scenes with the building blocks of three.js, rendered into an
 //!   `<image>` of the frame. Runs on the CPU, also in the editor.
+//! - `vector`: [`vector`], pictures and drawings to piece-based vector art, and a piece
+//!   document as a static tree the renderers cache (camera moves over thousands of pieces).
 //! - `wgpu`: `wgpu_layer` puts textures rendered with wgpu into frames, and the Skia
 //!   Vulkan backend draws them without a readback. With `3d`, the 3D renders on the GPU.
 //! - Codecs `h264`, `h265`, `aac`, `mp3lame`, `opus`, `vpx`: compile the library into the static
@@ -206,5 +208,17 @@ pub use usvgr;
 #[cfg(feature = "3d")]
 #[doc(inline)]
 pub use fframes_three_d as three_d;
+#[cfg(feature = "vector")]
+pub mod vector {
+    //! Pictures to piece-based vector art ([`fframes_vector`]), and its piece trees as [`Svgr`].
+    pub use fframes_vector::*;
+
+    #[cfg(all(feature = "compile-time-svgtree", not(target_arch = "wasm32")))]
+    impl From<fframes_vector::tree::fframes_svgr::Svgr<'static>> for crate::Svgr<'static> {
+        fn from(svg_tree: fframes_vector::tree::fframes_svgr::Svgr<'static>) -> Self {
+            crate::Svgr { svg_tree }
+        }
+    }
+}
 #[cfg(feature = "exif")]
 pub use media::exif;

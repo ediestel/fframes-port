@@ -234,6 +234,7 @@ cargo test -- --nocapture
 /fframes-editor-controller # WASM bridge between a Video impl and the editor
 /fframes-test-utils        # Snapshot helpers for svgr! trees
 /fframes-three-d           # 3D: three.js style scene graph, glTF, CPU rasterizer or wgpu (GPU texture shared with Skia)
+/fframes-vector            # Pictures/drawings to piece-based vector art (flatten, quantise, potrace); piece document; cached piece trees
 /svgr-macro                # The svgr! procedural macro (SVG DSL + static-subtree hashing)
 /media-dir-macro           # include_media_dir! (embeds a media folder into the binary)
 /webvtt-parser             # Subtitle format parser
@@ -590,6 +591,42 @@ svgr!(<image href={image.href()} x="0" y="0" width="1920" height="1080" />)
   the shadow map tight. `fframes-three-d/tests/gpu.rs` compares both renderers.
 - `examples/arm` is a short film that uses most of the crate. Its `src/effects.rs` builds
   camera shake, a light beam in hazy air, spark streaks and a printed grid from these blocks.
+
+### 7f. Vector art from pictures (`fframes::vector`)
+
+`fframes = { features = ["vector"] }` adds `fframes::vector` (the `fframes_vector` crate):
+a picture or drawing with drawn outlines becomes piece-based vector art, and that art becomes
+a static tree the renderers cache, so a camera can move over thousands of pieces for the
+cost of one transform per frame.
+
+```bash
+cargo run --release -p fframes_vector -- vectorize picture.png pieces.json --scale 3 --colors 96 --svg pieces.svg --flat flat.png
+```
+
+`vectorize` upscales (Catmull-Rom), flattens (`flatten`: outlines become pure black, every
+area between them one even colour, soft brown strokes keep their colour), quantises without
+dithering (`quantize`: median cut + k-means in Lab) and traces every colour with `potrace`
+(an external program on the `PATH` or in `POTRACE`; nothing of it is linked). The result is a
+`PieceDocument`: palette and one `Piece` per closed shape with `id`, `color`, absolute path
+`d`, `bbox`, `area` and an optional `group`. `--svg` writes it as plain SVG with one
+`<path id="pN">` per piece, `--flat` the flattened picture (the piece map).
+
+In a video, build the tree once and embed it:
+
+```rust
+use fframes::vector::{PieceDocument, PieceTree};
+static TREE: OnceLock<PieceTree> = OnceLock::new();
+let tree = TREE.get_or_init(|| PieceTree::new(&PieceDocument::from_json(include_str!("../pieces.json")).unwrap(), "window"));
+let pieces = Svgr::from(tree.all());                     // or tree.group("banner"), tree.rest()
+svgr!(<g transform={camera}>{pieces}</g>)
+```
+
+Every path is pre-parsed `StaticPathData` with a `static_hash`, the form `svgr!` makes at
+compile time, so the Skia backend records the tree once and replays it. Do not pass such art
+through `Svgr::from_svg_string` per frame: that reparses and restrokes it every frame (the
+Golden Spurs film went from 315 s to 58 s). Presets: `VectorizeParams::outlined(scale)`; 2x
+for most pictures, 3x when the camera goes close to faces. `examples/golden_spurs` is the
+worked example (window → film).
 
 ### 7e. Your own wgpu passes (`fframes::wgpu_layer`)
 

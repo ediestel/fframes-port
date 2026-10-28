@@ -1219,6 +1219,7 @@ dependencies = [
  "fframes-media",
  "fframes-media-dir-macro",
  "fframes_three_d",
+ "fframes_vector",
  "futures",
  "image",
  "indicatif",
@@ -1363,6 +1364,17 @@ dependencies = [
  "ttf-parser",
  "usvgr",
  "wgpu",
+]
+
+[[package]]
+name = "fframes_vector"
+version = "1.3.0"
+dependencies = [
+ "image",
+ "rayon",
+ "serde",
+ "serde_json",
+ "usvgr",
 ]
 
 [[package]]

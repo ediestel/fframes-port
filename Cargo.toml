@@ -11,6 +11,7 @@ members = [
     "fframes-skia-renderer",
     "fframes-native-player",
     "fframes-three-d",
+    "fframes-vector",
     "media-dir-macro",
     "render-bench",
     "render-bench/vs-remotion",
