@@ -36,6 +36,18 @@ you'd want and I'll port them the same way.
   not finished.
 - **MANUAL.md**: a manual for non-programmers (producers, marketers, data teams).
 
+## Added on this fork (not from fframes-workspace)
+
+- **`fframes-vector`** (branch `vector`): pictures and drawings to piece-based
+  vector art (flatten, quantise, trace with external potrace), a piece document
+  (JSON, one entry per piece with id, colour, path, bounds, group) with SVG
+  export, and `PieceTree`, the document as a static tree the renderers cache,
+  whole or per group. `fframes::vector` behind the `vector` feature, built like
+  `fframes-three-d`. See `fframes-vector/README.md` and AGENTS.md section 7f.
+  Planned on top of it: sprite atlases (PNG + JSON at several densities), a
+  group map (pieces → objects), glTF export of pieces as thin panes, Lottie
+  export, drawing input (scan clean-up, gap closing).
+
 ## Planned, not implemented yet
 
 Planned in fframes-workspace and not implemented since; topics to come back to.
