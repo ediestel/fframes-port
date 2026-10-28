@@ -10,7 +10,8 @@ labelled coordinate grid; the model answers with polygons per object (an object 
 in several places). In tests only grok-4.7 (reasoning, about 5 minutes) answered in the
 image's pixels; grok-4.20-non-reasoning used a scale of its own. On the Golden Spurs window
 grok-4.7 polygons snapped with `--clusters` named 78 % of the glass area like hand-drawn
-zones, ahead of the image-edit masks of `propose_mask.py`. The polygons are written in the
+zones; masks from an image editor (Grok Imagine) did worse and are not offered. The
+polygons are written in the
 picture's own pixel coordinates as
 `<polygon data-group="name">`, smallest objects first, so specific objects win where zones
 overlap. Then:
