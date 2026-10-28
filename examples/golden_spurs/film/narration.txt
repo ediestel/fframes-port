@@ -1,0 +1,16 @@
+open|On the eleventh of July, thirteen hundred and two, two armies face each other outside Kortrijk.
+revolt|The French king has imprisoned the count and brought Flanders under his direct rule.
+revolt|In May, rebels killed the French garrison in Bruges, turning unrest into open revolt.
+french|Now Robert of Artois has come to punish the Flemish rebels and restore French royal authority.
+french|His army includes armoured knights whose mounted charges can break an enemy's infantry apart.
+flemish|Weavers and other craftsmen fight on foot, with pikes and heavy clubs tipped with iron, called goedendags.
+flemish|Under Guy of Namur and William of Jülich, these men prepare to meet the cavalry.
+flemish|Standing close together, they depend on discipline to withstand the impact of charging horses.
+battle|Brooks and wet ground cross the battlefield, making the approach difficult for the French horses.
+battle|When the knights attack, the Flemish hold their ground and strike at close quarters.
+battle|Robert of Artois is killed, and the defeated French army flees the battlefield.
+spurs|After the fighting, the victors collect gilded spurs from the bodies of fallen knights.
+spurs|Tradition says these trophies were hung in Kortrijk's Church of Our Lady to commemorate victory.
+spurs|They give the battle its later name: Guldensporenslag, the Battle of the Golden Spurs.
+close|The victory shows that organised infantry can defeat an army of mounted knights.
+close|Today, the Flemish Community commemorates the battle each year on the eleventh of July.

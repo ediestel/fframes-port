@@ -1,0 +1,8 @@
+# regenerable outputs (render, export, sprites, SVG from the JSON documents)
+/film/*.mp4
+/vector/*.glb
+/vector/sprites/
+/vector/*.svg
+!/vector/zones.svg
+# other experiments, not part of this example
+/grok/

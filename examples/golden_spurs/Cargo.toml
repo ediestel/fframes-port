@@ -1,0 +1,43 @@
+[package]
+name = "golden-spurs"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+fframes = { path = "/Users/eckhartdiestel/Desktop/Coding_Projects/fframes-main/fframes", features = ["compile-time-svgtree", "cli", "videotoolbox", "vector", "3d"] }
+fframes_skia_renderer = { path = "/Users/eckhartdiestel/Desktop/Coding_Projects/fframes-main/fframes-skia-renderer", features = ["metal"] }
+fframes_native_player = { path = "/Users/eckhartdiestel/Desktop/Coding_Projects/fframes-main/fframes-native-player", default-features = false, features = ["metal", "audio"] }
+
+[lib]
+name = "golden_spurs"
+path = "src/lib.rs"
+doctest = false
+
+[[bin]]
+name = "golden-spurs"
+path = "src/main.rs"
+
+[[bin]]
+name = "golden-spurs-traced"
+path = "src/traced_main.rs"
+
+[[bin]]
+name = "golden-spurs-film"
+path = "src/film_main.rs"
+
+[[bin]]
+name = "golden-spurs-demo"
+path = "src/demo_main.rs"
+
+[[bin]]
+name = "golden-spurs-3d"
+path = "src/tiles3d_main.rs"
+
+[workspace]
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

@@ -1,0 +1,13 @@
+[package]
+name = "flatten"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+png = "0.18"
+
+[workspace]
+
+[profile.release]
+opt-level = 3

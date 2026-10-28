@@ -1,0 +1,16 @@
+01 open 6.608271
+02 revolt 4.805042
+03 revolt 5.888438
+04 french 5.563042
+05 french 5.476979
+06 flemish 6.850896
+07 flemish 4.878417
+08 flemish 5.827583
+09 battle 6.142917
+10 battle 4.947000
+11 battle 4.947625
+12 spurs 5.237646
+13 spurs 5.655479
+14 spurs 5.919833
+15 close 4.802604
+16 close 5.502771
