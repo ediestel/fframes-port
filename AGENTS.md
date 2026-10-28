@@ -625,8 +625,11 @@ Every path is pre-parsed `StaticPathData` with a `static_hash`, the form `svgr!`
 compile time, so the Skia backend records the tree once and replays it. Do not pass such art
 through `Svgr::from_svg_string` per frame: that reparses and restrokes it every frame (the
 Golden Spurs film went from 315 s to 58 s). Presets: `VectorizeParams::outlined(scale)`; 2x
-for most pictures, 3x when the camera goes close to faces. `examples/golden_spurs` is the
-worked example (window → film).
+for most pictures, 3x when the camera goes close to faces. `VectorizeParams::drawing(scale)`
+(`--preset drawing`) for scans and photos of drawings: paper levelled to white, gaps in the
+lines closed up to `--gap` source pixels (10), so every drawn area is its own piece.
+`examples/golden_spurs` is the worked example (window → film, `golden-spurs-demo` shows
+objects, clusters and spotlights).
 
 Objects: `fframes-vector group pieces.json zones.svg --check check.svg` names every piece by
 pixel majority from hints: a zone SVG (any shape, any editor, source-picture coordinates,

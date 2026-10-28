@@ -68,11 +68,27 @@ carries `group`, `color` and `source` (the piece's place in the source picture),
 can lay the pieces back into the picture. `--group` makes an atlas of one object,
 `--no-outline` leaves the lead lines on the board.
 
+## Drawings
+
+Scans and photos of drawings (`--preset drawing`, `VectorizeParams::drawing`):
+
+- `drawing::clean_scan` levels the paper: a per-channel paper estimate (75th percentile per
+  block, then a closing wider than any line) divides the picture, so shaded, yellowed or
+  tinted paper becomes even white and lines and colours keep their contrast.
+- `drawing::bridge_gaps` closes gaps in drawn outlines: every line end (an end of the line
+  skeleton) is joined, with a bridge as wide as the line, to the nearest line it points at
+  (within 50°) up to `--gap` source pixels away (10 in the preset). Each area between lines
+  then becomes its own piece; wider openings stay open.
+
+Tested on a synthetic scan (shaded yellow paper, noise, ink lines with gaps of 4 to 9 px and
+one of 20 px): the paper came out white, every small gap closed, and the 20 px opening
+stayed open. `--gap N` and `--clean` also work with the default preset.
+
 ## Command line
 
 ```bash
 cargo build --release -p fframes_vector
-fframes-vector vectorize picture.png pieces.json [--scale 2] [--colors 96] [--svg pieces.svg] [--flat flat.png]
+fframes-vector vectorize picture.png pieces.json [--scale 2] [--colors 96] [--svg pieces.svg] [--flat flat.png] [--preset drawing] [--gap N] [--clean]
 fframes-vector group pieces.json zones.svg [--mask m.png [--legend l.json]] [--clusters] [--share 0.5] [--raster 4096] [--scale N] [--check check.svg] [-o out.json]
 fframes-vector clusters pieces.json [--k 3000] [--gap 6] [--min-area 400] [--check check.svg] [-o out.json]
 fframes-vector rename pieces.json names.json [--check check.svg] [-o out.json]

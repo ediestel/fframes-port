@@ -22,6 +22,9 @@ pub struct FlattenParams {
     pub speck: usize,
     pub tol: f32,
     pub soft_t: u8,
+    /// Close gaps in the outlines up to this many pixels ([`crate::drawing::bridge_gaps`]);
+    /// 0 = off.
+    pub gap: usize,
 }
 
 impl FlattenParams {
@@ -37,6 +40,20 @@ impl FlattenParams {
             speck: 20 * s * s,
             tol: 24.0,
             soft_t: 32,
+            gap: 0,
+        }
+    }
+
+    /// The preset for drawings (ink or pencil on paper, coloured or not): lines a little
+    /// lighter than printed outlines count, and gaps up to 10 source pixels are closed.
+    #[must_use]
+    pub fn drawing(scale: u32) -> Self {
+        let s = scale.max(1) as usize;
+        FlattenParams {
+            dark: 0.5,
+            gap: 10 * s,
+            speck: 12 * s * s,
+            ..Self::outlined(scale)
         }
     }
 }
@@ -161,9 +178,11 @@ pub fn flatten(rgb: &[u8], w: usize, h: usize, p: &FlattenParams) -> Vec<u8> {
     // 1. hard outlines: dark, thin, not a speck
     let thick = opening(&darkm, w, h, p.line_w);
     let (dlabel, dsizes) = components(&darkm, w, h);
-    let hard: Vec<bool> = (0..n)
+    let mut hard: Vec<bool> = (0..n)
         .map(|i| darkm[i] && !thick[i] && dsizes[dlabel[i] as usize] >= p.speck)
         .collect();
+    // drawn outlines: close the gaps so every area becomes its own piece
+    crate::drawing::bridge_gaps(&mut hard, w, h, p.gap);
 
     // soft lines: black-hat of the brightness
     let bright: Vec<u8> = (0..n)

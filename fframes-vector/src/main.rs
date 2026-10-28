@@ -94,9 +94,19 @@ fn main() -> ExitCode {
         Some("vectorize") if args.len() >= 3 => {
             let (input, output) = (&args[1], &args[2]);
             let scale: u32 = opt(&args, "--scale").unwrap_or(2);
-            let mut p = VectorizeParams::outlined(scale);
+            let mut p = match opt::<String>(&args, "--preset").as_deref() {
+                Some("drawing") => VectorizeParams::drawing(scale),
+                _ => VectorizeParams::outlined(scale),
+            };
             if let Some(c) = opt(&args, "--colors") {
                 p.colors = c;
+            }
+            // --gap N: close outline gaps up to N source pixels (0 = off)
+            if let Some(g) = opt::<usize>(&args, "--gap") {
+                p.flatten.gap = g * scale.max(1) as usize;
+            }
+            if args.iter().any(|a| a == "--clean") {
+                p.scan = Some(fframes_vector::drawing::ScanParams::new(1));
             }
             let img = match image::open(input) {
                 Ok(i) => i.to_rgb8(),
