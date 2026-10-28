@@ -1,0 +1,17 @@
+{
+  "battle/french/knights": ["knights"],
+  "battle/french/fallen_knight": ["fallen_knight"],
+  "battle/french/horse": ["horse"],
+  "battle/french/lances": ["lances"],
+  "battle/flemish/militia": ["militia"],
+  "banners/french": ["french_banner", "french_banner_right"],
+  "banners/flanders": ["flanders_banner"],
+  "water": ["brook_left", "brook_right"],
+  "land/meadow": ["meadow"],
+  "land/hill": ["hill"],
+  "sky": ["sky_left", "sky_right"],
+  "rose/tracery": ["rose"],
+  "rose/lion": ["lion"],
+  "inscription": ["inscription_left", "inscription_right"],
+  "spandrels": ["spandrel_left", "spandrel_right"]
+}

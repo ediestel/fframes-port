@@ -1,0 +1,17 @@
+# Objects of the Golden Spurs window, for fframes-vector/tools/propose_zones.py
+rose/lion: the black lion on the yellow disc in the centre of the rose window at the top
+rose/tracery: the round rose window at the top around the lion, with its small coloured panes
+spandrels: the small triangular panes left and right of the rose window
+sky: the pale sky panes at the tops of the two pointed lancet windows
+banners/french: the blue banners with golden lilies (fleurs-de-lis)
+banners/flanders: the yellow banner with the black lion
+battle/french/lances: the long lances of the mounted knights
+battle/french/knights: the armoured French knights on horseback, upper left lancet
+battle/french/horse: the brown horses of the knights
+battle/french/fallen_knight: the knight falling or lying on the ground, left lancet
+battle/flemish/militia: the Flemish foot soldiers with goedendags and pikes, right lancet
+spurs: the small golden spurs lying in the grass, lower right
+water: the blue brooks and water at the bottom of both lancets
+land/meadow: the green meadow and ground
+land/hill: the hill in the background behind the soldiers
+inscription: the text panels at the very bottom (GULDENSPORENSLAG, KORTRIJK 1302)
