@@ -529,6 +529,35 @@ impl PieceDocument {
         s
     }
 
+    /// A copy whose palette shows the groups instead of the glass: every group one colour
+    /// ([`group_color`]), ungrouped pieces grey, outlines black. Same pieces and ids, so it
+    /// builds a [`crate::PieceTree`] that can cross-fade with the real picture.
+    #[must_use]
+    pub fn colored_by_group(&self) -> PieceDocument {
+        let mut palette = vec!["#000000".to_string(), "#777777".to_string()];
+        let mut index: HashMap<&str, u16> = HashMap::new();
+        let mut pieces = self.pieces.clone();
+        for (p, src) in pieces.iter_mut().zip(&self.pieces) {
+            p.color = if src.color == 0 {
+                0
+            } else if src.group.is_empty() {
+                1
+            } else {
+                *index.entry(&src.group).or_insert_with(|| {
+                    palette.push(group_color(&src.group));
+                    (palette.len() - 1) as u16
+                })
+            };
+        }
+        PieceDocument {
+            width: self.width,
+            height: self.height,
+            scale: self.scale,
+            palette,
+            pieces,
+        }
+    }
+
     /// The bounding box `[x, y, w, h]` of the object `name` (with its sub-objects), in
     /// document pixels; `None` when no piece belongs to it.
     #[must_use]
