@@ -56,6 +56,14 @@ are the units hints snap to, and an unnamed split to look at. `clusters` writes 
 `c0`, `c1`, ... (largest first), `rename` turns them into objects:
 `{"horse": ["c12", "c40"], "battle/knights": ["knights"]}`.
 
+Hints without drawing: `tools/propose_zones.py picture.png objects.txt zones.svg` asks a
+vision model (xAI grok-4.7) for polygons per object from a text list (`name: what it looks
+like`), on the picture with a labelled grid; `tools/propose_mask.py` asks the image editor
+(Grok Imagine) for a colour mask plus legend instead. On the Golden Spurs window, snapped with
+`--clusters`, they named 78 % (polygons) and 65 % (mask) of the glass area like the
+hand-drawn zones: good placement for large objects, rough for small ones (lion, lances,
+spurs). Treat them as a first draft to correct, and look at the check picture.
+
 Names are paths: `tree.group("rider")` includes `rider/spurs`, `tree.others("rider")` is
 everything else, `doc.group_bbox("rider")` frames it for a camera. `--check` writes an SVG
 with every piece in its group's colour and the names written on: look at it before trusting
