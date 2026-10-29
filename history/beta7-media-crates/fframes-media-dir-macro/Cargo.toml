@@ -1,0 +1,16 @@
+[package]
+name = "fframes-media-dir-macro"
+version = "1.0.0-beta.7.rc-29"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2", features = ["full"] }
+quote = "1"
+proc-macro2 = "1"
+
+[features]
+default = []
+exif = []

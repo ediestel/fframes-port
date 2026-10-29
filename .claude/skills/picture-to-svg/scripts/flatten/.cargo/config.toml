@@ -1,6 +1,6 @@
 [build]
-# shares the compiled fframes dependencies with gary-video (same features)
-target-dir = "/Users/eckhartdiestel/Desktop/Coding_Projects/gary-video/target"
+# shares the compiled fframes dependencies with the other examples (same features)
+target-dir = "/Users/eckhartdiestel/Desktop/Coding_Projects/fframes-main/target"
 
 [target.aarch64-apple-darwin]
 rustflags = ["-C", "link-arg=-lc++", "-C", "link-arg=-Wl,-ld_classic", "--cfg", "fframes_system_ffmpeg"]
