@@ -61,6 +61,8 @@ pub struct DepthParams {
     pub holdout: usize,
     /// Also a reduced model with at most this many vertices and one baked texture.
     pub low: Option<usize>,
+    /// How far each frame's angle is searched around its current value, degrees.
+    pub search: f32,
     /// Also a dataset for Gaussian splatting (Nerfstudio format) in this folder.
     pub splat: Option<std::path::PathBuf>,
 }
@@ -87,7 +89,8 @@ impl Default for DepthParams {
             hull: false,
             refine: 2,
             holdout: 8,
-            low: None,
+            low: Some(5000),
+            search: 3.0,
             splat: None,
         }
     }
@@ -980,7 +983,7 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
         .collect()
     };
 
-    // each frame's own angle: turned within ±3° until the shadow of the envelope (the
+    // each frame's own angle: turned within ±search degrees until the shadow of the envelope (the
     // stacked outlines, loosely) covers its outline best; compared on the voxel grid
     let to_cs = |t: &[f32]| t.iter().map(|a| (a.cos(), a.sin())).collect::<Vec<(f32, f32)>>();
     let bin = |px: f32| ((px - d.axis) / v + nh as f32).round();
@@ -1020,7 +1023,8 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
                 }
                 let mut best = (f32::MIN, 0.0_f32);
                 let mut shadow = vec![false; nx * ny];
-                for q in -12..=12 {
+                let range = (p.search / 0.25).round() as i32;
+                for q in -range..=range {
                     let delta = (q as f32 * 0.25).to_radians();
                     let (c, s) = ((turn[f] + delta).cos(), (turn[f] + delta).sin());
                     shadow.iter_mut().for_each(|b| *b = false);

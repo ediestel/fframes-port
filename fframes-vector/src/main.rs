@@ -378,7 +378,13 @@ fn main() -> ExitCode {
                 p.holdout = v;
             }
             // --low 5000: also out_low.glb with at most 5000 vertices and one baked texture
-            p.low = opt(&args, "--low");
+            // --low N: the reduced model's vertex budget (default 5000; 0: none)
+            if let Some(v) = opt::<usize>(&args, "--low") {
+                p.low = (v > 0).then_some(v);
+            }
+            if let Some(v) = opt(&args, "--search") {
+                p.search = v;
+            }
             // --splat dir: a Gaussian splatting dataset (Nerfstudio format) from the measured turn
             p.splat = opt::<String>(&args, "--splat").map(std::path::PathBuf::from);
             // --check 1,30,60: loss pictures of these frames (1-based) into the --maps folder
