@@ -1,0 +1,23 @@
+[package]
+name = "fframes_vector_editor"
+version = "1.3.0"
+edition = "2024"
+license = "MIT"
+description = "Editor for fframes-vector zones: draw, name and check object zones over a piece document, with grouping and the report of doubtful pieces live"
+publish = false
+
+[[bin]]
+name = "fframes-vector-editor"
+path = "src/main.rs"
+
+[dependencies]
+fframes_vector = { path = "../fframes-vector" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+fframes_native_player = { workspace = true, features = ["metal"] }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+fframes_native_player = { workspace = true, features = ["vulkan"] }
+
+[lints]
+workspace = true

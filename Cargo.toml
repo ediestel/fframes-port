@@ -12,6 +12,7 @@ members = [
     "fframes-native-player",
     "fframes-three-d",
     "fframes-vector",
+    "fframes-vector-editor",
     "media-dir-macro",
     "render-bench",
     "render-bench/vs-remotion",

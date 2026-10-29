@@ -75,6 +75,12 @@ with id, box and the share of every name; the check picture outlines them, red f
 yellow for split. Only these need a look. On the window with its 25 rough zones: 263 unnamed
 (the frame and the lead lines outside the zones) and 179 split; with `--cut` none split.
 
+`fframes-vector-editor pieces.json [zones.svg]` (crate `fframes-vector-editor`) is the
+window for drawing and naming zones: the pieces drawn with Skia through the native player's
+`Surface`, zones over them, grouping and the report redone after every change, doubtful
+pieces outlined, `n` jumps to the next one. `s` writes the zone SVG and the grouped
+document (`c`: cut along the zones when saving). Keys are listed in its `main.rs`.
+
 Names are paths: `tree.group("rider")` includes `rider/spurs`, `tree.others("rider")` is
 everything else, `doc.group_bbox("rider")` frames it for a camera. `--check` writes an SVG
 with every piece in its group's colour and the names written on: look at it before trusting
