@@ -1,0 +1,23 @@
+[package]
+name = "fframes_walk"
+version = "1.3.0"
+edition = "2024"
+license = "MIT"
+description = "Walk through a room with glTF models in it, in a native window: fframes 3D on the GPU, first-person controls"
+publish = false
+
+[[bin]]
+name = "fframes-walk"
+path = "src/main.rs"
+
+[dependencies]
+fframes_three_d = { path = "../fframes-three-d", features = ["gpu"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+fframes_native_player = { workspace = true, features = ["metal"] }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+fframes_native_player = { workspace = true, features = ["vulkan"] }
+
+[lints]
+workspace = true

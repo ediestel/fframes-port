@@ -13,6 +13,7 @@ members = [
     "fframes-three-d",
     "fframes-vector",
     "fframes-vector-editor",
+    "fframes-walk",
     "media-dir-macro",
     "render-bench",
     "render-bench/vs-remotion",
