@@ -18,9 +18,10 @@ use winit::window::Window;
 use crate::controls::{Controls, ControlsLayout, ControlsState};
 use crate::error::PlayerResult;
 use crate::options::PlayerBackend;
+use crate::surface::Surface;
 
 /// The images of the window that Skia draws into.
-trait WindowTarget {
+pub(crate) trait WindowTarget {
     fn is_gpu(&self) -> bool;
 
     /// An empty cache for the canvas of this target. A target on a GPU that the backend
@@ -38,12 +39,8 @@ trait WindowTarget {
     fn present(&mut self, draw: &mut dyn FnMut(&Canvas)) -> PlayerResult<()>;
 }
 
-// Fields drop in declaration order: the cached Skia objects before the target that owns
-// the context and the device.
 pub(crate) struct Presenter {
-    render_cache: RenderCache,
-    target: Box<dyn WindowTarget>,
-    window: Rc<Window>,
+    surface: Surface,
     background: Color,
     controls: Controls,
     layout: ControlsLayout,
@@ -59,7 +56,7 @@ impl Presenter {
         background: fframes::Color,
         duration_label: String,
     ) -> PlayerResult<Self> {
-        let target = create_target(&window, backend, vsync)?;
+        let surface = Surface::new(window.clone(), backend, vsync)?;
         let controls = Controls::new();
         let size = window.inner_size();
         let layout = ControlsLayout::new(
@@ -71,9 +68,7 @@ impl Presenter {
         );
 
         let mut presenter = Self {
-            render_cache: target.render_cache(),
-            target,
-            window,
+            surface,
             background: Color::from_argb(background.a, background.r, background.g, background.b),
             controls,
             layout,
@@ -85,7 +80,7 @@ impl Presenter {
     }
 
     pub(crate) fn is_gpu(&self) -> bool {
-        self.target.is_gpu()
+        self.surface.is_gpu()
     }
 
     /// Where the control bar is for the current window size, in physical pixels.
@@ -95,19 +90,21 @@ impl Presenter {
 
     /// Resizes the window images to the current window size.
     pub(crate) fn resize(&mut self) -> PlayerResult<()> {
-        let size = self.window.inner_size();
+        let window = self.surface.window();
+        let size = window.inner_size();
         if size.width == 0 || size.height == 0 {
             // Minimized, keep the old images around until the window is visible again.
             return Ok(());
         }
 
-        self.target.resize(size.width, size.height)?;
+        let scale_factor = window.scale_factor() as f32;
+        self.surface.resize()?;
         self.layout = ControlsLayout::new(
             &self.controls,
             &self.duration_label,
             size.width as f32,
             size.height as f32,
-            self.window.scale_factor() as f32,
+            scale_factor,
         );
 
         Ok(())
@@ -120,15 +117,14 @@ impl Presenter {
         controls: &ControlsState,
     ) -> PlayerResult<()> {
         let Self {
-            render_cache,
-            target,
+            surface,
             background,
             controls: bar,
             layout,
             ..
         } = self;
 
-        target.present(&mut |canvas| {
+        surface.present(&mut |canvas, render_cache| {
             let size = canvas.base_layer_size();
             let (width, height) = (size.width as f32, size.height as f32);
             canvas.clear(Color::BLACK);
@@ -157,7 +153,7 @@ impl Presenter {
     }
 }
 
-fn create_target(
+pub(crate) fn create_target(
     window: &Rc<Window>,
     backend: PlayerBackend,
     vsync: bool,
