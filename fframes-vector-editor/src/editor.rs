@@ -127,6 +127,8 @@ enum Tool {
     Drawing(Vec<(f32, f32)>),
     /// The closed zone waiting for its name.
     Naming(Vec<(f32, f32)>, String),
+    /// The selected pieces waiting for their name.
+    NamingSelection(String),
 }
 
 struct View {
@@ -174,6 +176,11 @@ struct Editor {
     /// Zones before each change, for undo; and the undone ones, for redo.
     undo: Vec<GroupMap>,
     redo: Vec<GroupMap>,
+
+    /// Selected pieces (indices), named together with `Enter`.
+    selected: Vec<usize>,
+    /// Where the left button went down, to tell a click from a drag.
+    pressed_at: Option<PhysicalPosition<f64>>,
 }
 
 pub fn run(config: Config) -> Result<(), String> {
@@ -223,6 +230,8 @@ pub fn run(config: Config) -> Result<(), String> {
         dragging: None,
         undo: Vec::new(),
         redo: Vec::new(),
+        selected: Vec::new(),
+        pressed_at: None,
     };
     let event_loop = EventLoop::new().map_err(|e| e.to_string())?;
     event_loop.run_app(&mut editor).map_err(|e| e.to_string())?;
@@ -412,6 +421,48 @@ impl Editor {
                     }
                 }
             },
+            Tool::NamingSelection(name) => match key {
+                Key::Named(NamedKey::Enter) => {
+                    let name = name.trim().to_string();
+                    if name.is_empty() {
+                        self.message = "the pieces need a name".into();
+                    } else if let Some(z) = Zone::from_pieces(
+                        &name,
+                        &self.model.doc,
+                        &self.selected,
+                        self.model.zone_scale,
+                    ) {
+                        self.undo.push(self.model.zones.clone());
+                        self.redo.clear();
+                        // exactly these pieces: first, so it wins over rough zones
+                        self.model.zones.zones.insert(0, z);
+                        self.model.regroup();
+                        self.message = format!(
+                            "{} pieces named \"{name}\": {} of {} pieces grouped",
+                            self.selected.len(),
+                            self.model.grouped(),
+                            self.model.doc.pieces.len()
+                        );
+                        self.selected.clear();
+                        self.last_name = name;
+                        self.tool = Tool::Idle;
+                    }
+                }
+                Key::Named(NamedKey::Escape) => {
+                    self.tool = Tool::Idle;
+                    self.message = "naming stopped, the pieces stay selected".into();
+                }
+                Key::Named(NamedKey::Backspace) => {
+                    name.pop();
+                }
+                _ => {
+                    if let Some(text) = &event.text
+                        && !command
+                    {
+                        name.extend(text.chars().filter(|c| !c.is_control()));
+                    }
+                }
+            },
             Tool::Drawing(points) => match key {
                 Key::Character(c) if command && c.eq_ignore_ascii_case("z") => {
                     points.pop();
@@ -433,6 +484,17 @@ impl Editor {
             Tool::Idle => match key {
                 Key::Character(c) if command && c.eq_ignore_ascii_case("z") => {
                     self.step_back(!self.modifiers.shift_key());
+                }
+                Key::Named(NamedKey::Enter) if !self.selected.is_empty() => {
+                    self.tool = Tool::NamingSelection(self.last_name.clone());
+                    self.message = format!(
+                        "name for the {} selected pieces (a/b for nested), Enter",
+                        self.selected.len()
+                    );
+                }
+                Key::Named(NamedKey::Escape) if !self.selected.is_empty() => {
+                    self.selected.clear();
+                    self.message = "selection cleared".into();
                 }
                 Key::Character("u") => self.step_back(true),
                 Key::Character("U") => self.step_back(false),
@@ -489,7 +551,7 @@ impl Editor {
                 }
                 Key::Character("s") => self.save(),
                 Key::Character("?") => eprintln!(
-                    "z zone, Enter close, Backspace undo point, Esc cancel; Cmd+Z / u undo, Cmd+Shift+Z / U redo; x delete zone; [ ] zone order; g look; d doubts; n N next doubtful; f fit; c cut on save; s save; q quit"
+                    "z zone, Enter close, Backspace undo point, Esc cancel; Cmd+Z / u undo, Cmd+Shift+Z / U redo; click / Shift+click select pieces, Enter name them; x delete zone; [ ] zone order; g look; d doubts; n N next doubtful; f fit; c cut on save; s save; q quit"
                 ),
                 _ => {}
             },
@@ -511,8 +573,9 @@ impl Editor {
         let show_doubts = self.show_doubts;
         let hovered = self.hovered;
         let tool = &self.tool;
+        let selected = &self.selected;
         let message = match tool {
-            Tool::Naming(_, name) => format!("name: {name}_"),
+            Tool::Naming(_, name) | Tool::NamingSelection(name) => format!("name: {name}_"),
             _ => self.message.clone(),
         };
         let bar = 44.0 * ui;
@@ -564,6 +627,13 @@ impl Editor {
             for path in m.zone_paths.iter().flatten() {
                 canvas.draw_path(path, &stroke);
             }
+            fill.set_color(Color::from_argb(150, 255, 140, 0));
+            stroke.set_color(Color::from_rgb(255, 140, 0));
+            stroke.set_stroke_width(2.0 * ui * px);
+            for path in selected.iter().filter_map(|&i| m.paths[i].as_ref()) {
+                canvas.draw_path(path, &fill);
+                canvas.draw_path(path, &stroke);
+            }
             if let Some(path) = hovered.and_then(|i| m.paths[i].as_ref()) {
                 stroke.set_color(Color::WHITE);
                 stroke.set_stroke_width(2.0 * ui * px);
@@ -571,7 +641,7 @@ impl Editor {
             }
             let points = match tool {
                 Tool::Drawing(p) | Tool::Naming(p, _) => Some(p),
-                Tool::Idle => None,
+                Tool::Idle | Tool::NamingSelection(_) => None,
             };
             if let Some(points) = points {
                 stroke.set_color(Color::from_rgb(255, 120, 0));
@@ -716,6 +786,31 @@ impl ApplicationHandler for Editor {
                     (MouseButton::Left, Tool::Drawing(points)) if pressed => {
                         let p = self.view.to_doc(self.cursor.x as f32, self.cursor.y as f32);
                         points.push(p);
+                    }
+                    (MouseButton::Left, Tool::Idle) => {
+                        self.dragging = pressed.then_some(self.cursor);
+                        if pressed {
+                            self.pressed_at = Some(self.cursor);
+                        } else if let Some(at) = self.pressed_at.take()
+                            && (at.x - self.cursor.x).hypot(at.y - self.cursor.y) < 4.0
+                            && let Some(i) = self.hovered
+                        {
+                            // a click, not a drag: select (Shift adds or removes)
+                            if self.modifiers.shift_key() {
+                                match self.selected.iter().position(|&j| j == i) {
+                                    Some(k) => {
+                                        self.selected.remove(k);
+                                    }
+                                    None => self.selected.push(i),
+                                }
+                            } else {
+                                self.selected = vec![i];
+                            }
+                            self.message = format!(
+                                "{} pieces selected: Enter to name them, Shift+click to add, Esc to clear",
+                                self.selected.len()
+                            );
+                        }
                     }
                     (MouseButton::Left | MouseButton::Right | MouseButton::Middle, _) => {
                         self.dragging = pressed.then_some(self.cursor);

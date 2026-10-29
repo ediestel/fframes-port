@@ -5,6 +5,7 @@
 //! doubtful pieces update after every change; `s` writes the zones (a zone SVG that
 //! `fframes-vector group` reads) and the grouped document.
 //!
+//! Click a piece to select it (`Shift`+click adds), `Enter` to name the selection.
 //! Keys: `z` draw a zone (click points, `Enter` to close, type the name, `Enter`),
 //! `Backspace` removes the last point, `Esc` cancels; `Cmd+Z` / `u` undo and
 //! `Cmd+Shift+Z` / `U` redo changes to the zones; `x` deletes the zone under the

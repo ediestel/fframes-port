@@ -65,6 +65,29 @@ impl Zone {
         })
     }
 
+    /// A zone with exactly the outlines of the pieces at `indices` in `doc` (holes stay
+    /// holes), in source-picture coordinates: `zone_scale` document pixels per unit, as in
+    /// [`GroupMap::layer`]. `None` when no outline parses.
+    #[must_use]
+    pub fn from_pieces(
+        name: &str,
+        doc: &PieceDocument,
+        indices: &[usize],
+        zone_scale: f32,
+    ) -> Option<Zone> {
+        let d: Vec<&str> = indices
+            .iter()
+            .filter_map(|&i| doc.pieces.get(i))
+            .map(|p| p.d.as_str())
+            .collect();
+        let k = 1.0 / zone_scale;
+        let path = skia_path(&d.join(" "))?.transform(Transform::from_scale(k, k))?;
+        Some(Zone {
+            name: name.to_string(),
+            path,
+        })
+    }
+
     /// The outline as absolute SVG path data.
     #[must_use]
     pub fn path_data(&self) -> String {
@@ -781,6 +804,20 @@ mod tests {
         let names: Vec<&str> = back.zones.iter().map(|z| z.name.as_str()).collect();
         assert_eq!(names, ["body/arm", "say \"hi\" & <go>"]);
         assert_eq!(back.zones[0].path.bounds(), map.zones[0].path.bounds());
+    }
+
+    #[test]
+    fn a_zone_from_pieces_names_exactly_those_pieces() {
+        let mut d = doc();
+        // the second blue square and the red one, the zone in source pixels at scale 2
+        let z = Zone::from_pieces("chosen", &d, &[1, 2], 2.0).unwrap();
+        let b = z.path.bounds();
+        assert!((b.left() - 17.0).abs() < 1e-3 && (b.right() - 49.0).abs() < 1e-3);
+        let raster = PieceRaster::new(&d, 1.0);
+        let layer = GroupMap { zones: vec![z] }.layer(&raster, 2.0);
+        assign(&mut d, &raster, &layer, &AssignParams::default());
+        let groups: Vec<&str> = d.pieces.iter().map(|p| p.group.as_str()).collect();
+        assert_eq!(groups, ["", "chosen", "chosen", ""]);
     }
 
     #[test]

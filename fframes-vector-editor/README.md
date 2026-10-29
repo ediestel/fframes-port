@@ -53,6 +53,19 @@ Grouping and the doubtful pieces are worked out again after every change.
 Names can be nested with `/`: `rider/spurs` belongs to `rider` as well, so `rider` means the
 whole rider and `rider/spurs` only the spurs.
 
+## Naming pieces directly
+
+For single pieces, or where a zone would be fiddly:
+
+1. Click a piece: it is selected (filled orange). A click selects; a drag still moves the
+   picture.
+2. `Shift`+click adds more pieces, or removes one that is already selected.
+3. Press `Enter`, type the name, press `Enter`.
+
+The selection becomes a zone with exactly the outlines of those pieces, placed first so it
+wins over rough zones. It is saved in the zone file and undone with `Cmd+Z` like any zone.
+`Esc` clears the selection.
+
 ## Checking
 
 - `n` jumps to the next doubtful piece, largest first, and the status bar shows how much of it
@@ -90,11 +103,14 @@ The status bar and the terminal say where the files went.
 
 | Key | Action |
 | --- | --- |
+| click | Select the piece under the pointer |
+| `Shift`+click | Add the piece to the selection, or remove it |
+| `Enter` (with a selection) | Name the selected pieces |
 | `z` | New zone |
 | click | Add a corner (while drawing a zone) |
 | `Enter` | Close the zone, then confirm its name |
 | `Backspace` | Remove the last corner, or the last letter of the name |
-| `Esc` | Stop drawing or naming; with nothing to stop, quit |
+| `Esc` | Stop drawing or naming, else clear the selection; with nothing to stop or clear, quit |
 | `Cmd+Z` or `u` | Undo the last change to the zones (new zone, delete, order); while drawing, the last corner |
 | `Cmd+Shift+Z` or `U` | Redo |
 | `x` | Delete the zone under the pointer |
@@ -112,6 +128,7 @@ The status bar and the terminal say where the files went.
 
 | Input | Action |
 | --- | --- |
+| Click | Select a piece (see above) |
 | Drag (any button, when not drawing) | Move the picture |
 | Two-finger scroll | Move the picture |
 | Pinch, or Cmd / Ctrl + scroll | Zoom at the pointer |
