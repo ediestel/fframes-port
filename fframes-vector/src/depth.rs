@@ -1,6 +1,6 @@
 //! A 3D figure from a turntable video by depth: every pixel gets its depth from how it moves
-//! through the neighbouring frames, whose angles are known because the figure turns evenly in
-//! front of a still camera.
+//! through neighbouring frames in front of a still camera. An initial even-turn calibration
+//! is refined from silhouettes before stereo uses the measured per-frame angles.
 //!
 //! 1. Mask: background is the screen colour (most common in the frame borders) within the
 //!    spread the video gives it (measured in the borders), everywhere, so gaps between parts (an
@@ -10,7 +10,8 @@
 //!    (orthographic view). The frame distance at which every frame's row edges mirror best is
 //!    half a turn; the mirror line is the axis.
 //! 3. Depth: a point at `X'` from the axis and depth `D` in frame `k` shows at
-//!    `axis + X' cos(mΔ) + D sin(mΔ)` in frame `k + m`. For every pixel each depth is tried
+//!    `axis + X' cos(a) + D sin(a)` in frame `f`, where `a = turn[f] - turn[k]`.
+//!    For every pixel each depth is tried
 //!    against several neighbouring frames at once (`±views`), colours compared over a small
 //!    window; the best depth is refined between hypotheses. A depth whose best match is not
 //!    clearly better than the average stays unknown (flat colour).
@@ -54,13 +55,20 @@ pub struct DepthParams {
     pub hull: bool,
     /// Rounds of measuring every frame's own angle against the envelope (0: even turn).
     pub refine: usize,
-    /// Every `holdout`-th frame is left out of the shape and only used to check it (0 or 1:
-    /// none).
+    /// Every `holdout`-th frame is excluded from geometry calibration, angle fitting,
+    /// stereo matching and carving, and its angle is inferred from the retained frames
+    /// (0 or 1: none). Held-out images may still supply texture colours.
     pub holdout: usize,
     /// Also a reduced model with at most this many vertices and one baked texture.
     pub low: Option<usize>,
     /// Also a dataset for Gaussian splatting (Nerfstudio format) in this folder.
     pub splat: Option<std::path::PathBuf>,
+}
+
+impl DepthParams {
+    fn held(&self, frame: usize) -> bool {
+        self.holdout > 1 && frame % self.holdout == self.holdout / 2
+    }
 }
 
 impl Default for DepthParams {
@@ -91,7 +99,7 @@ pub struct DepthTurn {
     pub frames: usize,
     /// Frames per half turn (fractional).
     pub half_turn: f32,
-    /// Degrees the figure turns from frame to frame.
+    /// Uniform-turn step in degrees, before per-frame angle refinement.
     pub step_degrees: f32,
     /// Axis column, pixels.
     pub axis: f32,
@@ -101,7 +109,7 @@ pub struct DepthTurn {
     /// Share of measured points that end up in front of another frame's surface, for the
     /// direction used and the other one; `None` when the direction was given.
     pub violations: Option<(f32, f32)>,
-    /// Share of figure pixels with a known depth.
+    /// Share of retained-frame figure pixels with a known depth.
     pub known: f32,
     pub voxels: usize,
     /// Ten height bands, top to bottom: voxels kept, removed by the outline check (outside
@@ -264,7 +272,7 @@ pub(crate) fn frame_fit(shadow: &[bool], mask: &[bool], w: usize, h: usize) -> F
 }
 
 /// Depth maps of all frames: `D` per pixel (pixels, towards the camera for the clockwise
-/// sign), NaN where unknown or background.
+/// sign), NaN where unknown, background or held out.
 pub struct DepthMaps {
     pub width: u32,
     pub height: u32,
@@ -278,7 +286,7 @@ const TRUNC: f32 = 90.0;
 /// Width of the band along the figure's edge where screen colour is taken out, pixels.
 const SPILL_BAND: u8 = 4;
 
-/// Strip of the frame border (top, left, right) that is always background, pixels.
+/// Width of the background border strips, pixels.
 const BORDER: u32 = 8;
 
 /// The screen colour and the video's spread of it: the most common colour in the border
@@ -286,6 +294,10 @@ const BORDER: u32 = 8;
 /// one colour; the video stores it as a scatter of neighbouring values.
 #[must_use]
 pub fn screen_colour(frames: &[image::RgbaImage]) -> ([u8; 3], f32) {
+    screen_colour_in(frames.iter())
+}
+
+fn screen_colour_in<'a>(frames: impl Iterator<Item = &'a image::RgbaImage>) -> ([u8; 3], f32) {
     let mut count: std::collections::HashMap<[u8; 3], usize> = std::collections::HashMap::new();
     let border = |img: &image::RgbaImage| {
         let (w, h) = img.dimensions();
@@ -428,9 +440,26 @@ fn sample(img: &image::RgbaImage, x: f32, y: u32) -> Option<[f32; 3]> {
     Some(std::array::from_fn(|c| f32::from(a[c]) * (1.0 - t) + f32::from(b[c]) * t))
 }
 
+/// Horizontal image variation is needed to measure an orthographic horizontal disparity.
+/// Low-contrast windows retain their silhouette geometry instead of arbitrary sweep depths.
+fn has_horizontal_texture(img: &image::RgbaImage, x: usize, y: usize, window: usize) -> bool {
+    let (w, h) = (img.width() as usize, img.height() as usize);
+    let window = window.max(1);
+    let (mut gradient, mut samples) = (0u64, 0u64);
+    for yy in y.saturating_sub(window)..=(y + window).min(h - 1) {
+        for xx in x.saturating_sub(window)..(x + window).min(w - 1) {
+            let a = img.get_pixel(xx as u32, yy as u32).0;
+            let b = img.get_pixel(xx as u32 + 1, yy as u32).0;
+            gradient += (0..3).map(|c| u64::from(a[c].abs_diff(b[c]))).sum::<u64>();
+            samples += 1;
+        }
+    }
+    samples > 0 && gradient > 3 * samples
+}
+
 /// Depth of every figure pixel of frame `k` by sweeping depths `D` and comparing each against
-/// the frames `k ± 1..=views` at once (`step` radians per frame, `D` towards the camera for
-/// the clockwise sign).
+/// the retained frames `k ± 1..=views` at once, using their measured `turn` angles.
+/// `D` is towards the camera for the clockwise sign.
 #[allow(clippy::too_many_arguments)]
 fn frame_depth(
     frames: &[image::RgbaImage],
@@ -438,13 +467,16 @@ fn frame_depth(
     k: usize,
     axis: f32,
     reach: f32,
-    step: f32,
+    turn: &[f32],
     p: &DepthParams,
 ) -> Vec<f32> {
     let img = &frames[k];
     let (w, h) = (img.width() as usize, img.height() as usize);
     let mask = &masks[k];
     let mut depth = vec![f32::NAN; w * h];
+    if p.held(k) {
+        return depth;
+    }
     // the mask's box, widened by the window
     let (mut l, mut t, mut r, mut b) = (w, h, 0, 0);
     for y in 0..h {
@@ -465,9 +497,12 @@ fn frame_depth(
         .flat_map(|m| [m, -m])
         .filter_map(|m| {
             let f = k as i64 + m;
-            (0..frames.len() as i64)
-                .contains(&f)
-                .then(|| (f as usize, (m as f32 * step).cos(), (m as f32 * step).sin()))
+            if !(0..frames.len() as i64).contains(&f) || p.held(f as usize) {
+                return None;
+            }
+            let f = f as usize;
+            let delta = turn[f] - turn[k];
+            Some((f, delta.cos(), delta.sin()))
         })
         .collect();
     if views.is_empty() {
@@ -567,16 +602,20 @@ fn frame_depth(
             // only where the whole window lies on the figure: in parts narrower than the
             // window (legs) the background in it matches at any depth, so their shape comes
             // from the outlines alone
-            let whole = (y.saturating_sub(win)..=(y + win).min(h - 1))
-                .all(|yy| (x.saturating_sub(win)..=(x + win).min(w - 1)).all(|xx| mask[yy * w + xx]));
-            if !whole {
+            let whole = x >= win && y >= win && win < w - x && win < h - y
+                && (y - win..=y + win).all(|yy| (x - win..=x + win).all(|xx| mask[yy * w + xx]));
+            if !whole || !has_horizontal_texture(img, x, y, win) {
                 continue;
             }
             let mean = sum[i] / hyps as f32;
-            if !(best[i] <= p.sharpness * mean) {
+            if !(mean > 0.0 && best[i] <= p.sharpness * mean) {
                 continue;
             }
             let (a, c, e) = (left[i], right[i], best[i]);
+            // Flat minima and minima at the sweep limits do not establish a depth.
+            if !(a.is_finite() && c.is_finite() && a > e && c > e) {
+                continue;
+            }
             let off = if a.is_finite() && c.is_finite() && a + c - 2.0 * e > 1e-6 {
                 (0.5 * (a - c) / (a + c - 2.0 * e)).clamp(-0.5, 0.5)
             } else {
@@ -593,17 +632,44 @@ pub fn depth_maps(
     frames: &[image::RgbaImage],
     p: &DepthParams,
 ) -> Result<(DepthMaps, Vec<Vec<bool>>, f32, f32), String> {
+    let (mut d, masks, half, mirror) = prepare_depth(frames, p)?;
+    let turn: Vec<f32> = (0..frames.len()).map(|k| k as f32 * std::f32::consts::PI / half).collect();
+    d.maps = (0..frames.len())
+        .into_par_iter()
+        .map(|k| frame_depth(frames, &masks, k, d.axis, d.reach, &turn, p))
+        .collect();
+    d.maps = consistent_depths(&d, &turn, p);
+    Ok((d, masks, half, mirror))
+}
+
+/// Calibrate and segment before running stereo, so silhouette refinement uses no depth maps.
+fn prepare_depth(
+    frames: &[image::RgbaImage],
+    p: &DepthParams,
+) -> Result<(DepthMaps, Vec<Vec<bool>>, f32, f32), String> {
     let n = frames.len();
-    if n < 2 * p.views + 2 {
-        return Err(format!("{n} frames; need more than {}", 2 * p.views + 1));
+    if n < 4 || p.views > n.saturating_sub(2) / 2 {
+        return Err(format!("{n} frames; need at least four and enough for the requested neighbouring views"));
+    }
+    if !p.height.is_finite() || p.height <= 0.0 || !p.voxel.is_finite() || p.voxel <= 0.0
+        || !p.surface.is_finite() || p.surface <= 0.0
+        || !p.kept.is_finite() || p.kept <= 0.0 || p.kept > 1.0
+        || !p.sharpness.is_finite() || !(0.0..=1.0).contains(&p.sharpness)
+    {
+        return Err("height, voxel and surface must be finite and positive; kept must be in (0, 1], sharpness in [0, 1]".into());
     }
     let (w, h) = frames[0].dimensions();
     if frames.iter().any(|f| f.dimensions() != (w, h)) {
         return Err("frames differ in size".into());
     }
-    let screen = screen_colour(frames);
+    if w == 0 || h == 0 || p.window > (w.min(h) as usize - 1) / 2 {
+        return Err("frames must be nonempty and fit the full colour window".into());
+    }
+    let screen = screen_colour_in(frames.iter().enumerate().filter(|(f, _)| !p.held(*f)).map(|(_, img)| img));
     let masks: Vec<Vec<bool>> = frames.par_iter().map(|f| key_mask(f, screen, 30)).collect();
-    let edges: Vec<_> = masks.iter().map(|m| row_edges(m, w as usize, h as usize)).collect();
+    let edges: Vec<_> = masks.iter().enumerate()
+        .map(|(f, m)| if p.held(f) { vec![None; h as usize] } else { row_edges(m, w as usize, h as usize) })
+        .collect();
     let (half, axis, mirror) = half_turn(&edges)?;
     let reach = edges
         .iter()
@@ -617,21 +683,19 @@ pub fn depth_maps(
         "screen colour {:?}, spread {:.1}, {figure} figure pixels per frame, half turn {half:.2} frames, axis x {axis:.1}, turning radius {reach:.0} px",
         screen.0, screen.1
     );
-    let step = std::f32::consts::PI / half;
-    let maps: Vec<Vec<f32>> =
-        (0..n).into_par_iter().map(|k| frame_depth(frames, &masks, k, axis, reach, step, p)).collect();
-    Ok((DepthMaps { width: w, height: h, axis, reach, maps }, masks, half, mirror))
+    Ok((DepthMaps { width: w, height: h, axis, reach, maps: Vec::new() }, masks, half, mirror))
 }
 
 /// Share of measured points (sampled) that land more than `tol` pixels in front of the
 /// surface another frame measured, for one direction `sign` (+1 clockwise).
-fn violations(d: &DepthMaps, step: f32, sign: f32, tol: f32) -> f32 {
+fn violations(d: &DepthMaps, turn: &[f32], sign: f32, tol: f32) -> f32 {
     let (w, h) = (d.width as usize, d.height as usize);
     let n = d.maps.len();
+    let step = (turn[n - 1] - turn[0]) / (n - 1) as f32;
     let quarter = ((std::f32::consts::FRAC_PI_2 / step).round() as usize).max(1);
     let (mut bad, mut all) = (0usize, 0usize);
     for k in (0..n).step_by(4) {
-        let tk = sign * k as f32 * step;
+        let tk = sign * turn[k];
         for y in (0..h).step_by(4) {
             for x in (0..w).step_by(4) {
                 let dk = d.maps[k][y * w + x];
@@ -644,7 +708,7 @@ fn violations(d: &DepthMaps, step: f32, sign: f32, tol: f32) -> f32 {
                     if f >= n {
                         continue;
                     }
-                    let tf = sign * f as f32 * step;
+                    let tf = sign * turn[f];
                     let (fx, fz) = (ox * tf.cos() + oz * tf.sin(), -ox * tf.sin() + oz * tf.cos());
                     let px = (d.axis + fx).round();
                     if px < 0.0 || px as usize >= w {
@@ -665,44 +729,135 @@ fn violations(d: &DepthMaps, step: f32, sign: f32, tol: f32) -> f32 {
     if all == 0 { 0.0 } else { bad as f32 / all as f32 }
 }
 
+/// Keep depths supported by other independently measured maps. Occluded and unknown
+/// samples supply no support; one isolated match cannot carve the hull at the default view count.
+fn consistent_depths(d: &DepthMaps, turn: &[f32], p: &DepthParams) -> Vec<Vec<f32>> {
+    let (w, h) = (d.width as usize, d.height as usize);
+    d.maps.par_iter().enumerate().map(|(k, map)| {
+        let views: Vec<(usize, f32, f32)> = (k.saturating_sub(p.views)..(k + p.views + 1).min(d.maps.len()))
+            .filter(|&f| f != k && !p.held(f))
+            .map(|f| (f, (turn[f] - turn[k]).cos(), (turn[f] - turn[k]).sin()))
+            .collect();
+        let required = p.views.clamp(1, 2);
+        (0..w * h).map(|i| {
+            let dk = map[i];
+            if !dk.is_finite() {
+                return f32::NAN;
+            }
+            let (x, y) = ((i % w) as f32 - d.axis, i / w);
+            let mut support = 0;
+            for &(f, c, s) in &views {
+                let px = (d.axis + x * c + dk * s).round();
+                if px < 0.0 || px >= w as f32 {
+                    continue;
+                }
+                let df = d.maps[f][y * w + px as usize];
+                if df.is_finite() && (df - (-x * s + dk * c)).abs() <= p.surface {
+                    support += 1;
+                    if support >= required {
+                        return dk;
+                    }
+                }
+            }
+            f32::NAN
+        }).collect()
+    }).collect()
+}
+
+/// Damped angle updates with a fixed reference and a positive angular increment.
+/// The upper bound uses the next old angle, so the forward lower bound stays feasible.
+fn refine_turn(turn: &mut [f32], found: &[f32], step: f32, p: &DepthParams) -> (f32, f32) {
+    let previous = turn.to_vec();
+    let minimum = 0.1 * step;
+    let anchor = found[0];
+    for f in 1..turn.len() {
+        let lower = turn[f - 1] + minimum;
+        let upper = previous.get(f + 1).map_or(f32::INFINITY, |&t| t - minimum);
+        turn[f] = (previous[f] + 0.5 * (found[f] - anchor)).clamp(lower, upper);
+    }
+    // Held-out angles depend only on their retained neighbours, including at the end.
+    for f in 1..turn.len() {
+        if p.held(f) {
+            turn[f] = if f + 1 < turn.len() {
+                0.5 * (turn[f - 1] + turn[f + 1])
+            } else {
+                turn[f - 1] + step
+            };
+        }
+    }
+    let degrees: Vec<f32> = turn.iter().zip(&previous).map(|(a, b)| (a - b).to_degrees().abs()).collect();
+    (degrees.iter().sum::<f32>() / degrees.len() as f32, degrees.iter().copied().fold(0.0, f32::max))
+}
+
+/// Conservative orthographic front depths of the occupied voxel cubes.
+/// A rotated cube spans v * (|cos| + |sin|) in both image x and camera depth.
+#[allow(clippy::too_many_arguments)]
+fn front_depth(
+    shell: &[(f32, f32, usize)],
+    angle: (f32, f32),
+    axis: f32,
+    top: f32,
+    w: usize,
+    h: usize,
+    v: f32,
+) -> Vec<f32> {
+    let (c, s) = angle;
+    let radius = 0.5 * v * (c.abs() + s.abs());
+    let mut front = vec![f32::NEG_INFINITY; w * h];
+    for &(x, z, j) in shell {
+        let px = axis + x * c + z * s;
+        let fz = -x * s + z * c + radius;
+        let (x0, x1) = (
+            (px - radius).ceil().clamp(0.0, w as f32) as usize,
+            (px + radius).ceil().clamp(0.0, w as f32) as usize,
+        );
+        let (y0, y1) = (
+            (top + (j as f32 - 1.0) * v).ceil().clamp(0.0, h as f32) as usize,
+            (top + j as f32 * v).ceil().clamp(0.0, h as f32) as usize,
+        );
+        for y in y0..y1 {
+            for x in x0..x1 {
+                front[y * w + x] = front[y * w + x].max(fz);
+            }
+        }
+    }
+    front
+}
+
 /// The figure as a textured binary glTF (see the module notes), and what was found.
 pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8>, DepthTurn, DepthMaps), String> {
     let n = frames.len();
-    let (d, masks, half, mirror) = depth_maps(frames, p)?;
+    let (mut d, masks, half, mirror) = prepare_depth(frames, p)?;
     let step = std::f32::consts::PI / half;
     let (w, h) = (d.width as usize, d.height as usize);
-    let (clockwise, viol) = match p.clockwise {
-        Some(c) => (c, None),
-        None => {
-            let (a, b) = (violations(&d, step, 1.0, 3.0), violations(&d, step, -1.0, 3.0));
-            if a <= b { (true, Some((a, b))) } else { (false, Some((b, a))) }
-        }
-    };
-    let sign = if clockwise { 1.0 } else { -1.0 };
-    // every frame's angle, first from the even turn, then measured frame by frame
-    let mut turn: Vec<f32> = (0..n).map(|f| sign * f as f32 * step).collect();
-    let figure_px: usize = masks.iter().flatten().filter(|&&m| m).count();
-    let known_px: usize = d.maps.iter().flatten().filter(|v| !v.is_nan()).count();
+    let (axis, reach) = (d.axis, d.reach);
+    // Fit a positive turn first; choosing its handedness later only mirrors the hull.
+    let mut turn: Vec<f32> = (0..n).map(|f| f as f32 * step).collect();
 
-    // rows the figure spans, over all frames
+    // rows the figure spans in the retained frames
     let rows: Vec<usize> = masks
         .iter()
-        .flat_map(|m| (0..h).filter(move |&y| m[y * w..(y + 1) * w].iter().any(|&v| v)))
+        .enumerate()
+        .filter(|(f, _)| !p.held(*f))
+        .flat_map(|(_, m)| (0..h).filter(move |&y| m[y * w..(y + 1) * w].iter().any(|&v| v)))
         .collect();
     let (top, bottom) = (*rows.iter().min().ok_or("no figure")?, *rows.iter().max().ok_or("no figure")?);
     let v = p.voxel;
     let nh = (d.reach / v).ceil() as usize + 2;
     let (nx, ny, nz) = (2 * nh + 1, ((bottom - top + 1) as f32 / v).ceil() as usize + 2, 2 * nh + 1);
     let idx = |i: usize, j: usize, k: usize| (k * ny + j) * nx + i;
-    let allowed = p.outside.unwrap_or(n / 40);
-    // frames held out from the shape, for checking it against views it was not built from
-    let held = |f: usize| p.holdout > 1 && f % p.holdout == p.holdout / 2;
+    let used = (0..n).filter(|&f| !p.held(f)).count();
+    let allowed = p.outside.unwrap_or(used / 40);
+    // Held-out pixels take no part in the geometry or its fitted angles.
+    let held = |f: usize| p.held(f);
     let mu = p.surface;
 
     // how well every row keeps its outline over the turn: frame k's left edge against the
     // right edge half a turn later and the other way round (pixels, median over the frames,
     // the worse of the two edges), smoothed over neighbouring rows
-    let edges: Vec<_> = masks.iter().map(|m| row_edges(m, w, h)).collect();
+    let edges: Vec<_> = masks.iter().enumerate()
+        .map(|(f, m)| if held(f) { vec![None; h] } else { row_edges(m, w, h) })
+        .collect();
     let pairs = half.round() as usize;
     let raw: Vec<f32> = (0..h)
         .map(|y| {
@@ -761,7 +916,7 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
         .collect();
 
     // per slice: voxel kinds and, per row, [kept, removed by outline, removed by depth]
-    let carve = |angle: &[(f32, f32)], allowed: usize, use_depth: bool| -> Vec<(Vec<u8>, Vec<[usize; 3]>)> {
+    let carve = |angle: &[(f32, f32)], allowed: usize, depth: Option<(&DepthMaps, f32)>| -> Vec<(Vec<u8>, Vec<[usize; 3]>)> {
         (0..nz)
         .into_par_iter()
         .map(|k| {
@@ -780,7 +935,7 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
                 let y = y as usize;
                 for i in 1..nx - 1 {
                     let x = (i as f32 - nh as f32) * v;
-                    if x * x + z * z > d.reach * d.reach {
+                    if x * x + z * z > reach * reach {
                         continue;
                     }
                     let (mut outside, mut tsdf, mut weight) = (0usize, 0.0_f32, 0.0_f32);
@@ -789,7 +944,7 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
                             continue;
                         }
                         let (fx, fz) = (x * c + z * s, -x * s + z * c);
-                        let px = (d.axis + fx).round();
+                        let px = (axis + fx).round();
                         if px < 0.0 || px as usize >= w || !hull_masks[f][y * w + px as usize] {
                             outside += 1;
                             if outside > allowed {
@@ -797,14 +952,16 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
                             }
                             continue;
                         }
-                        let df = d.maps[f][y * w + px as usize];
-                        if !use_depth || df.is_nan() {
-                            continue;
-                        }
-                        let phi = fz - sign * df;
-                        if phi > -mu {
-                            tsdf += (phi / mu).min(1.0);
-                            weight += 1.0;
+                        if let Some((d, sign)) = depth {
+                            let df = d.maps[f][y * w + px as usize];
+                            if df.is_nan() {
+                                continue;
+                            }
+                            let phi = fz - sign * df;
+                            if phi > -mu {
+                                tsdf += (phi / mu).min(1.0);
+                                weight += 1.0;
+                            }
                         }
                     }
                     let kind = if outside > allowed {
@@ -845,7 +1002,7 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
         .collect();
     let mut corrections = Vec::new();
     for _ in 0..p.refine {
-        let env = carve(&to_cs(&turn), (n / 10).max(allowed), false);
+        let env = carve(&to_cs(&turn), (used / 10).max(allowed), None);
         let solid_at = |i: usize, j: usize, k: usize| env[k].0[j * nx + i] == 0;
         let shell: Vec<(f32, f32, usize)> = (1..nz - 1)
             .flat_map(|k| (1..ny - 1).flat_map(move |j| (1..nx - 1).map(move |i| (i, j, k))))
@@ -858,6 +1015,9 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
         let found: Vec<f32> = (0..n)
             .into_par_iter()
             .map(|f| {
+                if held(f) {
+                    return 0.0;
+                }
                 let mut best = (f32::MIN, 0.0_f32);
                 let mut shadow = vec![false; nx * ny];
                 for q in -12..=12 {
@@ -876,7 +1036,7 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
                         either += usize::from(*a || *b);
                     }
                     let fit = both as f32 / either.max(1) as f32;
-                    if fit > best.0 {
+                    if fit > best.0 || (fit == best.0 && delta.abs() < best.1.abs()) {
                         best = (fit, delta);
                     }
                 }
@@ -886,19 +1046,34 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
         // a frame's angle cannot jump away from its neighbours': median over five frames
         let found: Vec<f32> = (0..n)
             .map(|f| {
-                let mut near: Vec<f32> = found[f.saturating_sub(2)..(f + 3).min(n)].to_vec();
+                let mut near: Vec<f32> = (f.saturating_sub(2)..(f + 3).min(n))
+                    .filter(|&k| !held(k)).map(|k| found[k]).collect();
                 near.sort_by(f32::total_cmp);
-                near[near.len() / 2]
+                near.get(near.len() / 2).copied().unwrap_or(0.0)
             })
             .collect();
-        for (t, delta) in turn.iter_mut().zip(&found) {
-            *t += delta;
-        }
-        let degrees: Vec<f32> = found.iter().map(|d| d.to_degrees().abs()).collect();
-        corrections.push((degrees.iter().sum::<f32>() / n as f32, degrees.iter().copied().fold(0.0, f32::max)));
+        corrections.push(refine_turn(&mut turn, &found, step, p));
     }
+    // Stereo and direction checks use exactly the angles that will carve and texture.
+    d.maps = (0..n).into_par_iter()
+        .map(|k| frame_depth(frames, &masks, k, axis, reach, &turn, p)).collect();
+    d.maps = consistent_depths(&d, &turn, p);
+    let (clockwise, viol) = match p.clockwise {
+        Some(c) => (c, None),
+        None => {
+            let (a, b) = (violations(&d, &turn, 1.0, 3.0), violations(&d, &turn, -1.0, 3.0));
+            if a <= b { (true, Some((a, b))) } else { (false, Some((b, a))) }
+        }
+    };
+    let sign = if clockwise { 1.0 } else { -1.0 };
+    for t in &mut turn {
+        *t *= sign;
+    }
+    let figure_px: usize = masks.iter().enumerate().filter(|(f, _)| !held(*f))
+        .map(|(_, m)| m.iter().filter(|&&m| m).count()).sum();
+    let known_px: usize = d.maps.iter().flatten().filter(|v| v.is_finite()).count();
     let angle = to_cs(&turn);
-    let slices = carve(&angle, allowed, !p.hull);
+    let slices = carve(&angle, allowed, if p.hull { None } else { Some((&d, sign)) });
     let mut kinds = vec![3u8; nx * ny * nz];
     let mut bands = vec![[0usize; 3]; 10];
     for (k, (s, tally)) in slices.iter().enumerate() {
@@ -968,22 +1143,8 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
         .map(|(i, j, k)| ((i as f32 - nh as f32) * v, (k as f32 - nh as f32) * v, j))
         .collect();
     let shadow = |f: usize| -> Vec<bool> {
-        let (c, s) = angle[f];
-        let mut out = vec![false; w * h];
-        for &(x, z, j) in &shell {
-            let px = d.axis + x * c + z * s;
-            let (x0, x1) = ((px - v / 2.0).ceil().max(0.0) as usize, ((px + v / 2.0).ceil() as usize).min(w));
-            let (y0, y1) = (
-                (top as f32 + (j as f32 - 1.0) * v).ceil().max(0.0) as usize,
-                ((top as f32 + j as f32 * v).ceil() as usize).min(h),
-            );
-            for y in y0..y1 {
-                for x in x0..x1 {
-                    out[y * w + x] = true;
-                }
-            }
-        }
-        out
+        front_depth(&shell, angle[f], axis, top as f32, w, h, v)
+            .into_iter().map(|z| z.is_finite()).collect()
     };
     // how well the model's shadow fits every frame's outline
     let fits: Vec<(bool, FrameFit)> = (0..n)
@@ -1076,7 +1237,7 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
     let (tw, th) = ((r0 - l0 + 1) as u32, (bottom - top + 1) as u32);
     let cols = (n as f32).sqrt().ceil() as u32;
     let mut atlas = image::RgbaImage::new(tw * cols, th * (n as u32).div_ceil(cols));
-    let (screen, _) = screen_colour(frames);
+    let (screen, _) = screen_colour_in(frames.iter().enumerate().filter(|(f, _)| !held(*f)).map(|(_, img)| img));
     let spill = (0..3).find(|&c| (0..3).filter(|&o| o != c).all(|o| i32::from(screen[c]) > i32::from(screen[o]) + 40));
     let clean: Vec<image::RgbaImage> = frames
         .par_iter()
@@ -1136,6 +1297,11 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
         .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
         .map_err(|e| e.to_string())?;
     let (aw, ah) = (atlas.width() as f32, atlas.height() as f32);
+    // Geometry visibility is available even where stereo cannot measure depth.
+    // Store only the cropped foreground rectangle, rather than the whole source frame.
+    let visibility: Vec<Vec<f32>> = angle.par_iter()
+        .map(|&a| front_depth(&shell, a, axis - l0 as f32, 0.0, tw as usize, th as usize, v))
+        .collect();
     let to_camera: Vec<[f32; 2]> = angle.iter().map(|&(c, s)| [-s, c]).collect();
     // a grid point in frame f: image column, depth and image row
     let at = |f: usize, g: [f32; 3]| {
@@ -1149,13 +1315,21 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
         let facing = |f: usize| nrm[0] * to_camera[f][0] + nrm[2] * to_camera[f][1];
         order.sort_by(|&a, &b| facing(b).total_cmp(&facing(a)));
         // the frame for the whole face, by its centre: facing it most directly, the centre
-        // inside the figure there (a pixel from its edge) and on that frame's measured surface
+        // inside the figure there, visible in the hull, and preferably stereo-supported
         let inside = |f: usize| {
             let (px, _, y) = at(f, centre);
             let pi = px.round();
             pi >= 1.0 && (pi as usize) + 1 < w && {
                 let row = &masks[f][y as usize * w..(y as usize + 1) * w];
                 row[pi as usize - 1] && row[pi as usize] && row[pi as usize + 1]
+            }
+        };
+        let visible = |f: usize| {
+            let (px, fz, y) = at(f, centre);
+            let (x, y) = ((px - l0 as f32).round(), (y - top as f32).floor());
+            x >= 0.0 && x < tw as f32 && y >= 0.0 && y < th as f32 && {
+                let front = visibility[f][y as usize * tw as usize + x as usize];
+                front.is_finite() && (front - fz).abs() <= 2.0 * v
             }
         };
         let on_surface = |f: usize| {
@@ -1165,15 +1339,14 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
         };
         let f = order
             .iter()
-            .take(12)
             .copied()
-            .find(|&f| inside(f) && on_surface(f))
-            .or_else(|| order.iter().copied().find(|&f| inside(f)))
+            .find(|&f| inside(f) && visible(f) && on_surface(f))
+            .or_else(|| order.iter().copied().find(|&f| inside(f) && visible(f)))
             .unwrap_or(order[0]);
         let (px, _, y) = at(f, g);
         let (sx, sy) = (px - l0 as f32, y - top as f32);
         let (tx, ty) = ((f as u32 % cols * tw) as f32, (f as u32 / cols * th) as f32);
-        [(tx + sx.clamp(0.0, tw as f32 - 1.0)) / aw, (ty + sy.clamp(0.0, th as f32 - 1.0)) / ah]
+        [(tx + sx.clamp(0.0, tw as f32 - 1.0) + 0.5) / aw, (ty + sy.clamp(0.0, th as f32 - 1.0) + 0.5) / ah]
     };
     let scale = p.height / ((bottom - top + 1) as f32 / v);
     let mesh = surface_mesh(&solid, [nx, ny, nz], scale, &uv);
@@ -1261,11 +1434,14 @@ mod tests {
 
     /// A box with a striped texture turning about the image centre, seen orthographically.
     fn turning_box(n: usize, step: f32) -> Vec<image::RgbaImage> {
+        turning_box_at(&(0..n).map(|f| f as f32 * step).collect::<Vec<_>>())
+    }
+
+    fn turning_box_at(turn: &[f32]) -> Vec<image::RgbaImage> {
         let (w, h) = (160u32, 60u32);
         let (hx, hz) = (30.0_f32, 14.0_f32);
-        (0..n)
-            .map(|f| {
-                let a = f as f32 * step;
+        turn.iter()
+            .map(|&a| {
                 let (c, s) = (a.cos(), a.sin());
                 image::RgbaImage::from_fn(w, h, |x, y| {
                     if !(10..50).contains(&y) {
@@ -1326,5 +1502,125 @@ mod tests {
         assert!(known.len() > 10, "{} known", known.len());
         let mean = known.iter().sum::<f32>() / known.len() as f32;
         assert!((mean.abs() - 14.0).abs() < 2.0, "front depth {mean}");
+    }
+
+    #[test]
+    fn angle_updates_keep_reference_order_and_infer_held_angles() {
+        let step = 0.04;
+        let mut turn: Vec<f32> = (0..20).map(|f| f as f32 * step).collect();
+        let found: Vec<f32> = (0..20).map(|f| if f % 2 == 0 { 0.1 } else { -0.1 }).collect();
+        let p = DepthParams { holdout: 4, ..DepthParams::default() };
+        for _ in 0..6 {
+            refine_turn(&mut turn, &found, step, &p);
+            assert_eq!(turn[0], 0.0);
+            assert!(turn.windows(2).all(|w| w[1] - w[0] >= 0.099 * step));
+            for f in 1..turn.len() - 1 {
+                if p.held(f) {
+                    assert!((turn[f] - 0.5 * (turn[f - 1] + turn[f + 1])).abs() < 1e-6);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn flat_colour_and_vertical_only_variation_have_no_stereo_depth() {
+        for vertical in [false, true] {
+            let img = image::RgbaImage::from_fn(32, 16, |_, y| {
+                image::Rgba([if vertical { (y * 10) as u8 } else { 80 }, 60, 40, 255])
+            });
+            let frames = vec![img; 3];
+            let masks = vec![vec![true; 32 * 16]; 3];
+            let p = DepthParams { views: 1, window: 1, holdout: 0, ..DepthParams::default() };
+            let depth = frame_depth(&frames, &masks, 1, 15.5, 6.0, &[0.0, 0.1, 0.2], &p);
+            assert!(depth.iter().all(|d| d.is_nan()));
+        }
+    }
+
+    #[test]
+    fn stereo_uses_nonuniform_frame_angles() {
+        let turn = [0.0, 0.08, 0.4, 0.65, 1.0];
+        let frames = turning_box_at(&turn);
+        let screen = screen_colour(&frames);
+        let masks: Vec<_> = frames.iter().map(|f| key_mask(f, screen, 30)).collect();
+        let p = DepthParams { views: 4, window: 1, kept: 0.75, holdout: 0, ..DepthParams::default() };
+        let depth = frame_depth(&frames, &masks, 0, 79.5, 35.0, &turn, &p);
+        let known: Vec<f32> = (72..88).map(|x| depth[30 * 160 + x]).filter(|d| d.is_finite()).collect();
+        assert!(known.len() >= 4, "{} known", known.len());
+        let mean = known.iter().sum::<f32>() / known.len() as f32;
+        assert!((mean - 14.0).abs() < 2.0, "front depth {mean}");
+    }
+
+    #[test]
+    fn held_out_frame_cannot_change_training_stereo() {
+        let turn = [0.0, 0.1, 0.2, 0.3, 0.4];
+        let mut frames = turning_box_at(&turn);
+        let screen = screen_colour(&frames);
+        let mut masks: Vec<_> = frames.iter().map(|f| key_mask(f, screen, 30)).collect();
+        let p = DepthParams { views: 2, window: 1, holdout: 2, ..DepthParams::default() };
+        let before = frame_depth(&frames, &masks, 0, 79.5, 35.0, &turn, &p);
+        assert!(before.iter().any(|d| d.is_finite()));
+        frames[1] = image::RgbaImage::from_pixel(160, 60, image::Rgba([255, 0, 255, 255]));
+        masks[1].fill(true);
+        let after = frame_depth(&frames, &masks, 0, 79.5, 35.0, &turn, &p);
+        assert!(before.iter().zip(&after).all(|(a, b)| a.to_bits() == b.to_bits()));
+        assert!(frame_depth(&frames, &masks, 1, 79.5, 35.0, &turn, &p).iter().all(|d| d.is_nan()));
+    }
+
+    #[test]
+    fn voxel_visibility_keeps_the_front_surface() {
+        let shell = [(0.0, -6.0, 2), (0.0, 6.0, 2)];
+        let front = front_depth(&shell, (1.0, 0.0), 5.0, 0.0, 11, 5, 1.0);
+        assert_eq!(front[11 + 5], 6.5);
+        assert!((front[11 + 5] - 6.0).abs() <= 2.0);
+        assert!((front[11 + 5] + 6.0).abs() > 2.0);
+        assert!(!front[0].is_finite());
+        let a = std::f32::consts::FRAC_PI_4;
+        let wide = front_depth(&[(0.0, 0.0, 1)], (a.cos(), a.sin()), 4.0, 0.0, 9, 3, 2.0);
+        assert_eq!(wide[..9].iter().filter(|z| z.is_finite()).count(), 3);
+    }
+
+    #[test]
+    fn invalid_grid_parameters_return_an_error() {
+        let frames = turning_box(12, 0.3);
+        for voxel in [0.0, -1.0, f32::NAN, f32::INFINITY] {
+            let p = DepthParams { voxel, ..DepthParams::default() };
+            assert!(prepare_depth(&frames, &p).is_err());
+        }
+    }
+
+    #[test]
+    fn cross_view_depth_filter_rejects_an_isolated_wrong_surface() {
+        let turn: Vec<f32> = (0..5).map(|k| k as f32 * 0.05).collect();
+        let maps: Vec<Vec<f32>> = turn.iter().map(|&a| {
+            (0..41 * 3).map(|i| (10.0 - ((i % 41) as f32 - 20.0) * a.sin()) / a.cos()).collect()
+        }).collect();
+        let mut d = DepthMaps { width: 41, height: 3, axis: 20.0, reach: 70.0, maps };
+        let p = DepthParams { views: 2, surface: 0.6, holdout: 0, ..DepthParams::default() };
+        let good = consistent_depths(&d, &turn, &p);
+        assert!((good[2][41 + 20] - d.maps[2][41 + 20]).abs() < 1e-6);
+        d.maps[2][41 + 20] = 60.0;
+        let checked = consistent_depths(&d, &turn, &p);
+        assert!(checked[2][41 + 20].is_nan());
+    }
+
+    #[test]
+    fn stereo_preserves_solid_box_volume_and_held_out_fit() {
+        let frames = turning_box(24, std::f32::consts::PI / 14.0);
+        let mut p = DepthParams { hull: true, voxel: 3.0, views: 2, window: 1, kept: 0.75,
+            refine: 1, check: vec![0, 4], ..DepthParams::default() };
+        let (_, hull, _) = depth_glb(&frames, &p).expect("hull reconstruction");
+        p.hull = false;
+        let (_, stereo, depths) = depth_glb(&frames, &p).expect("stereo reconstruction");
+        assert!(hull.voxels > 100);
+        assert!(stereo.voxels * 100 >= hull.voxels * 95,
+            "stereo removed solid-box volume: {} / {}", stereo.voxels, hull.voxels);
+        assert!(hull.fit_held.iou > 0.9, "{:?}", hull.fit_held);
+        assert!(stereo.fit_held.iou > 0.9, "{:?}", stereo.fit_held);
+        assert_eq!(stereo.fit_used.frames + stereo.fit_held.frames, frames.len());
+        assert_eq!(stereo.fit_held.frames, 3);
+        assert_eq!(stereo.checks.len(), 2);
+        assert!(depths.maps[4].iter().all(|d| d.is_nan()));
+        eprintln!("solid box: hull {} voxels, stereo {} voxels; held IoU {:.3}",
+            hull.voxels, stereo.voxels, stereo.fit_held.iou);
     }
 }
