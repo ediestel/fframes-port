@@ -1,62 +1,63 @@
-# Porting from fframes-workspace
+# What I added to fframes
 
-`fframes-workspace` was an earlier fork of fframes that I extended for my own
-projects. This branch (`port/workspace`) moves the generally useful parts of it
-into fframes, one commit per piece, so each can be reviewed and taken or
-dropped on its own.
+## Missing crates written for fframes 1.0.0-beta.7
 
-## Ported (commits on this branch, oldest first)
+fframes 1.0.0-beta.7 did not compile because the `fframes-media` and
+`fframes-media-dir-macro` crates were missing. I wrote both so it compiled and
+rendered video: FFmpeg video decoding, audio decoding, images, WebVTT
+subtitles, and the media directory macro. They are kept in
+`history/beta7-media-crates/`.
 
-| Commit | What |
-|---|---|
-| `6f45a7b` | SVG validation: `SvgDocument` holds a string that is known to parse |
-| `f2ed3f0` | Notes on medical figures and posable outlines (`medical-figures-with-fframes.md`) |
-| `080c863` | Link the system FFmpeg on Apple Silicon instead of downloading a static copy |
-| `9fbb96a` | Determinism: same input renders the same frames |
-| `41e33d1` | SVG parse cache |
-| `61ef9eb` | Color, pixel format, frame rate and audio spec types |
-| `34293c8` | Image sequence export |
-| `3414af4` | Unpremultiply pixels before swscale for pixel formats with alpha |
+## Implemented on fframes 1.3.0
 
-## Not ported yet
+One commit per feature. Each commit message explains the design and what was
+left out.
 
-These exist in the old workspace and are not in fframes. Tell me which ones
-you'd want and I'll port them the same way.
-
-- **Keyframe timelines** (`fframes/src/animation/keyframes.rs`, ~320 lines).
-  Spring physics and cubic-bezier easing are already in fframes; keyframes are not.
-- **fframes-kit**: helpers on top of fframes.
-  - `procedural.rs`: SVG path generators (seeded jitter, ridge path, starfield,
-    wave line, radial burst)
-  - `defs.rs`: gradient, radial glow and fade `<defs>`
-  - `tokens.rs`: design tokens (palette, typography, brand) loaded from JSON
-  - `anim.rs`: envelope helpers (fade clamp, easings, pulse, staggered start)
-- **fframes-fonts**: a small crate bundling fonts.
-- **WASM build**: `wasm-pack.toml` and wasm-bindgen attributes, started but
-  not finished.
-- **MANUAL.md**: a manual for non-programmers (producers, marketers, data teams).
+- **SVG validation.** `SvgDocument` holds a string known to parse;
+  `Svgr::from_svg_string` / `from_document` take SVG built at runtime (from a
+  template, a file or an LLM). A structural check (empty, malformed XML,
+  non-`<svg>` root) reports positioned `ValidationIssue`s, and `validate_video`
+  runs at the start of `render()`.
+- **Determinism.** `ContentHash`, `InputFingerprint`, `OutputHash`,
+  `assert_deterministic`: the same input renders the same bytes, and changed
+  input or drifting output is reported. Parity tests check that rendering frame
+  by frame matches rendering a range, in any order.
+- **SVG parse cache.** A per-worker cache of parsed trees, keyed by a hash of
+  the SVG text, so a frame that repeats the previous document is not parsed
+  again.
+- **Output spec types.** Color space (primaries, transfer, matrix, range),
+  pixel format and alpha mode, rational frame rate, audio spec (channel layout,
+  bit depth, BWF metadata).
+- **Image sequence export.** `render_image_sequence` writes one PNG, TIFF or
+  OpenEXR file per frame, in parallel, honouring frame range and scaling.
+- **Alpha fix.** Pixels are unpremultiplied before swscale for pixel formats
+  with alpha; before, partly transparent pixels came out too dark in ProRes
+  4444, VP9 alpha and similar.
+- **System FFmpeg on Apple Silicon.** `.cargo/config.toml` sets
+  `fframes_system_ffmpeg`, so the FFmpeg installed on the machine is linked
+  through pkg-config instead of a second, downloaded static copy.
 
 ## Added on this fork (not from fframes-workspace)
 
-- **`fframes-vector`** (branch `vector`): pictures and drawings to piece-based
-  vector art (flatten, quantise, trace with external potrace), a piece document
-  (JSON, one entry per piece with id, colour, path, bounds, group) with SVG
-  export, and `PieceTree`, the document as a static tree the renderers cache,
-  whole or per group. `fframes::vector` behind the `vector` feature, built like
-  `fframes-three-d`. See `fframes-vector/README.md` and AGENTS.md section 7f.
-  Planned on top of it: sprite atlases (PNG + JSON at several densities), a
-  group map (pieces → objects), glTF export of pieces as thin panes, Lottie
-  export, drawing input (scan clean-up, gap closing).
+- **`fframes-vector`**: pictures and drawings to piece-based vector art
+  (flatten, quantise, trace with external potrace), a piece document (JSON, one
+  entry per piece with id, colour, path, bounds, group) with SVG export, and
+  `PieceTree`, the document as a static tree the renderers cache, whole or per
+  group. `fframes::vector` behind the `vector` feature, built like
+  `fframes-three-d`. Grouping from zones or masks, cutting pieces along zone
+  borders, a report of doubtful pieces, sprite atlases, glTF export and drawing
+  input (scan clean-up, gap closing). See `fframes-vector/README.md`,
+  `fframes-vector/ROADMAP.md` and AGENTS.md section 7f.
+- **`fframes-native-player`: `Surface`**, the window drawing part of the
+  player, public for other tools such as an editor.
 
 ## Planned, not implemented yet
-
-Planned in fframes-workspace and not implemented since; topics to come back to.
 
 - **Encoding layer refactor.** Split the encoder into a codec part that
   produces packets and an output sink that writes them, so one encoder can
   write to a file, a buffer or a stream, and backends other than FFmpeg can
-  plug in. Partly done; design, status and remaining steps are on the
-  `encoding-refactor` branch of fframes-port.
+  plug in. Partly done; design, status and remaining steps are in
+  `history/encoding-refactor/`.
 - **Authoring helpers.** Design tokens loaded from JSON, procedural SVG
   geometry, gradient and glow `<defs>`, number formatting for on-screen data.
 - **Layout.** Bounding boxes and vertical / horizontal stacking instead of
@@ -70,6 +71,3 @@ Planned in fframes-workspace and not implemented since; topics to come back to.
 - **Plugin lifecycle.** Explicit setup, per-run and teardown phases.
 - **Videos from a brief.** A JSON brief describing scenes, timing, brand and
   audio, with a validator, as input for generating the scene code.
-
-Left out on purpose: project-specific templates (stained glass, medieval city),
-client data, and an unfinished refactor of the encoding layer.

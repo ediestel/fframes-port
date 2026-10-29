@@ -61,8 +61,8 @@ impl SvgDocument {
     ///
     /// Not marked `unsafe` because a malformed string here is a
     /// correctness failure, not a memory-safety failure: the worst
-    /// case is a mid-render `ParserError` (exactly the pre-contract
-    /// behaviour), not undefined behaviour.
+    /// case is a mid-render `ParserError` (the same as before
+    /// validation existed), not undefined behaviour.
     pub fn new_unchecked(value: String) -> Self {
         Self { inner: value }
     }
