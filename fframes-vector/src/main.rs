@@ -379,6 +379,8 @@ fn main() -> ExitCode {
             }
             // --low 5000: also out_low.glb with at most 5000 vertices and one baked texture
             p.low = opt(&args, "--low");
+            // --splat dir: a Gaussian splatting dataset (Nerfstudio format) from the measured turn
+            p.splat = opt::<String>(&args, "--splat").map(std::path::PathBuf::from);
             // --check 1,30,60: loss pictures of these frames (1-based) into the --maps folder
             if let Some(list) = opt::<String>(&args, "--check") {
                 p.check = list.split(',').filter_map(|f| f.trim().parse::<usize>().ok()).map(|f| f.saturating_sub(1)).collect();

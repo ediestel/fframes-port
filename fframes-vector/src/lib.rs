@@ -30,6 +30,7 @@ pub mod lowpoly;
 pub mod quantize;
 pub mod raster;
 pub mod report;
+pub mod splat;
 pub mod trace;
 pub mod tree;
 

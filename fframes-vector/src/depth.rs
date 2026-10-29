@@ -59,6 +59,8 @@ pub struct DepthParams {
     pub holdout: usize,
     /// Also a reduced model with at most this many vertices and one baked texture.
     pub low: Option<usize>,
+    /// Also a dataset for Gaussian splatting (Nerfstudio format) in this folder.
+    pub splat: Option<std::path::PathBuf>,
 }
 
 impl Default for DepthParams {
@@ -78,6 +80,7 @@ impl Default for DepthParams {
             refine: 2,
             holdout: 8,
             low: None,
+            splat: None,
         }
     }
 }
@@ -1176,6 +1179,28 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
     let mesh = surface_mesh(&solid, [nx, ny, nz], scale, &uv);
     // the reduced model with one baked texture; world (metres, as surface_mesh places it) to
     // grid to frame
+    if let Some(dir) = &p.splat {
+        let points: Vec<([f32; 3], [u8; 3])> = shell
+            .iter()
+            .step_by(2)
+            .filter_map(|&(x, z, j)| {
+                // coloured from the frame facing the point's direction from the axis
+                let f = (0..n).max_by(|&a, &b| {
+                    let fa = x * to_camera[a][0] + z * to_camera[a][1];
+                    let fb = x * to_camera[b][0] + z * to_camera[b][1];
+                    fa.total_cmp(&fb)
+                })?;
+                let (c, s) = angle[f];
+                let (col, row) = ((d.axis + x * c + z * s).round(), (top as f32 + (j as f32 - 0.5) * v).round());
+                if col < 0.0 || row < 0.0 || col as usize >= w || row as usize >= h || !masks[f][row as usize * w + col as usize] {
+                    return None;
+                }
+                let q = clean[f].get_pixel(col as u32, row as u32).0;
+                Some(([x, (top as f32 + (j as f32 - 0.5) * v), z], [q[0], q[1], q[2]]))
+            })
+            .collect();
+        crate::splat::write_dataset(dir, &clean, &masks, &angle, d.axis, p.height / (bottom - top + 1) as f32, &points)?;
+    }
     let low = match p.low {
         Some(budget) => {
             let project = |f: usize, world: [f32; 3]| {
