@@ -23,7 +23,7 @@
 //!    rest is solid. Its surface is painted from the frame that faces it most directly and
 //!    sees it.
 
-use crate::figure::{surface_mesh, write_glb};
+use crate::figure::{surface_mesh_field, write_glb};
 use rayon::prelude::*;
 
 #[derive(Clone, Debug)]
@@ -55,6 +55,9 @@ pub struct DepthParams {
     pub hull: bool,
     /// Rounds of measuring every frame's own angle against the envelope (0: even turn).
     pub refine: usize,
+    /// Rounds of smoothing of the surface (each moves a corner halfway to its neighbours'
+    /// mean); the exported surface is measured after them.
+    pub smooth: usize,
     /// Every `holdout`-th frame is excluded from geometry calibration, angle fitting,
     /// stereo matching and carving, and its angle is inferred from the retained frames
     /// (0 or 1: none). Held-out images may still supply texture colours.
@@ -88,6 +91,7 @@ impl Default for DepthParams {
             check: Vec::new(),
             hull: false,
             refine: 2,
+            smooth: 2,
             holdout: 8,
             low: Some(5000),
             search: 3.0,
@@ -129,6 +133,10 @@ pub struct DepthTurn {
     /// Fit of the model's shadow to the frames that shaped it, and to the held-out frames.
     pub fit_used: FrameFit,
     pub fit_held: FrameFit,
+    /// The same for the exported surface itself (its triangles, after smoothing), against the
+    /// frames that shaped it and the held-out ones.
+    pub fit_mesh_used: FrameFit,
+    pub fit_mesh_held: FrameFit,
     /// The reduced model (binary glTF) and what the reduction gave, when asked for.
     pub low: Option<(Vec<u8>, crate::lowpoly::LowPoly)>,
 }
@@ -923,16 +931,24 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
         })
         .collect();
 
-    // per slice: voxel kinds and, per row, [kept, removed by outline, removed by depth]
-    let carve = |angle: &[(f32, f32)], allowed: usize, depth: Option<(&DepthMaps, f32)>| -> Vec<(Vec<u8>, Vec<[usize; 3]>)> {
+    // one z slice of the grid: per voxel its kind (0 kept, 1 removed by outline, 2 removed by
+    // depth, 3 outside the turning space) and its signed distance (averaged, in units of
+    // `surface`; negative inside, +1 where the outlines exclude it, NaN where no depth was
+    // measured); per row, [kept, removed by outline, removed by depth]
+    struct Slice {
+        kinds: Vec<u8>,
+        field: Vec<f32>,
+        tally: Vec<[usize; 3]>,
+    }
+    let carve = |angle: &[(f32, f32)], allowed: usize, depth: Option<(&DepthMaps, f32)>| -> Vec<Slice> {
         (0..nz)
         .into_par_iter()
         .map(|k| {
-            // 0 kept, 1 removed by outline, 2 removed by depth, 3 outside the turning space
             let mut out = vec![3u8; nx * ny];
+            let mut field = vec![f32::NAN; nx * ny];
             let mut tally = vec![[0usize; 3]; ny];
             if k == 0 || k == nz - 1 {
-                return (out, tally);
+                return Slice { kinds: out, field, tally };
             }
             let z = (k as f32 - nh as f32) * v;
             for j in 1..ny - 1 {
@@ -981,9 +997,16 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
                     };
                     tally[j][usize::from(kind)] += 1;
                     out[j * nx + i] = kind;
+                    field[j * nx + i] = if kind == 1 {
+                        1.0
+                    } else if weight > 0.0 {
+                        tsdf / weight
+                    } else {
+                        f32::NAN
+                    };
                 }
             }
-            (out, tally)
+            Slice { kinds: out, field, tally }
         })
         .collect()
     };
@@ -1011,7 +1034,7 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
     let mut corrections = Vec::new();
     for _ in 0..p.refine {
         let env = carve(&to_cs(&turn), (used / 10).max(allowed), None);
-        let solid_at = |i: usize, j: usize, k: usize| env[k].0[j * nx + i] == 0;
+        let solid_at = |i: usize, j: usize, k: usize| env[k].kinds[j * nx + i] == 0;
         let shell: Vec<(f32, f32, usize)> = (1..nz - 1)
             .flat_map(|k| (1..ny - 1).flat_map(move |j| (1..nx - 1).map(move |i| (i, j, k))))
             .filter(|&(i, j, k)| {
@@ -1084,15 +1107,17 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
     let angle = to_cs(&turn);
     let slices = carve(&angle, allowed, if p.hull { None } else { Some((&d, sign)) });
     let mut kinds = vec![3u8; nx * ny * nz];
+    let mut field = vec![f32::NAN; nx * ny * nz];
     let mut bands = vec![[0usize; 3]; 10];
-    for (k, (s, tally)) in slices.iter().enumerate() {
+    for (k, s) in slices.iter().enumerate() {
         for j in 0..ny {
             for i in 0..nx {
-                kinds[idx(i, j, k)] = s[j * nx + i];
+                kinds[idx(i, j, k)] = s.kinds[j * nx + i];
+                field[idx(i, j, k)] = s.field[j * nx + i];
             }
             let band = (j * 10 / ny).min(9);
             for c in 0..3 {
-                bands[band][c] += tally[j][c];
+                bands[band][c] += s.tally[j][c];
             }
         }
     }
@@ -1358,9 +1383,22 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
         [(tx + sx.clamp(0.0, tw as f32 - 1.0) + 0.5) / aw, (ty + sy.clamp(0.0, th as f32 - 1.0) + 0.5) / ah]
     };
     let scale = p.height / ((bottom - top + 1) as f32 / v);
-    let mesh = surface_mesh(&solid, [nx, ny, nz], scale, &uv);
-    // the reduced model with one baked texture; world (metres, as surface_mesh places it) to
-    // grid to frame
+    // the surface: from the signed distances where depth measured them, else the voxels'
+    // boundary; smoothed `p.smooth` times
+    let mesh = surface_mesh_field(&solid, (!p.hull).then_some(field.as_slice()), [nx, ny, nz], scale, &uv, p.smooth);
+    drop(field);
+    // world (metres, as the surface is placed) to grid to frame
+    let project = |f: usize, world: [f32; 3]| {
+        let g = [
+            world[0] / scale + nx as f32 / 2.0,
+            ny as f32 - 1.0 - world[1] / scale,
+            world[2] / scale + nz as f32 / 2.0,
+        ];
+        at(f, g)
+    };
+    let views = crate::lowpoly::Views { frames: &clean, masks: &masks, width: w, height: h, to_camera: &to_camera, held: &held };
+    // the exported surface itself against every frame's outline (after smoothing)
+    let (fit_mesh_used, fit_mesh_held) = crate::lowpoly::mesh_fit(&mesh.positions, &mesh.indices, &views, &project);
     if let Some(dir) = &p.splat {
         let points: Vec<([f32; 3], [u8; 3])> = shell
             .iter()
@@ -1383,19 +1421,9 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
             .collect();
         crate::splat::write_dataset(dir, &clean, &masks, &angle, d.axis, p.height / (bottom - top + 1) as f32, &points)?;
     }
+    // the reduced model with one baked texture
     let low = match p.low {
-        Some(budget) => {
-            let project = |f: usize, world: [f32; 3]| {
-                let g = [
-                    world[0] / scale + nx as f32 / 2.0,
-                    ny as f32 - 1.0 - world[1] / scale,
-                    world[2] / scale + nz as f32 / 2.0,
-                ];
-                at(f, g)
-            };
-            let views = crate::lowpoly::Views { frames: &clean, masks: &masks, width: w, height: h, to_camera: &to_camera, held: &held };
-            Some(crate::lowpoly::low_poly_glb(&mesh, budget, &views, &project)?)
-        }
+        Some(budget) => Some(crate::lowpoly::low_poly_glb(&mesh, budget, &views, &project)?),
         None => None,
     };
     Ok((
@@ -1417,6 +1445,8 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
             fragments,
             fit_used,
             fit_held,
+            fit_mesh_used,
+            fit_mesh_held,
             low,
         },
         d,
@@ -1628,6 +1658,14 @@ mod tests {
         assert_eq!(stereo.fit_used.frames + stereo.fit_held.frames, frames.len());
         assert_eq!(stereo.fit_held.frames, 3);
         assert_eq!(stereo.checks.len(), 2);
+        // the exported surface (its triangles) is measured too: unsmoothed it fits the held-out
+        // views; smoothing only takes away (on a box 20 voxels wide nearly every voxel is
+        // an edge voxel, so it takes away a lot)
+        assert_eq!(hull.fit_mesh_used.frames + hull.fit_mesh_held.frames, frames.len());
+        let (_, sharp, _) = depth_glb(&frames, &DepthParams { hull: true, smooth: 0, low: None, ..p.clone() }).expect("unsmoothed");
+        eprintln!("exported box surface, held-out views: unsmoothed {:?}; smoothed twice {:?}", sharp.fit_mesh_held, hull.fit_mesh_held);
+        assert!(sharp.fit_mesh_held.iou > 0.9, "unsmoothed exported surface {:?}", sharp.fit_mesh_held);
+        assert!(hull.fit_mesh_held.missed >= sharp.fit_mesh_held.missed, "smoothing grew the surface");
         assert!(depths.maps[4].iter().all(|d| d.is_nan()));
         eprintln!("solid box: hull {} voxels, stereo {} voxels; held IoU {:.3}",
             hull.voxels, stereo.voxels, stereo.fit_held.iou);

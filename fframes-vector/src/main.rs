@@ -437,6 +437,9 @@ fn main() -> ExitCode {
             if let Some(v) = opt(&args, "--refine") {
                 p.refine = v;
             }
+            if let Some(v) = opt(&args, "--smooth") {
+                p.smooth = v;
+            }
             if let Some(v) = opt(&args, "--holdout") {
                 p.holdout = v;
             }
@@ -533,7 +536,12 @@ fn main() -> ExitCode {
                         eprintln!("angle round {}: frames corrected by {mean:.2}° on average, at most {max:.2}°", r + 1);
                     }
                     eprintln!("{} loose fragments removed", t.fragments);
-                    for (name, fit) in [("frames that shaped it", &t.fit_used), ("held-out frames", &t.fit_held)] {
+                    for (name, fit) in [
+                        ("frames that shaped it", &t.fit_used),
+                        ("held-out frames", &t.fit_held),
+                        ("frames that shaped it, exported surface", &t.fit_mesh_used),
+                        ("held-out frames, exported surface", &t.fit_mesh_held),
+                    ] {
                         eprintln!(
                             "fit to the {name} ({}): missed {:.1} %, excess {:.1} %, overlap {:.3}, outline distance {:.2} px",
                             fit.frames,

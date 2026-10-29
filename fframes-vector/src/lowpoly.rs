@@ -265,32 +265,58 @@ fn pad(texture: &mut image::RgbaImage, filled: &mut [bool], rings: u32) {
     }
 }
 
+/// A triangle mesh's depth buffer in frame `f`: its nearest surface per pixel (depth towards
+/// the camera, larger is nearer), negative infinity where it casts no shadow.
+fn depth_buffer(positions: &[[f32; 3]], tris: &[[usize; 3]], views: &Views<'_>, project: &Project<'_>, f: usize) -> Vec<f32> {
+    let (w, h) = (views.width, views.height);
+    let mut z = vec![f32::NEG_INFINITY; w * h];
+    let at: Vec<(f32, f32, f32)> = positions.iter().map(|&p| project(f, p)).collect();
+    for t in tris {
+        let q = t.map(|i| at[i]);
+        raster([[q[0].0, q[0].2], [q[1].0, q[1].2], [q[2].0, q[2].2]], w, h, |x, y, b| {
+            let d = b[0] * q[0].1 + b[1] * q[1].1 + b[2] * q[2].1;
+            let cell = &mut z[y * w + x];
+            if d > *cell {
+                *cell = d;
+            }
+        });
+    }
+    z
+}
+
+/// The mean fit of the frames' shadows (given per frame) to the frames that shaped the figure
+/// and to the held-out ones.
+fn mean_fits(fits: &[(bool, FrameFit)]) -> (FrameFit, FrameFit) {
+    let average = |which: bool| {
+        let chosen: Vec<&FrameFit> = fits.iter().filter(|(held, _)| *held == which).map(|(_, x)| x).collect();
+        FrameFit::mean(&chosen)
+    };
+    (average(false), average(true))
+}
+
+/// How well a finished triangle mesh's shadow fits every frame's outline: the exported
+/// surface itself, after smoothing (world metres, placed as `project` expects). Returns the fit
+/// to the frames that shaped the figure and to the held-out ones.
+pub(crate) fn mesh_fit(positions: &[[f32; 3]], indices: &[u32], views: &Views<'_>, project: &Project<'_>) -> (FrameFit, FrameFit) {
+    let tris: Vec<[usize; 3]> = indices.chunks(3).map(|t| [t[0] as usize, t[1] as usize, t[2] as usize]).collect();
+    let fits: Vec<(bool, FrameFit)> = (0..views.frames.len())
+        .into_par_iter()
+        .map(|f| {
+            let shadow: Vec<bool> = depth_buffer(positions, &tris, views, project, f).iter().map(|d| d.is_finite()).collect();
+            ((views.held)(f), frame_fit(&shadow, &views.masks[f], views.width, views.height))
+        })
+        .collect();
+    mean_fits(&fits)
+}
+
 fn bake(m: &Unwrapped, views: &Views<'_>, project: &Project<'_>, high: &High) -> Result<(Vec<u8>, LowPoly), String> {
     let (w, h) = (views.width, views.height);
     let n = views.frames.len();
     let tris: Vec<[usize; 3]> = m.indices.chunks(3).map(|t| [t[0] as usize, t[1] as usize, t[2] as usize]).collect();
 
-    // a depth buffer of the reduced model in every frame: nearest surface per pixel
-    let zbuffers: Vec<Vec<f32>> = (0..n)
-        .into_par_iter()
-        .map(|f| {
-            let mut z = vec![f32::NEG_INFINITY; w * h];
-            let at: Vec<(f32, f32, f32)> = m.positions.iter().map(|&p| project(f, p)).collect();
-            for t in &tris {
-                let q = t.map(|i| at[i]);
-                raster([[q[0].0, q[0].2], [q[1].0, q[1].2], [q[2].0, q[2].2]], w, h, |x, y, b| {
-                    let d = b[0] * q[0].1 + b[1] * q[1].1 + b[2] * q[2].1;
-                    let cell = &mut z[y * w + x];
-                    if d > *cell {
-                        *cell = d;
-                    }
-                });
-            }
-            z
-        })
-        .collect();
-
-    // the reduced model's fit, from the same depth buffers (its shadow)
+    // a depth buffer of the reduced model in every frame, kept for the bake's visibility test;
+    // the reduced model's fit from the same buffers (its shadow)
+    let zbuffers: Vec<Vec<f32>> = (0..n).into_par_iter().map(|f| depth_buffer(&m.positions, &tris, views, project, f)).collect();
     let fits: Vec<(bool, FrameFit)> = (0..n)
         .into_par_iter()
         .map(|f| {
@@ -298,10 +324,7 @@ fn bake(m: &Unwrapped, views: &Views<'_>, project: &Project<'_>, high: &High) ->
             ((views.held)(f), frame_fit(&shadow, &views.masks[f], w, h))
         })
         .collect();
-    let average = |which: bool| {
-        let chosen: Vec<&FrameFit> = fits.iter().filter(|(hf, _)| *hf == which).map(|(_, x)| x).collect();
-        FrameFit::mean(&chosen)
-    };
+    let (fit_used, fit_held) = mean_fits(&fits);
 
     // smooth normals from the triangles, weighted by area; vertices the unwrap split along a
     // seam share one normal, so seams do not show in the shading
@@ -453,8 +476,8 @@ fn bake(m: &Unwrapped, views: &Views<'_>, project: &Project<'_>, high: &High) ->
             vertices: out.positions.len(),
             triangles: tris.len(),
             texture: tw.max(th) as u32,
-            fit_used: average(false),
-            fit_held: average(true),
+            fit_used,
+            fit_held,
             normal_detail: (detail(0.5), detail(0.9)),
         },
     ))

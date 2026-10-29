@@ -654,9 +654,24 @@ pub fn turntable_glb(
 /// picture by the centre, so all corners of a face come from the same picture.
 pub(crate) fn surface_mesh(
     solid: &[bool],
+    dims: [usize; 3],
+    scale: f32,
+    uv: &dyn Fn([f32; 3], usize, [f32; 3], [f32; 3]) -> [f32; 2],
+) -> Mesh {
+    surface_mesh_field(solid, None, dims, scale, uv, 2)
+}
+
+/// [`surface_mesh`] with a scalar field and the smoothing as settings. `field` (per voxel,
+/// negative inside, NaN where unknown) places each surface point where the field crosses
+/// zero along the cell's edges, between voxel centres; without it, or where an edge's ends
+/// are unknown or do not change sign, at the edge's middle. `passes` rounds of smoothing.
+pub(crate) fn surface_mesh_field(
+    solid: &[bool],
+    field: Option<&[f32]>,
     [nx, ny, nz]: [usize; 3],
     scale: f32,
     uv: &dyn Fn([f32; 3], usize, [f32; 3], [f32; 3]) -> [f32; 2],
+    passes: usize,
 ) -> Mesh {
     let idx = |i: usize, j: usize, k: usize| (k * ny + j) * nx + i;
     // a vertex in every cell where the solid changes, quads across every boundary face
@@ -680,13 +695,21 @@ pub(crate) fn surface_mesh(
         for j in 0..ny - 1 {
             for i in 0..nx - 1 {
                 let corner = |a: usize, b: usize, c: usize| solid[idx(i + a, j + b, k + c)];
+                let value = |a: usize, b: usize, c: usize| field.map_or(f32::NAN, |f| f[idx(i + a, j + b, k + c)]);
                 let mut sum = [0.0_f32; 3];
                 let mut n = 0.0;
                 for ((a0, b0, c0), (a1, b1, c1)) in edges {
                     if corner(a0, b0, c0) != corner(a1, b1, c1) {
-                        sum[0] += (a0 + a1) as f32 / 2.0;
-                        sum[1] += (b0 + b1) as f32 / 2.0;
-                        sum[2] += (c0 + c1) as f32 / 2.0;
+                        // where the field crosses zero between the two ends, else the middle
+                        let (f0, f1) = (value(a0, b0, c0), value(a1, b1, c1));
+                        let t = if f0.is_finite() && f1.is_finite() && (f0 < 0.0) != (f1 < 0.0) {
+                            (f0 / (f0 - f1)).clamp(0.0, 1.0)
+                        } else {
+                            0.5
+                        };
+                        sum[0] += a0 as f32 + t * (a1 as f32 - a0 as f32);
+                        sum[1] += b0 as f32 + t * (b1 as f32 - b0 as f32);
+                        sum[2] += c0 as f32 + t * (c1 as f32 - c0 as f32);
                         n += 1.0;
                     }
                 }
@@ -699,7 +722,7 @@ pub(crate) fn surface_mesh(
     }
     let faces = collect_quads(solid, &cell_vertex, nx, ny, nz, idx);
     let quads: Vec<[u32; 4]> = faces.iter().map(|f| f.0).collect();
-    let verts = smooth(&verts, &quads, 2);
+    let verts = smooth(&verts, &quads, passes);
 
     let (cx, cz) = (nx as f32 / 2.0, nz as f32 / 2.0);
     let world = |v: [f32; 3]| [(v[0] - cx) * scale, (ny as f32 - 1.0 - v[1]) * scale, (v[2] - cz) * scale];
@@ -940,6 +963,64 @@ pub(crate) fn write_glb_maps(m: &Mesh, tangents: Option<&[[f32; 4]]>, png: &[u8]
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A field's zero crossing places the surface on a sphere well within a voxel; the
+    /// voxels' boundary alone (edge midpoints) is a staircase around it.
+    #[test]
+    fn field_places_the_surface_between_voxel_centres() {
+        let (nx, ny, nz) = (24usize, 24usize, 24usize);
+        let centre = [nx as f32 / 2.0 + 0.3, ny as f32 / 2.0 - 0.2, nz as f32 / 2.0 + 0.1];
+        let r = 7.3_f32;
+        let idx = |i: usize, j: usize, k: usize| (k * ny + j) * nx + i;
+        let mut field = vec![0.0_f32; nx * ny * nz];
+        for k in 0..nz {
+            for j in 0..ny {
+                for i in 0..nx {
+                    let d = [i as f32 - centre[0], j as f32 - centre[1], k as f32 - centre[2]];
+                    field[idx(i, j, k)] = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt() - r;
+                }
+            }
+        }
+        let solid: Vec<bool> = field.iter().map(|&f| f < 0.0).collect();
+        let flat_uv = |_: [f32; 3], _: usize, _: [f32; 3], _: [f32; 3]| [0.0, 0.0];
+        // the sphere's centre in the mesh's world (x and z centred, y up from the grid's end)
+        let world_centre = [centre[0] - nx as f32 / 2.0, ny as f32 - 1.0 - centre[1], centre[2] - nz as f32 / 2.0];
+        let error = |m: &Mesh| {
+            let e: Vec<f32> = m
+                .positions
+                .iter()
+                .map(|p| {
+                    let d = [p[0] - world_centre[0], p[1] - world_centre[1], p[2] - world_centre[2]];
+                    ((d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt() - r).abs()
+                })
+                .collect();
+            e.iter().sum::<f32>() / e.len().max(1) as f32
+        };
+        let with_field = error(&surface_mesh_field(&solid, Some(&field), [nx, ny, nz], 1.0, &flat_uv, 0));
+        let boundary_only = error(&surface_mesh_field(&solid, None, [nx, ny, nz], 1.0, &flat_uv, 0));
+        eprintln!("sphere: mean distance from the surface {with_field:.3} voxels with the field, {boundary_only:.3} from the boundary alone");
+        assert!(with_field < 0.1, "field: mean distance from the sphere {with_field:.3} voxels");
+        assert!(with_field * 3.0 < boundary_only, "field {with_field:.3} against boundary {boundary_only:.3} voxels");
+    }
+
+    /// Smoothing is a setting: none keeps the corners where they were placed.
+    #[test]
+    fn no_smoothing_keeps_the_placed_corners() {
+        let (nx, ny, nz) = (8usize, 8usize, 8usize);
+        let solid: Vec<bool> = (0..nx * ny * nz)
+            .map(|q| {
+                let (i, j, k) = (q % nx, (q / nx) % ny, q / (nx * ny));
+                (2..6).contains(&i) && (2..6).contains(&j) && (2..6).contains(&k)
+            })
+            .collect();
+        let flat_uv = |_: [f32; 3], _: usize, _: [f32; 3], _: [f32; 3]| [0.0, 0.0];
+        let sharp = surface_mesh_field(&solid, None, [nx, ny, nz], 1.0, &flat_uv, 0);
+        let soft = surface_mesh_field(&solid, None, [nx, ny, nz], 1.0, &flat_uv, 2);
+        let extent = |m: &Mesh| m.positions.iter().map(|p| p[0]).fold(f32::MIN, f32::max) - m.positions.iter().map(|p| p[0]).fold(f32::MAX, f32::min);
+        // the cube's boundary corners lie on the midpoints between voxel centres: 4 wide
+        assert!((extent(&sharp) - 4.0).abs() < 1e-5, "unsmoothed extent {}", extent(&sharp));
+        assert!(extent(&soft) < extent(&sharp), "smoothing shrinks: {} against {}", extent(&soft), extent(&sharp));
+    }
 
     /// A sheet with three views of a box-shaped figure: front 40 wide, side 20, back 40.
     fn sheet() -> Vec<u8> {
