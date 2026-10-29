@@ -76,7 +76,9 @@ wins over rough zones. It is saved in the zone file and undone with `Cmd+Z` like
   only.
 - `d` hides or shows the doubtful outlines.
 - A piece split between two zones usually needs either a zone border moved, or `--cut` /
-  `c`, which divides the piece along the border when saving.
+  `c`, which divides the piece along the border. For documents up to 3,000 pieces (drawings)
+  the cut is redone after every change, so you see the parts at once; larger ones are cut when
+  saving.
 
 ## Order of zones
 

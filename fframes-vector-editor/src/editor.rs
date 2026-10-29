@@ -30,6 +30,9 @@ pub struct Config {
     pub cut: bool,
 }
 
+/// Up to this many pieces the cut is redone after every change; above it, only on saving.
+const LIVE_CUT_MAX_PIECES: usize = 3000;
+
 const SYSTEM_FONTS: &[&str] = &[".AppleSystemUIFont", "Helvetica Neue", "Segoe UI", "DejaVu Sans"];
 
 fn hex(c: &str) -> Color {
@@ -39,7 +42,12 @@ fn hex(c: &str) -> Color {
 
 /// The document, its pieces as Skia paths, the zones and what grouping made of them.
 struct Model {
+    /// The document as loaded.
+    base: PieceDocument,
+    /// What is shown and saved: the base, or the base cut along the zones.
     doc: PieceDocument,
+    /// Cut along the zones after every change (small documents; large ones cut on save).
+    live_cut: bool,
     paths: Vec<Option<Path>>,
     fills: Vec<Color>,
     raster: PieceRaster,
@@ -52,13 +60,15 @@ struct Model {
 }
 
 impl Model {
-    fn new(doc: PieceDocument, zones: GroupMap, zone_scale: f32) -> Self {
+    fn new(doc: PieceDocument, zones: GroupMap, zone_scale: f32, live_cut: bool) -> Self {
         let paths = doc.pieces.iter().map(|p| Path::from_svg(&p.d)).collect();
         let fills = doc.pieces.iter().map(|p| hex(doc.color_hex(p))).collect();
         let raster = PieceRaster::fit(&doc, 4096);
         let mut m = Model {
             groups: vec![None; doc.pieces.len()],
+            base: doc.clone(),
             doc,
+            live_cut,
             paths,
             fills,
             raster,
@@ -71,8 +81,25 @@ impl Model {
         m
     }
 
-    /// Grouping and the report after a change of zones.
+    /// Shows `doc` instead of the current document.
+    fn show(&mut self, doc: PieceDocument) {
+        self.paths = doc.pieces.iter().map(|p| Path::from_svg(&p.d)).collect();
+        self.fills = doc.pieces.iter().map(|p| hex(doc.color_hex(p))).collect();
+        self.raster = PieceRaster::fit(&doc, 4096);
+        self.doc = doc;
+    }
+
+    /// Grouping and the report after a change of zones (cutting first when live).
     fn regroup(&mut self) {
+        let mut named = Vec::new();
+        if self.live_cut {
+            let mut doc = self.base.clone();
+            named = cut::cut_at_zones(&mut doc, &self.zones, self.zone_scale, &CutParams::default())
+                .named;
+            self.show(doc);
+        } else if self.doc.pieces.len() != self.base.pieces.len() {
+            self.show(self.base.clone());
+        }
         let k = Matrix::scale((self.zone_scale, self.zone_scale));
         self.zone_paths = self
             .zones
@@ -82,6 +109,7 @@ impl Model {
             .collect();
         let layer = self.zones.layer(&self.raster, self.zone_scale);
         group::assign(&mut self.doc, &self.raster, &layer, &AssignParams::default());
+        cut::keep_names(&mut self.doc, &named);
         self.report = report::report(&self.doc, &self.raster, &layer, &ReportParams::default());
         self.groups = self
             .doc
@@ -199,6 +227,7 @@ pub fn run(config: Config) -> Result<(), String> {
         doc.pieces.len(),
         zones.zones.len()
     );
+    let small = doc.pieces.len() <= LIVE_CUT_MAX_PIECES;
     let font_mgr = FontMgr::new();
     let font_regular = SYSTEM_FONTS
         .iter()
@@ -206,7 +235,7 @@ pub fn run(config: Config) -> Result<(), String> {
         .or_else(|| font_mgr.legacy_make_typeface(None, FontStyle::normal()))
         .ok_or("no system font available")?;
     let mut editor = Editor {
-        model: Model::new(doc, zones, zone_scale),
+        model: Model::new(doc, zones, zone_scale, config.cut && small),
         config,
         window: None,
         surface: None,
@@ -326,7 +355,13 @@ impl Editor {
         }
         let mut doc = self.model.doc.clone();
         let mut cut_note = String::new();
-        if self.config.cut {
+        if self.model.live_cut {
+            cut_note = format!(
+                ", cut: {} pieces (from {})",
+                doc.pieces.len(),
+                self.model.base.pieces.len()
+            );
+        } else if self.config.cut {
             let s = cut::cut_at_zones(
                 &mut doc,
                 &self.model.zones,
@@ -365,6 +400,9 @@ impl Editor {
         };
         to.push(std::mem::replace(&mut self.model.zones, zones));
         self.model.regroup();
+                        if self.model.live_cut {
+                            self.selected.clear();
+                        }
         self.message = format!(
             "{}: {} zones, {} of {} pieces grouped ({} more steps back)",
             if back { "undone" } else { "redone" },
@@ -396,6 +434,9 @@ impl Editor {
                             self.redo.clear();
                             self.model.zones.zones.insert(0, z);
                             self.model.regroup();
+                        if self.model.live_cut {
+                            self.selected.clear();
+                        }
                             self.message = format!(
                                 "zone \"{name}\": {} of {} pieces grouped",
                                 self.model.grouped(),
@@ -437,6 +478,9 @@ impl Editor {
                         // exactly these pieces: first, so it wins over rough zones
                         self.model.zones.zones.insert(0, z);
                         self.model.regroup();
+                        if self.model.live_cut {
+                            self.selected.clear();
+                        }
                         self.message = format!(
                             "{} pieces named \"{name}\": {} of {} pieces grouped",
                             self.selected.len(),
@@ -510,6 +554,9 @@ impl Editor {
                         self.redo.clear();
                         let z = self.model.zones.zones.remove(i);
                         self.model.regroup();
+                        if self.model.live_cut {
+                            self.selected.clear();
+                        }
                         self.message = format!("zone \"{}\" deleted", z.name);
                     }
                 }
@@ -522,6 +569,9 @@ impl Editor {
                             self.redo.clear();
                             self.model.zones.zones.swap(i, j);
                             self.model.regroup();
+                        if self.model.live_cut {
+                            self.selected.clear();
+                        }
                             self.message = format!(
                                 "zone \"{}\" is now number {} of {}",
                                 self.model.zones.zones[j].name,
@@ -544,6 +594,13 @@ impl Editor {
                 Key::Character("f") => self.fit(),
                 Key::Character("c") => {
                     self.config.cut = !self.config.cut;
+                    self.model.live_cut =
+                        self.config.cut && self.model.base.pieces.len() <= LIVE_CUT_MAX_PIECES;
+                    self.model.regroup();
+                        if self.model.live_cut {
+                            self.selected.clear();
+                        }
+                    self.selected.clear();
                     self.message = format!(
                         "cut along zones when saving: {}",
                         if self.config.cut { "on" } else { "off" }
