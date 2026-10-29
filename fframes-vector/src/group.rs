@@ -88,22 +88,30 @@ impl Zone {
         })
     }
 
-    /// The outline as absolute SVG path data.
+    /// The outline as absolute SVG path data, two decimals.
     #[must_use]
     pub fn path_data(&self) -> String {
-        use std::fmt::Write;
         use svgr::tiny_skia::PathSegment;
         let mut d = String::new();
-        for seg in self.path.segments() {
-            let _ = match seg {
-                PathSegment::MoveTo(p) => write!(d, "M{} {}", p.x, p.y),
-                PathSegment::LineTo(p) => write!(d, "L{} {}", p.x, p.y),
-                PathSegment::QuadTo(c, p) => write!(d, "Q{} {} {} {}", c.x, c.y, p.x, p.y),
-                PathSegment::CubicTo(a, b, p) => {
-                    write!(d, "C{} {} {} {} {} {}", a.x, a.y, b.x, b.y, p.x, p.y)
+        let points = |d: &mut String, command: char, points: &[svgr::tiny_skia::Point]| {
+            d.push(command);
+            for (i, p) in points.iter().enumerate() {
+                if i > 0 {
+                    d.push(' ');
                 }
-                PathSegment::Close => write!(d, "Z"),
-            };
+                push_num(d, p.x);
+                d.push(' ');
+                push_num(d, p.y);
+            }
+        };
+        for seg in self.path.segments() {
+            match seg {
+                PathSegment::MoveTo(p) => points(&mut d, 'M', &[p]),
+                PathSegment::LineTo(p) => points(&mut d, 'L', &[p]),
+                PathSegment::QuadTo(c, p) => points(&mut d, 'Q', &[c, p]),
+                PathSegment::CubicTo(a, b, p) => points(&mut d, 'C', &[a, b, p]),
+                PathSegment::Close => d.push('Z'),
+            }
         }
         d
     }
@@ -165,6 +173,18 @@ fn transform_of(tag: &str) -> Transform {
                 t.a as f32, t.b as f32, t.c as f32, t.d as f32, t.e as f32, t.f as f32,
             )
         })
+}
+
+/// `v` with two decimals and no trailing zeros (`12.5`, `3`, `-0.25`).
+fn push_num(d: &mut String, v: f32) {
+    use std::fmt::Write;
+    let start = d.len();
+    let _ = write!(d, "{v:.2}");
+    let kept = d[start..].trim_end_matches('0').trim_end_matches('.').len();
+    d.truncate(start + kept);
+    if &d[start..] == "-0" {
+        d.replace_range(start.., "0");
+    }
 }
 
 /// The end of the start tag at the beginning of `s`: the first `>` outside quotes.
@@ -804,6 +824,7 @@ mod tests {
         let names: Vec<&str> = back.zones.iter().map(|z| z.name.as_str()).collect();
         assert_eq!(names, ["body/arm", "say \"hi\" & <go>"]);
         assert_eq!(back.zones[0].path.bounds(), map.zones[0].path.bounds());
+        assert_eq!(map.zones[0].path_data(), "M1 2L30.5 2L30.5 40Z");
     }
 
     #[test]
