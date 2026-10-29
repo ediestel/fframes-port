@@ -36,9 +36,15 @@ mod icons;
 mod options;
 mod presenter;
 mod scheduler;
+mod surface;
 
 pub use error::*;
 pub use options::*;
+pub use surface::Surface;
+/// The renderer and Skia, for drawing into a [`Surface`].
+pub use fframes_skia_renderer;
+/// The window library of [`Surface`].
+pub use winit;
 
 use std::collections::HashMap;
 use std::sync::Mutex;
