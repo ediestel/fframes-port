@@ -28,6 +28,7 @@ pub mod gltf;
 pub mod group;
 pub mod lowpoly;
 pub mod quantize;
+pub mod points;
 pub mod raster;
 pub mod report;
 pub mod splat;

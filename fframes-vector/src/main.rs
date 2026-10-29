@@ -313,6 +313,51 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some("points") if args.len() >= 3 => {
+            // points video.mp4 out.ply [--height 1.7] [--frames 72] [--step 2] [--max-disagreement 30] [--clockwise]
+            use fframes_vector::points::{PointsParams, to_ply, turntable_points};
+            let (input, output) = (&args[1], &args[2]);
+            let count: usize = opt(&args, "--frames").unwrap_or(72);
+            let height: f32 = opt(&args, "--height").unwrap_or(1.7);
+            let mut p = PointsParams::default();
+            if let Some(s) = opt(&args, "--step") {
+                p.step = s;
+            }
+            if let Some(m) = opt(&args, "--max-disagreement") {
+                p.max_disagreement = m;
+            }            p.clockwise = args.iter().any(|a| a == "--clockwise");
+            let result = (|| -> Result<_, String> {
+                let frames = turntable_frames(input, count)?;
+                let (points, support) = turntable_points(&frames, &p)?;
+                let top = points.iter().map(|q| q.y).fold(0.0_f32, f32::max).max(1.0);
+                std::fs::write(output, to_ply(&points, height / top)).map_err(|e| format!("{output}: {e}"))?;
+                // the same points as dots for a 3D viewer, next to the PLY
+                let glb = std::path::Path::new(output).with_extension("glb");
+                std::fs::write(&glb, fframes_vector::points::to_glb(&points, height / top, 0.008))
+                    .map_err(|e| format!("{}: {e}", glb.display()))?;
+                Ok((points, support, height / top))
+            })();
+            match result {
+                Ok((points, support, scale)) => {
+                    let ext = |f: fn(&fframes_vector::points::Point) -> f32| {
+                        points.iter().map(f).fold((f32::MAX, f32::MIN), |m, v| (m.0.min(v), m.1.max(v)))
+                    };
+                    let (x, y, z) = (ext(|q| q.x), ext(|q| q.y), ext(|q| q.z));
+                    eprintln!(
+                        "{output}: {} points; x {:.2}..{:.2} m, y {:.2}..{:.2} m, z {:.2}..{:.2} m; median support {:.0} % ({:.1} s)",
+                        points.len(),
+                        x.0 * scale, x.1 * scale, y.0 * scale, y.1 * scale, z.0 * scale, z.1 * scale,
+                        support * 100.0,
+                        start.elapsed().as_secs_f32()
+                    );
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some("turntable") if args.len() >= 3 => {
             // turntable video.mp4 out.glb [--height 1.7] [--frames 36] [--keep N] [--resolution 192] [--direction cw|ccw]
             use fframes_vector::figure::{TurntableParams, turntable_glb};
