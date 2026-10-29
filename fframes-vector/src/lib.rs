@@ -6,7 +6,8 @@
 //! 4. [`document::PieceDocument`]: the pieces with ids, colours, bounds and groups; saved as
 //!    JSON, exported as SVG.
 //! 5. [`group`]: pieces named as objects from hints (zone SVG, colour mask), piece by
-//!    piece or by automatic [`cluster`]s, on a [`raster::PieceRaster`].
+//!    piece or by automatic [`cluster`]s, on a [`raster::PieceRaster`]; [`cut`] first splits
+//!    pieces that cross a zone border, for parts that move on their own.
 //! 6. [`tree::PieceTree`]: the document as a static, cached `svgr` tree for fframes, whole,
 //!    per object, or everything but one object.
 //! 7. [`atlas`]: sprite atlases for game engines.
@@ -17,6 +18,7 @@
 
 pub mod atlas;
 pub mod cluster;
+pub mod cut;
 pub mod document;
 pub mod drawing;
 pub mod flatten;
