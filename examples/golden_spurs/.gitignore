@@ -4,5 +4,7 @@
 /vector/sprites/
 /vector/*.svg
 !/vector/zones.svg
+# 3D figures, splat datasets and trained splats (fframes-vector depth / Brush)
+/turntable_3d/
 # other experiments, not part of this example
 /grok/
