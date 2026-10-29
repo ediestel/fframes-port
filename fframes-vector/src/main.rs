@@ -148,8 +148,8 @@ fn group_command(cmd: &str, args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-/// `count` frames spread evenly over one turn of a video, read with the `ffmpeg` command into
-/// a temporary folder that is removed again.
+/// `count` frames spread evenly over one turn of a video (0: every frame), read with the
+/// `ffmpeg` command into a temporary folder that is removed again.
 fn turntable_frames(video: &str, count: usize) -> Result<Vec<image::RgbaImage>, String> {
     let probe = std::process::Command::new("ffprobe")
         .args(["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", video])
@@ -161,17 +161,24 @@ fn turntable_frames(video: &str, count: usize) -> Result<Vec<image::RgbaImage>, 
         .map_err(|_| format!("{video}: no duration"))?;
     let dir = std::env::temp_dir().join(format!("fframes-turntable-{}", std::process::id()));
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let status = std::process::Command::new("ffmpeg")
-        .args(["-loglevel", "error", "-y", "-i", video, "-vf"])
-        .arg(format!("fps={count}/{seconds}"))
-        .args(["-frames:v", &count.to_string()])
-        .arg(dir.join("f_%03d.png"))
-        .status()
-        .map_err(|e| format!("ffmpeg: {e}"));
+    let mut ffmpeg = std::process::Command::new("ffmpeg");
+    ffmpeg.args(["-loglevel", "error", "-y", "-i", video]);
+    if count > 0 {
+        ffmpeg
+            .arg("-vf")
+            .arg(format!("fps={count}/{seconds}"))
+            .args(["-frames:v", &count.to_string()]);
+    }
+    let status = ffmpeg.arg(dir.join("f_%03d.png")).status().map_err(|e| format!("ffmpeg: {e}"));
     let frames = status.and_then(|s| {
         if !s.success() {
             return Err(format!("ffmpeg failed on {video}"));
         }
+        let count = if count > 0 {
+            count
+        } else {
+            (1..).take_while(|i| dir.join(format!("f_{i:03}.png")).exists()).count()
+        };
         (1..=count)
             .map(|i| {
                 let f = dir.join(format!("f_{i:03}.png"));
@@ -327,6 +334,116 @@ fn main() -> ExitCode {
                         t.volume,
                         start.elapsed().as_secs_f32()
                     );
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Some("depth") if args.len() >= 3 => {
+            // depth video.mp4 out.glb [--height 1.7] [--frames 0 (all)] [--views 5] [--window 2] [--voxel 1.5]
+            //   [--sharpness 0.6] [--outside N] [--direction cw|ccw] [--maps dir]
+            use fframes_vector::depth::{DepthParams, depth_glb, depth_picture};
+            let (input, output) = (&args[1], &args[2]);
+            let count: usize = opt(&args, "--frames").unwrap_or(0);
+            let mut p = DepthParams::default();
+            if let Some(h) = opt(&args, "--height") {
+                p.height = h;
+            }
+            if let Some(v) = opt(&args, "--views") {
+                p.views = v;
+            }
+            if let Some(v) = opt(&args, "--window") {
+                p.window = v;
+            }
+            if let Some(v) = opt(&args, "--voxel") {
+                p.voxel = v;
+            }
+            if let Some(v) = opt(&args, "--sharpness") {
+                p.sharpness = v;
+            }
+            if let Some(v) = opt(&args, "--kept") {
+                p.kept = v;
+            }
+            if let Some(v) = opt(&args, "--surface") {
+                p.surface = v;
+            }
+            p.hull = args.iter().any(|a| a == "--hull");
+            if let Some(v) = opt(&args, "--refine") {
+                p.refine = v;
+            }
+            // --check 1,30,60: loss pictures of these frames (1-based) into the --maps folder
+            if let Some(list) = opt::<String>(&args, "--check") {
+                p.check = list.split(',').filter_map(|f| f.trim().parse::<usize>().ok()).map(|f| f.saturating_sub(1)).collect();
+            }
+            p.outside = opt(&args, "--outside");
+            p.clockwise = match opt::<String>(&args, "--direction").as_deref() {
+                Some("cw") => Some(true),
+                Some("ccw") => Some(false),
+                _ => None,
+            };
+            let result = (|| -> Result<_, String> {
+                let frames = turntable_frames(input, count)?;
+                let (glb, t, maps) = depth_glb(&frames, &p)?;
+                std::fs::write(output, &glb).map_err(|e| format!("{output}: {e}"))?;
+                if let Some(dir) = opt::<String>(&args, "--maps") {
+                    std::fs::create_dir_all(&dir).map_err(|e| format!("{dir}: {e}"))?;
+                    for f in 0..maps.maps.len() {
+                        let path = format!("{dir}/depth_{:03}.png", f + 1);
+                        depth_picture(&maps, f).save(&path).map_err(|e| format!("{path}: {e}"))?;
+                    }
+                }
+                // loss pictures next to the model: out_loss_030.png
+                for c in &t.checks {
+                    let path = std::path::Path::new(output).with_extension("");
+                    let path = format!("{}_loss_{:03}.png", path.display(), c.frame + 1);
+                    c.picture.save(&path).map_err(|e| format!("{path}: {e}"))?;
+                    eprintln!(
+                        "{path}: frame {}, {} figure pixels, lost {} by the outline check (red), {} by the depth check (blue)",
+                        c.frame + 1,
+                        c.figure,
+                        c.by_outline,
+                        c.by_depth
+                    );
+                }
+                Ok((glb.len(), t))
+            })();
+            match result {
+                Ok((bytes, t)) => {
+                    eprintln!(
+                        "{output}: {:.1} MB, {} frames, half turn {:.2} frames ({:.3}° per frame, {:.0}° in all), axis x {:.1} (mirror error {:.2} px), turning {}{}, depth known for {:.0} % of figure pixels, {} voxels ({:.1} s)",
+                        bytes as f64 / 1_048_576.0,
+                        t.frames,
+                        t.half_turn,
+                        t.step_degrees,
+                        t.step_degrees * (t.frames - 1) as f32,
+                        t.axis,
+                        t.mirror_error,
+                        if t.clockwise { "clockwise" } else { "anticlockwise" },
+                        t.violations.map_or_else(String::new, |(a, b)| format!(
+                            " ({:.1} % of points in front of another frame's surface, {:.1} % the other way)",
+                            a * 100.0,
+                            b * 100.0
+                        )),
+                        t.known * 100.0,
+                        t.voxels,
+                        start.elapsed().as_secs_f32()
+                    );
+                    for (r, (mean, max)) in t.corrections.iter().enumerate() {
+                        eprintln!("angle round {}: frames corrected by {mean:.2}° on average, at most {max:.2}°", r + 1);
+                    }
+                    eprintln!("{} loose fragments removed", t.fragments);
+                    eprintln!("height band (top to bottom): outline disagreement half a turn later / kept / removed by outline / removed by depth");
+                    for (b, [kept, outline, depth]) in t.bands.iter().enumerate() {
+                        eprintln!(
+                            "  {:>3}-{:>3} %: {:>5.1} px / {kept:>9} / {outline:>9} / {depth:>9}",
+                            b * 10,
+                            b * 10 + 10,
+                            t.disagreement.get(b).copied().unwrap_or(0.0)
+                        );
+                    }
                     ExitCode::SUCCESS
                 }
                 Err(e) => {

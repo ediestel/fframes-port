@@ -19,6 +19,7 @@
 pub mod atlas;
 pub mod cluster;
 pub mod cut;
+pub mod depth;
 pub mod document;
 pub mod drawing;
 pub mod figure;

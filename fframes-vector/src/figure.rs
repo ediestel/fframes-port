@@ -189,7 +189,7 @@ pub fn find_views(
         .collect())
 }
 
-struct Mesh {
+pub(crate) struct Mesh {
     positions: Vec<[f32; 3]>,
     normals: Vec<[f32; 3]>,
     uvs: Vec<[f32; 2]>,
@@ -343,7 +343,7 @@ pub fn figure_glb(
     // painted from the view each face looks into: +z the front, -z the back, x the side;
     // tops and bottoms by their normal
     let (sw, sh) = (w as f32, h as f32);
-    let uv = |n: [f32; 3], axis: usize, g: [f32; 3]| -> [f32; 2] {
+    let uv = |n: [f32; 3], axis: usize, _centre: [f32; 3], g: [f32; 3]| -> [f32; 2] {
         let facing_z = match axis {
             2 => true,
             0 => false,
@@ -615,14 +615,14 @@ pub fn turntable_glb(
         (2..(nx.max(nz) as i32)).all(|t| !solid_at(g[0] + dx * t as f32, g[1], g[2] + dz * t as f32))
     };
     let (aw, ah) = (atlas.width() as f32, atlas.height() as f32);
-    let uv = |nrm: [f32; 3], _axis: usize, g: [f32; 3]| -> [f32; 2] {
+    let uv = |nrm: [f32; 3], _axis: usize, centre: [f32; 3], g: [f32; 3]| -> [f32; 2] {
         let mut order: Vec<usize> = (0..n).collect();
         order.sort_by(|&a, &b| {
             let da = nrm[0] * to_camera[a][0] + nrm[2] * to_camera[a][1];
             let db = nrm[0] * to_camera[b][0] + nrm[2] * to_camera[b][1];
             db.total_cmp(&da)
         });
-        let f = order.iter().take(6).copied().find(|&f| sees(f, g)).unwrap_or(order[0]);
+        let f = order.iter().take(6).copied().find(|&f| sees(f, centre)).unwrap_or(order[0]);
         let (c, s) = rot[f];
         let (x, z) = ((g[0] - nh as f32) * px, (g[2] - nh as f32) * px);
         let v = tall - (g[1] - 0.5) * px;
@@ -649,13 +649,14 @@ pub fn turntable_glb(
 
 /// The surface of the solid voxels of an `[nx, ny, nz]` grid (y running down) as a textured
 /// mesh: surface nets, smoothed twice, smooth vertex normals, feet at y = 0 and centred, `scale`
-/// metres per voxel. `uv` maps a face's outward normal (world), the axis it faces along and a
-/// grid point to texture coordinates.
-fn surface_mesh(
+/// metres per voxel. `uv` maps a face's outward normal (world), the axis it faces along, the
+/// face's centre and a corner (grid points) to texture coordinates; it should choose the
+/// picture by the centre, so all corners of a face come from the same picture.
+pub(crate) fn surface_mesh(
     solid: &[bool],
     [nx, ny, nz]: [usize; 3],
     scale: f32,
-    uv: &dyn Fn([f32; 3], usize, [f32; 3]) -> [f32; 2],
+    uv: &dyn Fn([f32; 3], usize, [f32; 3], [f32; 3]) -> [f32; 2],
 ) -> Mesh {
     let idx = |i: usize, j: usize, k: usize| (k * ny + j) * nx + i;
     // a vertex in every cell where the solid changes, quads across every boundary face
@@ -737,11 +738,12 @@ fn surface_mesh(
         let pts: Vec<[f32; 3]> = q.iter().map(|&v| world(verts[v as usize])).collect();
         let q = if n_dot_winding(&pts, n) { *q } else { [q[3], q[2], q[1], q[0]] };
         let base = mesh.positions.len() as u32;
+        let centre: [f32; 3] = std::array::from_fn(|c| q.iter().map(|&v| verts[v as usize][c]).sum::<f32>() / 4.0);
         for &v in &q {
             let g = verts[v as usize];
             mesh.positions.push(world(g));
             mesh.normals.push(vertex_normal[v as usize]);
-            mesh.uvs.push(uv(n, *axis, g));
+            mesh.uvs.push(uv(n, *axis, centre, g));
         }
         mesh.indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
     }
@@ -837,7 +839,7 @@ fn normal(p: &[[f32; 3]]) -> [f32; 3] {
 }
 
 /// A binary glTF with one textured mesh; the PNG is embedded as its texture.
-fn write_glb(m: &Mesh, png: &[u8]) -> Vec<u8> {
+pub(crate) fn write_glb(m: &Mesh, png: &[u8]) -> Vec<u8> {
     let mut bin: Vec<u8> = Vec::new();
     let mut views = Vec::new();
     let mut push = |bin: &mut Vec<u8>, bytes: &[u8], target: Option<u32>| {
