@@ -150,6 +150,24 @@ fn group_command(cmd: &str, args: &[String]) -> Result<(), String> {
 
 /// `count` frames spread evenly over one turn of a video (0: every frame), read with the
 /// `ffmpeg` command into a temporary folder that is removed again.
+/// The vertex positions of a binary glTF's first mesh (its first accessor, as fframes-vector
+/// writes them), metres.
+fn glb_positions(path: &str) -> Result<Vec<[f32; 3]>, String> {
+    let data = std::fs::read(path).map_err(|e| format!("{path}: {e}"))?;
+    let word = |o: usize| u32::from_le_bytes([data[o], data[o + 1], data[o + 2], data[o + 3]]) as usize;
+    if data.len() < 20 || &data[..4] != b"glTF" {
+        return Err(format!("{path}: not a binary glTF"));
+    }
+    let json_len = word(12);
+    let doc: serde_json::Value = serde_json::from_slice(&data[20..20 + json_len]).map_err(|e| format!("{path}: {e}"))?;
+    let bin = 20 + json_len + 8;
+    let acc = &doc["accessors"][0];
+    let view = &doc["bufferViews"][acc["bufferView"].as_u64().unwrap_or(0) as usize];
+    let (offset, count) = (view["byteOffset"].as_u64().unwrap_or(0) as usize, acc["count"].as_u64().unwrap_or(0) as usize);
+    let f = |o: usize| f32::from_le_bytes([data[o], data[o + 1], data[o + 2], data[o + 3]]);
+    Ok((0..count).map(|i| std::array::from_fn(|c| f(bin + offset + (i * 3 + c) * 4))).collect())
+}
+
 fn turntable_frames(video: &str, count: usize) -> Result<Vec<image::RgbaImage>, String> {
     let probe = std::process::Command::new("ffprobe")
         .args(["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", video])
@@ -487,6 +505,62 @@ fn main() -> ExitCode {
                             t.disagreement.get(b).copied().unwrap_or(0.0)
                         );
                     }
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Some("splat-depth") if args.len() >= 3 => {
+            // splat-depth splats.ply dataset_dir [--every 8] [--offset 3] [--mesh model.glb]:
+            // depth diagnostics of trained splats, and their cross-sections against a mesh
+            use fframes_vector::splat::{depth_report, read_cameras, read_splats};
+            let (ply, dir) = (&args[1], std::path::Path::new(&args[2]));
+            let every: usize = opt(&args, "--every").unwrap_or(8);
+            let offset: usize = opt(&args, "--offset").unwrap_or(3);
+            let run = || -> Result<(), String> {
+                let splats = read_splats(std::path::Path::new(ply))?;
+                let cams = read_cameras(&dir.join("transforms.json"))?;
+                let (report, points) = depth_report(&splats, &cams, dir, every, offset)?;
+                eprintln!("{report}");
+                // cross-sections: per tenth of the height, the width in x and z (2-98 %)
+                let bands = |pts: &[[f32; 3]]| -> Vec<(f32, f32)> {
+                    let (lo, hi) = pts.iter().fold((f32::MAX, f32::MIN), |m, p| (m.0.min(p[1]), m.1.max(p[1])));
+                    (0..10)
+                        .map(|b| {
+                            let (y0, y1) = (hi - (hi - lo) * (b + 1) as f32 / 10.0, hi - (hi - lo) * b as f32 / 10.0);
+                            let slice: Vec<&[f32; 3]> = pts.iter().filter(|p| p[1] >= y0 && p[1] <= y1).collect();
+                            let range = |c: usize| {
+                                let mut v: Vec<f32> = slice.iter().map(|p| p[c]).collect();
+                                v.sort_by(f32::total_cmp);
+                                if v.len() < 10 { f32::NAN } else { v[v.len() * 98 / 100] - v[v.len() * 2 / 100] }
+                            };
+                            (range(0), range(2))
+                        })
+                        .collect()
+                };
+                let splat_bands = bands(&points);
+                let mesh_bands = match opt::<String>(&args, "--mesh") {
+                    Some(m) => Some(bands(&glb_positions(&m)?)),
+                    None => None,
+                };
+                eprintln!("cross-sections, top to bottom: width x / z in cm, splat surface{}", if mesh_bands.is_some() { " against the mesh" } else { "" });
+                for (b, (sx, sz)) in splat_bands.iter().enumerate() {
+                    match &mesh_bands {
+                        Some(mb) => eprintln!(
+                            "  {:>3}-{:>3} %: {:5.1} / {:5.1}   mesh {:5.1} / {:5.1}",
+                            b * 10, b * 10 + 10, sx * 100.0, sz * 100.0, mb[b].0 * 100.0, mb[b].1 * 100.0
+                        ),
+                        None => eprintln!("  {:>3}-{:>3} %: {:5.1} / {:5.1}", b * 10, b * 10 + 10, sx * 100.0, sz * 100.0),
+                    }
+                }
+                Ok(())
+            };
+            match run() {
+                Ok(()) => {
+                    eprintln!("({:.1} s)", start.elapsed().as_secs_f32());
                     ExitCode::SUCCESS
                 }
                 Err(e) => {

@@ -225,6 +225,29 @@ pub fn read_cameras(path: &std::path::Path) -> Result<Vec<(String, Camera)>, Str
 /// front to back until a pixel is opaque.
 #[must_use]
 pub fn render(splats: &[Splat], cam: &Camera, scale: f32, background: [u8; 3]) -> (image::RgbaImage, Vec<f32>) {
+    let r = render_layers(splats, cam, scale, background);
+    (r.image, r.alpha)
+}
+
+/// A rendering with its depth layers, per pixel. Depths are camera distances (metres along
+/// the viewing direction); NaN where nothing is drawn.
+pub struct Rendered {
+    pub image: image::RgbaImage,
+    /// Accumulated opacity, 0 to 1.
+    pub alpha: Vec<f32>,
+    /// Opacity-weighted mean depth (normalised by `alpha`): between layers when several are
+    /// drawn over each other.
+    pub expected: Vec<f32>,
+    /// Depth at which the accumulated opacity passes one half: the first layer that covers
+    /// the pixel.
+    pub median: Vec<f32>,
+    /// Opacity-weighted standard deviation of the depths: large where layers mix.
+    pub spread: Vec<f32>,
+}
+
+/// [`render`] with depth layers.
+#[must_use]
+pub fn render_layers(splats: &[Splat], cam: &Camera, scale: f32, background: [u8; 3]) -> Rendered {
     let (w, h) = (((cam.width as f32) * scale).round() as usize, ((cam.height as f32) * scale).round() as usize);
     let (fx, fy, cx, cy) = (cam.fx * scale, cam.fy * scale, cam.cx * scale, cam.cy * scale);
     let m = cam.to_world;
@@ -300,11 +323,14 @@ pub fn render(splats: &[Splat], cam: &Camera, scale: f32, background: [u8; 3]) -
             }
         }
     }
-    let pixels: Vec<([f32; 3], f32)> = (0..w * h)
+    // per pixel: colour, opacity, then the depth sums (weight · depth, weight · depth²) and
+    // the depth where the opacity passes one half
+    let pixels: Vec<([f32; 3], f32, f32, f32, f32)> = (0..w * h)
         .into_par_iter()
         .map(|i| {
             let (px, py) = ((i % w) as f32 + 0.5, (i / w) as f32 + 0.5);
             let (mut colour, mut through) = ([0.0_f32; 3], 1.0_f32);
+            let (mut sum, mut sum2, mut median) = (0.0_f32, 0.0_f32, f32::NAN);
             for &k in &tiles[(i / w / TILE) * tx + (i % w) / TILE] {
                 let p = &list[k as usize];
                 let (dx, dy) = (px - p.u, py - p.v);
@@ -316,23 +342,162 @@ pub fn render(splats: &[Splat], cam: &Camera, scale: f32, background: [u8; 3]) -
                 if alpha < 1.0 / 255.0 {
                     continue;
                 }
+                let weight = alpha * through;
                 for c in 0..3 {
-                    colour[c] += p.colour[c] * alpha * through;
+                    colour[c] += p.colour[c] * weight;
                 }
+                sum += weight * p.depth;
+                sum2 += weight * p.depth * p.depth;
                 through *= 1.0 - alpha;
+                if median.is_nan() && through <= 0.5 {
+                    median = p.depth;
+                }
                 if through < 1e-4 {
                     break;
                 }
             }
-            (colour, 1.0 - through)
+            (colour, 1.0 - through, sum, sum2, median)
         })
         .collect();
     let mut img = image::RgbaImage::new(w as u32, h as u32);
-    let mut cover = vec![0.0_f32; w * h];
-    for (i, (c, a)) in pixels.iter().enumerate() {
+    let (mut alpha, mut expected, mut median, mut spread) =
+        (vec![0.0_f32; w * h], vec![f32::NAN; w * h], vec![f32::NAN; w * h], vec![f32::NAN; w * h]);
+    for (i, (c, a, sum, sum2, med)) in pixels.iter().enumerate() {
         let px: [u8; 3] = std::array::from_fn(|k| ((c[k] + (1.0 - a) * f32::from(background[k]) / 255.0) * 255.0).round().clamp(0.0, 255.0) as u8);
         img.put_pixel((i % w) as u32, (i / w) as u32, image::Rgba([px[0], px[1], px[2], 255]));
-        cover[i] = *a;
+        alpha[i] = *a;
+        if *a > 1e-3 {
+            let mean = sum / a;
+            expected[i] = mean;
+            spread[i] = (sum2 / a - mean * mean).max(0.0).sqrt();
+            median[i] = *med;
+        }
     }
-    (img, cover)
+    Rendered { image: img, alpha, expected, median, spread }
+}
+
+/// Percentiles (0..1) of a list, NaN when empty.
+fn percentiles(mut v: Vec<f32>, at: &[f32]) -> Vec<f32> {
+    v.retain(|x| x.is_finite());
+    v.sort_by(f32::total_cmp);
+    at.iter()
+        .map(|&p| if v.is_empty() { f32::NAN } else { v[((v.len() - 1) as f32 * p).round() as usize] })
+        .collect()
+}
+
+/// A camera's world position and its world-to-camera rows (OpenCV axes).
+fn camera_frame(cam: &Camera) -> ([f32; 3], [[f32; 3]; 3]) {
+    let m = cam.to_world;
+    (
+        [m[0][3], m[1][3], m[2][3]],
+        [[m[0][0], m[1][0], m[2][0]], [-m[0][1], -m[1][1], -m[2][1]], [-m[0][2], -m[1][2], -m[2][2]]],
+    )
+}
+
+/// Depth diagnostics of trained splats against the dataset they were trained on, before any
+/// surface is built from them. Every `every`-th camera is rendered with its depth layers;
+/// only confident pixels count (opacity over 0.9, inside the image's figure). Depths are in
+/// image pixels (the dataset's metres per pixel). Reports:
+/// continuity of the median depth between neighbouring pixels; expected against median depth
+/// (a gap means layers mixed into one pixel); the depth spread; cross-view agreement (a
+/// confident point of one camera against the median depth `offset` cameras away, where both
+/// see it); and the confident points themselves (world, metres) for cross-sections.
+pub fn depth_report(
+    splats: &[Splat],
+    cams: &[(String, Camera)],
+    dir: &std::path::Path,
+    every: usize,
+    offset: usize,
+) -> Result<(String, Vec<[f32; 3]>), String> {
+    let first = cams.first().ok_or("no cameras")?.1;
+    let px_per_m = first.fx / DISTANCE;
+    let chosen: Vec<usize> = (0..cams.len()).step_by(every.max(1)).collect();
+    let layers: Vec<(usize, Rendered, Vec<bool>)> = chosen
+        .iter()
+        .map(|&i| {
+            let (name, cam) = &cams[i];
+            let image = image::open(dir.join(name)).map_err(|e| format!("{name}: {e}"))?.to_rgba8();
+            let figure: Vec<bool> = image.pixels().map(|p| p.0[3] > 127).collect();
+            Ok((i, render_layers(splats, cam, 1.0, [0, 0, 0]), figure))
+        })
+        .collect::<Result<_, String>>()?;
+    let confident = |r: &Rendered, fig: &[bool], i: usize| fig[i] && r.alpha[i] > 0.9 && r.median[i].is_finite();
+    let (mut steps, mut gaps, mut spreads, mut figure_px, mut sure_px) = (Vec::new(), Vec::new(), Vec::new(), 0usize, 0usize);
+    let mut points: Vec<[f32; 3]> = Vec::new();
+    let mut cross = Vec::new();
+    for (i, r, fig) in &layers {
+        let cam = cams[*i].1;
+        let (w, h) = (cam.width as usize, cam.height as usize);
+        let (pos, rows) = camera_frame(&cam);
+        figure_px += fig.iter().filter(|&&f| f).count();
+        // the camera `offset` further on, for the cross-view check
+        let other = layers.iter().find(|(j, _, _)| *j == i + offset).or_else(|| None);
+        let other_render;
+        let (o_cam, o_r) = if let Some((j, ro, _)) = other {
+            (cams[*j].1, ro)
+        } else if i + offset < cams.len() {
+            other_render = render_layers(splats, &cams[i + offset].1, 1.0, [0, 0, 0]);
+            (cams[i + offset].1, &other_render)
+        } else {
+            (cam, r)
+        };
+        let (o_pos, o_rows) = camera_frame(&o_cam);
+        for y in 0..h {
+            for x in 0..w {
+                let k = y * w + x;
+                if !confident(r, fig, k) {
+                    continue;
+                }
+                sure_px += 1;
+                let z = r.median[k];
+                gaps.push((r.expected[k] - z).abs() * px_per_m);
+                spreads.push(r.spread[k] * px_per_m);
+                if x + 1 < w && confident(r, fig, k + 1) {
+                    steps.push((r.median[k + 1] - z).abs() * px_per_m);
+                }
+                // the point in the world
+                let c = [(x as f32 + 0.5 - cam.cx) / cam.fx * z, (y as f32 + 0.5 - cam.cy) / cam.fy * z, z];
+                let p: [f32; 3] = std::array::from_fn(|a| pos[a] + (0..3).map(|b| rows[b][a] * c[b]).sum::<f32>());
+                if (x + y) % 3 == 0 {
+                    points.push(p);
+                }
+                if i + offset < cams.len() {
+                    let d = [p[0] - o_pos[0], p[1] - o_pos[1], p[2] - o_pos[2]];
+                    let q: [f32; 3] = std::array::from_fn(|a| (0..3).map(|b| o_rows[a][b] * d[b]).sum());
+                    let (u, v) = (o_cam.cx + o_cam.fx * q[0] / q[2], o_cam.cy + o_cam.fy * q[1] / q[2]);
+                    let (ui, vi) = (u.floor(), v.floor());
+                    if ui >= 0.0 && vi >= 0.0 && (ui as usize) < w && (vi as usize) < h {
+                        let m = o_r.median[vi as usize * w + ui as usize];
+                        // a point the other camera sees (not behind its first layer) agrees
+                        if m.is_finite() && q[2] <= m + 4.5 / px_per_m {
+                            cross.push((q[2] - m).abs() * px_per_m);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let ps = [0.5, 0.9, 0.99];
+    let fmt = |v: Vec<f32>| {
+        let q = percentiles(v, &ps);
+        format!("median {:.2}, p90 {:.2}, p99 {:.2} px", q[0], q[1], q[2])
+    };
+    let share = |v: &[f32], limit: f32| v.iter().filter(|&&x| x <= limit).count() as f32 / v.len().max(1) as f32 * 100.0;
+    let report = format!(
+        "{} cameras checked; confident depth for {:.1} % of figure pixels\n\
+         continuity (neighbouring pixels): {}\n\
+         expected against median depth: {}; within 2 px: {:.1} %\n\
+         depth spread: {}\n\
+         cross-view ({} cameras apart): {}; within 4.5 px: {:.1} %",
+        layers.len(),
+        sure_px as f32 / figure_px.max(1) as f32 * 100.0,
+        fmt(steps),
+        fmt(gaps.clone()),
+        share(&gaps, 2.0),
+        fmt(spreads),
+        offset,
+        fmt(cross.clone()),
+        share(&cross, 4.5),
+    );
+    Ok((report, points))
 }
