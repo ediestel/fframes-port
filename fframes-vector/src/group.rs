@@ -45,6 +45,47 @@ pub struct Zone {
     pub path: Path,
 }
 
+impl Zone {
+    /// A closed polygon through `points` (source-picture coordinates); `None` for fewer
+    /// than three points.
+    #[must_use]
+    pub fn polygon(name: &str, points: &[(f32, f32)]) -> Option<Zone> {
+        if points.len() < 3 {
+            return None;
+        }
+        let mut pb = PathBuilder::new();
+        pb.move_to(points[0].0, points[0].1);
+        for &(x, y) in &points[1..] {
+            pb.line_to(x, y);
+        }
+        pb.close();
+        Some(Zone {
+            name: name.to_string(),
+            path: pb.finish()?,
+        })
+    }
+
+    /// The outline as absolute SVG path data.
+    #[must_use]
+    pub fn path_data(&self) -> String {
+        use std::fmt::Write;
+        use svgr::tiny_skia::PathSegment;
+        let mut d = String::new();
+        for seg in self.path.segments() {
+            let _ = match seg {
+                PathSegment::MoveTo(p) => write!(d, "M{} {}", p.x, p.y),
+                PathSegment::LineTo(p) => write!(d, "L{} {}", p.x, p.y),
+                PathSegment::QuadTo(c, p) => write!(d, "Q{} {} {} {}", c.x, c.y, p.x, p.y),
+                PathSegment::CubicTo(a, b, p) => {
+                    write!(d, "C{} {} {} {} {} {}", a.x, a.y, b.x, b.y, p.x, p.y)
+                }
+                PathSegment::Close => write!(d, "Z"),
+            };
+        }
+        d
+    }
+}
+
 /// Hint shapes read from an SVG, in file order (earlier wins).
 #[derive(Clone, Debug, Default)]
 pub struct GroupMap {
@@ -101,6 +142,58 @@ fn transform_of(tag: &str) -> Transform {
                 t.a as f32, t.b as f32, t.c as f32, t.d as f32, t.e as f32, t.f as f32,
             )
         })
+}
+
+/// The end of the start tag at the beginning of `s`: the first `>` outside quotes.
+fn tag_end(s: &str) -> Option<usize> {
+    let mut quote: Option<u8> = None;
+    for (i, &b) in s.as_bytes().iter().enumerate() {
+        match (quote, b) {
+            (None, b'"' | b'\'') => quote = Some(b),
+            (Some(q), _) if b == q => quote = None,
+            (None, b'>') => return Some(i),
+            _ => {}
+        }
+    }
+    None
+}
+
+/// XML character references in an attribute value decoded (`&amp;` to `&`, `&#65;` to `A`).
+fn unescape(v: &str) -> String {
+    let mut out = String::with_capacity(v.len());
+    let mut rest = v;
+    while let Some(i) = rest.find('&') {
+        out.push_str(&rest[..i]);
+        let tail = &rest[i..];
+        let decoded = tail.find(';').and_then(|e| {
+            let c = match &tail[1..e] {
+                "amp" => Some('&'),
+                "lt" => Some('<'),
+                "gt" => Some('>'),
+                "quot" => Some('"'),
+                "apos" => Some('\''),
+                n => n
+                    .strip_prefix("#x")
+                    .map(|h| u32::from_str_radix(h, 16))
+                    .or_else(|| n.strip_prefix('#').map(str::parse))
+                    .and_then(Result::ok)
+                    .and_then(char::from_u32),
+            }?;
+            Some((c, e + 1))
+        });
+        match decoded {
+            Some((c, len)) => {
+                out.push(c);
+                rest = &tail[len..];
+            }
+            None => {
+                out.push('&');
+                rest = &tail[1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 fn name_of(tag: &str) -> Option<&str> {
@@ -164,7 +257,7 @@ impl GroupMap {
                 rest = body.find("-->").map_or("", |e| &body[e + 3..]);
                 continue;
             }
-            let Some(j) = s.find('>') else { break };
+            let Some(j) = tag_end(s) else { break };
             let tag = &s[..=j];
             rest = &s[j + 1..];
             if tag.starts_with("</g") {
@@ -199,9 +292,38 @@ impl GroupMap {
             let Some(path) = path.transform(parent_ts.pre_concat(transform_of(tag))) else {
                 continue;
             };
-            zones.push(Zone { name, path });
+            zones.push(Zone {
+                name: unescape(&name),
+                path,
+            });
         }
         GroupMap { zones }
+    }
+
+    /// The zones as a zone SVG of `width x height` (the source picture), one `path` per
+    /// zone in order, named with `data-group`; [`GroupMap::from_svg`] reads it back.
+    #[must_use]
+    pub fn to_svg(&self, width: u32, height: u32) -> String {
+        use std::fmt::Write;
+        let mut s = format!(
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">"#
+        );
+        s.push_str("\n<!-- Zones: earlier shapes win where they overlap. -->\n");
+        for z in &self.zones {
+            let name = z
+                .name
+                .replace('&', "&amp;")
+                .replace('"', "&quot;")
+                .replace('<', "&lt;")
+                .replace('>', "&gt;");
+            let _ = writeln!(
+                s,
+                r#"<path data-group="{name}" fill="none" stroke="red" d="{}"/>"#,
+                z.path_data()
+            );
+        }
+        s.push_str("</svg>\n");
+        s
     }
 
     /// The zones as a label layer over `raster`. `zone_scale` maps zone coordinates to
@@ -647,6 +769,18 @@ mod tests {
         assert_eq!(names, ["rider/spurs", "rider/boot", "rider", "sun"]);
         let b = m.zones[0].path.bounds();
         assert!((b.left() - 10.0).abs() < 1e-3, "group transform applied");
+    }
+
+    #[test]
+    fn zones_written_as_svg_read_back_the_same() {
+        let a = Zone::polygon("body/arm", &[(1.0, 2.0), (30.5, 2.0), (30.5, 40.0)]).unwrap();
+        let b = Zone::polygon("say \"hi\" & <go>", &[(0.0, 0.0), (5.0, 0.0), (5.0, 5.0)]).unwrap();
+        assert!(Zone::polygon("x", &[(0.0, 0.0), (1.0, 1.0)]).is_none());
+        let map = GroupMap { zones: vec![a, b] };
+        let back = GroupMap::from_svg(&map.to_svg(100, 50));
+        let names: Vec<&str> = back.zones.iter().map(|z| z.name.as_str()).collect();
+        assert_eq!(names, ["body/arm", "say \"hi\" & <go>"]);
+        assert_eq!(back.zones[0].path.bounds(), map.zones[0].path.bounds());
     }
 
     #[test]
