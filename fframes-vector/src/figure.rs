@@ -340,30 +340,347 @@ pub fn figure_glb(
         }
     }
 
-    // surface nets: a vertex in every cell where the solid changes, quads across every
-    // boundary face between a solid and an empty voxel
+    // painted from the view each face looks into: +z the front, -z the back, x the side;
+    // tops and bottoms by their normal
+    let (sw, sh) = (w as f32, h as f32);
+    let uv = |n: [f32; 3], axis: usize, g: [f32; 3]| -> [f32; 2] {
+        let facing_z = match axis {
+            2 => true,
+            0 => false,
+            _ => n[2].abs() >= n[0].abs(),
+        };
+        let view = if facing_z {
+            if n[2] >= 0.0 { front } else { back.unwrap_or(front) }
+        } else {
+            side
+        };
+        let y = top as f32 + (g[1] - 0.5) * px;
+        let x = match view.view {
+            View::Front => view.x as f32 + (g[0] - 0.5) * px,
+            View::Back => view.x as f32 + view.w as f32 - (g[0] - 0.5) * px,
+            View::Side => {
+                view.x as f32 + side_u(nz - 1 - g[2].round() as usize).clamp(0.0, view.w as f32)
+            }
+        };
+        [x / sw, y / sh]
+    };
+    let mesh = surface_mesh(&solid, [nx, ny, nz], p.height / p.resolution as f32, &uv);
+    Ok((write_glb(&mesh, sheet_png), views))
+}
+
+#[derive(Clone, Debug)]
+pub struct TurntableParams {
+    /// Height of the figure in metres.
+    pub height: f32,
+    /// Voxels along the height.
+    pub resolution: u32,
+    /// Colour distance (0..441) that still counts as background.
+    pub tolerance: f32,
+    /// Frames a point must lie inside to stay; `None` is all but one in twelve, so drift and
+    /// perspective in a few frames do not cut the figure.
+    pub keep: Option<usize>,
+    /// The figure turns clockwise seen from above; `None` finds it. Outlines cannot tell (the
+    /// other direction gives the same figure mirrored front to back), colours can: the
+    /// direction in which surface points show the same colour in the frames that see them.
+    pub clockwise: Option<bool>,
+}
+
+impl Default for TurntableParams {
+    fn default() -> Self {
+        TurntableParams {
+            height: 1.7,
+            resolution: 192,
+            tolerance: 30.0,
+            keep: None,
+            clockwise: None,
+        }
+    }
+}
+
+/// What a turntable carving found.
+#[derive(Clone, Debug)]
+pub struct Turntable {
+    pub frames: usize,
+    pub clockwise: bool,
+    pub keep: usize,
+    /// Kept voxels.
+    pub volume: usize,
+    /// Colour disagreement of surface points between frames (mean distance, 0..441) with the
+    /// direction used and with the other one; `None` when the direction was given.
+    pub disagreement: Option<(f32, f32)>,
+}
+
+/// A 3D figure from the frames of one full, even turn (a turntable video: frame `f` of `n` is
+/// the figure turned by `f / n` of a circle, seen by a still camera, plain background).
+///
+/// Every frame is masked (background connected to the border), its feet put on one line and
+/// its height evened out to the median; the axis is the mean of the frames' centres. A voxel
+/// stays where it lies inside the outline in at least `keep` frames. Each face is painted from
+/// the frame that looks at it most directly and sees it (no solid voxel between face and
+/// camera); the frames, cropped, are the texture.
+pub fn turntable_glb(
+    frames: &[image::RgbaImage],
+    p: &TurntableParams,
+) -> Result<(Vec<u8>, Turntable), String> {
+    use rayon::prelude::*;
+    let n = frames.len();
+    if n < 8 {
+        return Err(format!("{n} frames; a turn needs at least 8"));
+    }
+    // masks and boxes: (left, top, right, bottom), inclusive
+    let mut masks = Vec::with_capacity(n);
+    let mut boxes = Vec::with_capacity(n);
+    for (f, img) in frames.iter().enumerate() {
+        let (m, w, h) = figure_mask(img, p.tolerance);
+        let (mut l, mut t, mut r, mut b) = (w, h, 0, 0);
+        for y in 0..h {
+            for x in 0..w {
+                if m[(y * w + x) as usize] {
+                    (l, t, r, b) = (l.min(x), t.min(y), r.max(x), b.max(y));
+                }
+            }
+        }
+        if r < l {
+            return Err(format!("frame {f}: no figure against the background"));
+        }
+        masks.push((m, w, h));
+        boxes.push((l, t, r, b));
+    }
+    let mut heights: Vec<f32> = boxes.iter().map(|b| (b.3 - b.1 + 1) as f32).collect();
+    heights.sort_by(f32::total_cmp);
+    let tall = heights[n / 2];
+    let axis = boxes.iter().map(|b| (b.0 + b.2) as f32 / 2.0).sum::<f32>() / n as f32;
+    // reference pixels per frame pixel, so every frame has the median height
+    let zoom: Vec<f32> = boxes.iter().map(|b| tall / (b.3 - b.1 + 1) as f32).collect();
+    let reach = boxes
+        .iter()
+        .zip(&zoom)
+        .map(|(b, z)| (axis - b.0 as f32).max(b.2 as f32 - axis) * z)
+        .fold(0.0, f32::max);
+    let px = tall / p.resolution as f32;
+    let nh = (reach / px).ceil() as usize + 2;
+    let (nx, ny, nz) = (2 * nh + 1, p.resolution as usize + 2, 2 * nh + 1);
+    let idx = |i: usize, j: usize, k: usize| (k * ny + j) * nx + i;
+    // a point (x, z) in reference pixels from the axis, `v` reference pixels above the feet,
+    // in frame f: inside the figure?
+    let inside = |f: usize, u: f32, v: f32| -> bool {
+        let (m, w, h) = &masks[f];
+        let sx = axis + u / zoom[f];
+        let sy = boxes[f].3 as f32 - v / zoom[f];
+        if sx < 0.0 || sy < 0.0 || sx >= *w as f32 || sy >= *h as f32 {
+            return false;
+        }
+        m[(sy as u32 * w + sx as u32) as usize]
+    };
+    let angles = |clockwise: bool| -> Vec<(f32, f32)> {
+        (0..n)
+            .map(|f| {
+                let a = std::f32::consts::TAU * f as f32 / n as f32 * if clockwise { 1.0 } else { -1.0 };
+                (a.cos(), a.sin())
+            })
+            .collect()
+    };
+    let keep = p.keep.unwrap_or(n - n.div_ceil(12)).clamp(1, n);
+    let carve = |clockwise: bool| -> Vec<bool> {
+        let rot = angles(clockwise);
+        let mut solid = vec![false; nx * ny * nz];
+        let rows: Vec<Vec<(usize, usize)>> = (1..ny - 1)
+            .into_par_iter()
+            .map(|j| {
+                let v = tall - (j as f32 - 0.5) * px;
+                let mut out = Vec::new();
+                for k in 1..nz - 1 {
+                    let z = (k as f32 - nh as f32) * px;
+                    for i in 1..nx - 1 {
+                        let x = (i as f32 - nh as f32) * px;
+                        if x * x + z * z > reach * reach {
+                            continue;
+                        }
+                        // u in frame f: the point turned by the frame's angle
+                        let mut votes = 0;
+                        for (f, &(c, s)) in rot.iter().enumerate() {
+                            if inside(f, x * c + z * s, v) {
+                                votes += 1;
+                            } else if f + 1 - votes > n - keep {
+                                break;
+                            }
+                        }
+                        if votes >= keep {
+                            out.push((i, k));
+                        }
+                    }
+                }
+                out
+            })
+            .collect();
+        for (r, cells) in rows.iter().enumerate() {
+            for &(i, k) in cells {
+                solid[idx(i, r + 1, k)] = true;
+            }
+        }
+        solid
+    };
+    // how much the frames disagree on the colours of surface points, for one direction
+    let disagreement = |clockwise: bool, solid: &[bool]| -> f32 {
+        let rot = angles(clockwise);
+        let mut total = 0.0_f64;
+        let mut count = 0usize;
+        for j in (2..ny - 2).step_by(3) {
+            for k in (2..nz - 2).step_by(2) {
+                for i in (2..nx - 2).step_by(2) {
+                    if !solid[idx(i, j, k)] {
+                        continue;
+                    }
+                    // outward: towards the empty neighbours
+                    let (mut ox, mut oz) = (0.0_f32, 0.0_f32);
+                    for (di, dk) in [(1i32, 0i32), (-1, 0), (0, 1), (0, -1)] {
+                        if !solid[idx((i as i32 + di) as usize, j, (k as i32 + dk) as usize)] {
+                            ox += di as f32;
+                            oz += dk as f32;
+                        }
+                    }
+                    let l = (ox * ox + oz * oz).sqrt();
+                    if l == 0.0 {
+                        continue;
+                    }
+                    let (x, z) = ((i as f32 - nh as f32) * px, (k as f32 - nh as f32) * px);
+                    let v = tall - (j as f32 - 0.5) * px;
+                    let mut seen: Vec<[f32; 3]> = Vec::new();
+                    for (f, &(c, sn)) in rot.iter().enumerate() {
+                        // facing this frame's camera closely
+                        if (ox * -sn + oz * c) / l < 0.85 {
+                            continue;
+                        }
+                        let sx = axis + (x * c + z * sn) / zoom[f];
+                        let sy = boxes[f].3 as f32 - v / zoom[f];
+                        let img = &frames[f];
+                        if sx >= 0.0 && sy >= 0.0 && (sx as u32) < img.width() && (sy as u32) < img.height() {
+                            let q = img.get_pixel(sx as u32, sy as u32).0;
+                            seen.push([f32::from(q[0]), f32::from(q[1]), f32::from(q[2])]);
+                        }
+                    }
+                    if seen.len() < 2 {
+                        continue;
+                    }
+                    let m: [f32; 3] = std::array::from_fn(|c| seen.iter().map(|s| s[c]).sum::<f32>() / seen.len() as f32);
+                    for s in &seen {
+                        total += f64::from((0..3).map(|c| (s[c] - m[c]).powi(2)).sum::<f32>().sqrt());
+                        count += 1;
+                    }
+                }
+            }
+        }
+        if count == 0 { 0.0 } else { (total / count as f64) as f32 }
+    };
+    let (clockwise, solid, disagree) = match p.clockwise {
+        Some(c) => (c, carve(c), None),
+        None => {
+            let (a, b) = (carve(true), carve(false));
+            let (da, db) = (disagreement(true, &a), disagreement(false, &b));
+            if da <= db { (true, a, Some((da, db))) } else { (false, b, Some((db, da))) }
+        }
+    };
+    let volume = solid.iter().filter(|&&x| x).count();
+
+    // the texture: every frame cropped to the frames' common box, in a grid of tiles
+    let (l0, t0) = (boxes.iter().map(|b| b.0).min().unwrap_or(0), boxes.iter().map(|b| b.1).min().unwrap_or(0));
+    let (r0, b0) = (boxes.iter().map(|b| b.2).max().unwrap_or(0), boxes.iter().map(|b| b.3).max().unwrap_or(0));
+    let (tw, th) = (r0 - l0 + 1, b0 - t0 + 1);
+    let cols = (n as f32).sqrt().ceil() as u32;
+    let rows_n = (n as u32).div_ceil(cols);
+    let mut atlas = image::RgbaImage::new(tw * cols, th * rows_n);
+    for (f, img) in frames.iter().enumerate() {
+        let tile = image::imageops::crop_imm(img, l0, t0, tw, th).to_image();
+        image::imageops::overlay(&mut atlas, &tile, i64::from(f as u32 % cols * tw), i64::from(f as u32 / cols * th));
+    }
+    let mut png = Vec::new();
+    atlas
+        .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+        .map_err(|e| e.to_string())?;
+
+    let rot = angles(clockwise);
+    // the direction from the figure to the camera of frame f, in figure coordinates
+    let to_camera: Vec<[f32; 2]> = rot.iter().map(|&(c, s)| [-s, c]).collect();
+    let solid_at = |x: f32, y: f32, z: f32| -> bool {
+        let (i, j, k) = (x.round(), y.round(), z.round());
+        if i < 0.0 || j < 0.0 || k < 0.0 {
+            return false;
+        }
+        let (i, j, k) = (i as usize, j as usize, k as usize);
+        i < nx && j < ny && k < nz && solid[idx(i, j, k)]
+    };
+    let sees = |f: usize, g: [f32; 3]| -> bool {
+        // walk from just outside the face towards the camera
+        let [dx, dz] = to_camera[f];
+        (2..(nx.max(nz) as i32)).all(|t| !solid_at(g[0] + dx * t as f32, g[1], g[2] + dz * t as f32))
+    };
+    let (aw, ah) = (atlas.width() as f32, atlas.height() as f32);
+    let uv = |nrm: [f32; 3], _axis: usize, g: [f32; 3]| -> [f32; 2] {
+        let mut order: Vec<usize> = (0..n).collect();
+        order.sort_by(|&a, &b| {
+            let da = nrm[0] * to_camera[a][0] + nrm[2] * to_camera[a][1];
+            let db = nrm[0] * to_camera[b][0] + nrm[2] * to_camera[b][1];
+            db.total_cmp(&da)
+        });
+        let f = order.iter().take(6).copied().find(|&f| sees(f, g)).unwrap_or(order[0]);
+        let (c, s) = rot[f];
+        let (x, z) = ((g[0] - nh as f32) * px, (g[2] - nh as f32) * px);
+        let v = tall - (g[1] - 0.5) * px;
+        let sx = axis + (x * c + z * s) / zoom[f] - l0 as f32;
+        let sy = boxes[f].3 as f32 - v / zoom[f] - t0 as f32;
+        let (tx, ty) = ((f as u32 % cols * tw) as f32, (f as u32 / cols * th) as f32);
+        [
+            (tx + sx.clamp(0.0, tw as f32 - 1.0)) / aw,
+            (ty + sy.clamp(0.0, th as f32 - 1.0)) / ah,
+        ]
+    };
+    let mesh = surface_mesh(&solid, [nx, ny, nz], p.height / p.resolution as f32, &uv);
+    Ok((
+        write_glb(&mesh, &png),
+        Turntable {
+            frames: n,
+            clockwise,
+            keep,
+            volume,
+            disagreement: disagree,
+        },
+    ))
+}
+
+/// The surface of the solid voxels of an `[nx, ny, nz]` grid (y running down) as a textured
+/// mesh: surface nets, smoothed twice, smooth vertex normals, feet at y = 0 and centred, `scale`
+/// metres per voxel. `uv` maps a face's outward normal (world), the axis it faces along and a
+/// grid point to texture coordinates.
+fn surface_mesh(
+    solid: &[bool],
+    [nx, ny, nz]: [usize; 3],
+    scale: f32,
+    uv: &dyn Fn([f32; 3], usize, [f32; 3]) -> [f32; 2],
+) -> Mesh {
+    let idx = |i: usize, j: usize, k: usize| (k * ny + j) * nx + i;
+    // a vertex in every cell where the solid changes, quads across every boundary face
     let mut cell_vertex = vec![u32::MAX; nx * ny * nz];
     let mut verts: Vec<[f32; 3]> = Vec::new();
+    let edges = [
+        ((0, 0, 0), (1, 0, 0)),
+        ((0, 1, 0), (1, 1, 0)),
+        ((0, 0, 1), (1, 0, 1)),
+        ((0, 1, 1), (1, 1, 1)),
+        ((0, 0, 0), (0, 1, 0)),
+        ((1, 0, 0), (1, 1, 0)),
+        ((0, 0, 1), (0, 1, 1)),
+        ((1, 0, 1), (1, 1, 1)),
+        ((0, 0, 0), (0, 0, 1)),
+        ((1, 0, 0), (1, 0, 1)),
+        ((0, 1, 0), (0, 1, 1)),
+        ((1, 1, 0), (1, 1, 1)),
+    ];
     for k in 0..nz - 1 {
         for j in 0..ny - 1 {
             for i in 0..nx - 1 {
+                let corner = |a: usize, b: usize, c: usize| solid[idx(i + a, j + b, k + c)];
                 let mut sum = [0.0_f32; 3];
                 let mut n = 0.0;
-                let corner = |a: usize, b: usize, c: usize| solid[idx(i + a, j + b, k + c)];
-                let edges = [
-                    ((0, 0, 0), (1, 0, 0)),
-                    ((0, 1, 0), (1, 1, 0)),
-                    ((0, 0, 1), (1, 0, 1)),
-                    ((0, 1, 1), (1, 1, 1)),
-                    ((0, 0, 0), (0, 1, 0)),
-                    ((1, 0, 0), (1, 1, 0)),
-                    ((0, 0, 1), (0, 1, 1)),
-                    ((1, 0, 1), (1, 1, 1)),
-                    ((0, 0, 0), (0, 0, 1)),
-                    ((1, 0, 0), (1, 0, 1)),
-                    ((0, 1, 0), (0, 1, 1)),
-                    ((1, 1, 0), (1, 1, 1)),
-                ];
                 for ((a0, b0, c0), (a1, b1, c1)) in edges {
                     if corner(a0, b0, c0) != corner(a1, b1, c1) {
                         sum[0] += (a0 + a1) as f32 / 2.0;
@@ -374,32 +691,18 @@ pub fn figure_glb(
                 }
                 if n > 0.0 {
                     cell_vertex[idx(i, j, k)] = verts.len() as u32;
-                    verts.push([
-                        i as f32 + sum[0] / n,
-                        j as f32 + sum[1] / n,
-                        k as f32 + sum[2] / n,
-                    ]);
+                    verts.push([i as f32 + sum[0] / n, j as f32 + sum[1] / n, k as f32 + sum[2] / n]);
                 }
             }
         }
     }
-    // one smoothing pass towards the neighbours' average keeps the outline, softens steps
-    let faces = collect_quads(&solid, &cell_vertex, nx, ny, nz, idx);
+    let faces = collect_quads(solid, &cell_vertex, nx, ny, nz, idx);
     let quads: Vec<[u32; 4]> = faces.iter().map(|f| f.0).collect();
     let verts = smooth(&verts, &quads, 2);
 
-    // positions in metres: feet at y = 0, centred; y of the grid runs down the sheet
-    let s = p.height / (p.resolution as f32);
     let (cx, cz) = (nx as f32 / 2.0, nz as f32 / 2.0);
-    let world = |v: [f32; 3]| [(v[0] - cx) * s, (ny as f32 - 1.0 - v[1]) * s, (v[2] - cz) * s];
-    let mut mesh = Mesh {
-        positions: Vec::new(),
-        normals: Vec::new(),
-        uvs: Vec::new(),
-        indices: Vec::new(),
-    };
-    let (sw, sh) = (w as f32, h as f32);
-    // smooth shading: every vertex the average normal of its faces, oriented outwards
+    let world = |v: [f32; 3]| [(v[0] - cx) * scale, (ny as f32 - 1.0 - v[1]) * scale, (v[2] - cz) * scale];
+    // outward normal of a face: from the side its solid voxel is on (the grid's y runs down)
     let oriented = |q: &[u32; 4], axis: usize, positive: bool| {
         let pts: Vec<[f32; 3]> = q.iter().map(|&v| world(verts[v as usize])).collect();
         let mut out = [0.0_f32; 3];
@@ -423,48 +726,26 @@ pub fn figure_glb(
         let l = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt().max(1e-9);
         *n = [n[0] / l, n[1] / l, n[2] / l];
     }
+    let mut mesh = Mesh {
+        positions: Vec::new(),
+        normals: Vec::new(),
+        uvs: Vec::new(),
+        indices: Vec::new(),
+    };
     for (q, axis, positive) in &faces {
+        let n = oriented(q, *axis, *positive);
         let pts: Vec<[f32; 3]> = q.iter().map(|&v| world(verts[v as usize])).collect();
-        // outward in world space: the grid's y runs down the sheet, the world's up
-        let mut out = [0.0_f32; 3];
-        out[*axis] = if *positive { 1.0 } else { -1.0 };
-        if *axis == 1 {
-            out[1] = -out[1];
-        }
-        let mut n = normal(&pts);
-        if n[0] * out[0] + n[1] * out[1] + n[2] * out[2] < 0.0 {
-            n = [-n[0], -n[1], -n[2]];
-        }
-        // the view this face looks into: +z the front, -z the back, x the side; tops and
-        // bottoms by their smoothed normal
-        let facing_z = match axis {
-            2 => true,
-            0 => false,
-            _ => n[2].abs() >= n[0].abs(),
-        };
-        let view = if facing_z {
-            if n[2] >= 0.0 { front } else { back.unwrap_or(front) }
-        } else {
-            side
-        };
         let q = if n_dot_winding(&pts, n) { *q } else { [q[3], q[2], q[1], q[0]] };
-        let pts: Vec<[f32; 3]> = q.iter().map(|&v| world(verts[v as usize])).collect();
         let base = mesh.positions.len() as u32;
-        for (&v, pt) in q.iter().zip(&pts) {
+        for &v in &q {
             let g = verts[v as usize];
-            let y = top as f32 + (g[1] - 0.5) * px;
-            let x = match view.view {
-                View::Front => view.x as f32 + (g[0] - 0.5) * px,
-                View::Back => view.x as f32 + view.w as f32 - (g[0] - 0.5) * px,
-                View::Side => view.x as f32 + side_u(nz - 1 - g[2].round() as usize).clamp(0.0, view.w as f32),
-            };
-            mesh.positions.push(*pt);
+            mesh.positions.push(world(g));
             mesh.normals.push(vertex_normal[v as usize]);
-            mesh.uvs.push([x / sw, y / sh]);
+            mesh.uvs.push(uv(n, *axis, g));
         }
         mesh.indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
     }
-    Ok((write_glb(&mesh, sheet_png), views))
+    mesh
 }
 
 /// Whether the winding of `pts` (counter-clockwise seen from outside) agrees with `n`.
@@ -716,6 +997,45 @@ mod tests {
             .count();
         assert_eq!(lance_in_front, 0, "the visible ghost is carved");
         assert!(!pts.is_empty());
+    }
+
+    #[test]
+    fn a_turning_elliptic_column_comes_out_round() {
+        // 36 frames of an elliptic column (semi-axes 30 px across, 15 px deep at the start)
+        // turning once: its outline is as wide as the ellipse seen from each angle
+        let frames: Vec<image::RgbaImage> = (0..36)
+            .map(|f| {
+                let a = std::f32::consts::TAU * f as f32 / 36.0;
+                let half = (30.0_f32.powi(2) * a.cos().powi(2) + 15.0_f32.powi(2) * a.sin().powi(2)).sqrt();
+                let mut img = image::RgbaImage::from_pixel(120, 100, image::Rgba([200, 200, 200, 255]));
+                for y in 10..90 {
+                    for x in 0..120 {
+                        if (x as f32 + 0.5 - 60.0).abs() < half {
+                            img.put_pixel(x, y, image::Rgba([180, 40, 30, 255]));
+                        }
+                    }
+                }
+                img
+            })
+            .collect();
+        let (glb, t) = turntable_glb(
+            &frames,
+            &TurntableParams { height: 1.0, resolution: 80, ..TurntableParams::default() },
+        )
+        .unwrap();
+        assert_eq!(t.frames, 36);
+        let (doc, buffers, _) = gltf::import_slice(&glb).unwrap();
+        let prim = doc.meshes().next().unwrap().primitives().next().unwrap();
+        let b = prim.bounding_box();
+        let (wd, dp) = (b.max[0] - b.min[0], b.max[2] - b.min[2]);
+        // 80 px high = 1 m: 60 x 30 px = 0.75 x 0.375 m
+        assert!((wd - 0.75).abs() < 0.06, "width {wd}");
+        assert!((dp - 0.375).abs() < 0.06, "depth {dp}");
+        let reader = prim.reader(|bf| Some(&buffers[bf.index()]));
+        let corner = reader.read_positions().unwrap().any(|q| {
+            (q[0] / (wd / 2.0)).abs() > 0.8 && (q[2] / (dp / 2.0)).abs() > 0.8
+        });
+        assert!(!corner, "the column has square corners");
     }
 
     #[test]

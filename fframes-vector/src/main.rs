@@ -148,6 +148,43 @@ fn group_command(cmd: &str, args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+/// `count` frames spread evenly over one turn of a video, read with the `ffmpeg` command into
+/// a temporary folder that is removed again.
+fn turntable_frames(video: &str, count: usize) -> Result<Vec<image::RgbaImage>, String> {
+    let probe = std::process::Command::new("ffprobe")
+        .args(["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", video])
+        .output()
+        .map_err(|e| format!("ffprobe: {e}"))?;
+    let seconds: f64 = String::from_utf8_lossy(&probe.stdout)
+        .trim()
+        .parse()
+        .map_err(|_| format!("{video}: no duration"))?;
+    let dir = std::env::temp_dir().join(format!("fframes-turntable-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let status = std::process::Command::new("ffmpeg")
+        .args(["-loglevel", "error", "-y", "-i", video, "-vf"])
+        .arg(format!("fps={count}/{seconds}"))
+        .args(["-frames:v", &count.to_string()])
+        .arg(dir.join("f_%03d.png"))
+        .status()
+        .map_err(|e| format!("ffmpeg: {e}"));
+    let frames = status.and_then(|s| {
+        if !s.success() {
+            return Err(format!("ffmpeg failed on {video}"));
+        }
+        (1..=count)
+            .map(|i| {
+                let f = dir.join(format!("f_{i:03}.png"));
+                image::open(&f)
+                    .map(|im| im.to_rgba8())
+                    .map_err(|e| format!("{}: {e}", f.display()))
+            })
+            .collect::<Result<Vec<_>, _>>()
+    });
+    let _ = std::fs::remove_dir_all(&dir);
+    frames
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let start = std::time::Instant::now();
@@ -243,6 +280,53 @@ fn main() -> ExitCode {
             match run() {
                 Ok(n) => {
                     eprintln!("{n} pieces renamed");
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Some("turntable") if args.len() >= 3 => {
+            // turntable video.mp4 out.glb [--height 1.7] [--frames 36] [--keep N] [--resolution 192] [--direction cw|ccw]
+            use fframes_vector::figure::{TurntableParams, turntable_glb};
+            let (input, output) = (&args[1], &args[2]);
+            let count: usize = opt(&args, "--frames").unwrap_or(36);
+            let mut p = TurntableParams::default();
+            if let Some(h) = opt(&args, "--height") {
+                p.height = h;
+            }
+            if let Some(r) = opt(&args, "--resolution") {
+                p.resolution = r;
+            }
+            p.keep = opt(&args, "--keep");
+            p.clockwise = match opt::<String>(&args, "--direction").as_deref() {
+                Some("cw") => Some(true),
+                Some("ccw") => Some(false),
+                _ => None,
+            };
+            let result = (|| -> Result<_, String> {
+                let frames = turntable_frames(input, count)?;
+                let (glb, t) = turntable_glb(&frames, &p)?;
+                std::fs::write(output, &glb).map_err(|e| format!("{output}: {e}"))?;
+                Ok((glb.len(), t))
+            })();
+            match result {
+                Ok((bytes, t)) => {
+                    eprintln!(
+                        "{output}: {:.1} MB, {} m high, {} frames, turning {}{}, a point kept inside {} of them, {} voxels ({:.1} s)",
+                        bytes as f64 / 1_048_576.0,
+                        p.height,
+                        t.frames,
+                        if t.clockwise { "clockwise" } else { "anticlockwise" },
+                        t.disagreement.map_or_else(String::new, |(a, b)| format!(
+                            " (colour disagreement {a:.1} against {b:.1} the other way)"
+                        )),
+                        t.keep,
+                        t.volume,
+                        start.elapsed().as_secs_f32()
+                    );
                     ExitCode::SUCCESS
                 }
                 Err(e) => {
@@ -407,7 +491,7 @@ fn main() -> ExitCode {
         },
         _ => {
             eprintln!(
-                "fframes-vector vectorize in.png out.json [--scale N] [--colors N] [--svg out.svg] [--flat flat.png]\nfframes-vector group doc.json zones.svg|--mask m.png [--cut [--cut-min 0.05]] [--legend l.json] [--clusters] [--share 0.5] [--report r.json] [--check c.svg] [-o out.json]\nfframes-vector clusters doc.json [--k N] [--gap N] [--min-area N] [--check c.svg] [-o out.json]\nfframes-vector figure sheet.png out.glb [--height 1.7] [--resolution 256] [--order front,side,back] [--side-faces right]\nfframes-vector svg doc.json out.svg [--grouped]\nfframes-vector sprites doc.json dir [--density 1,2] [--group name] [--no-outline]"
+                "fframes-vector vectorize in.png out.json [--scale N] [--colors N] [--svg out.svg] [--flat flat.png]\nfframes-vector group doc.json zones.svg|--mask m.png [--cut [--cut-min 0.05]] [--legend l.json] [--clusters] [--share 0.5] [--report r.json] [--check c.svg] [-o out.json]\nfframes-vector clusters doc.json [--k N] [--gap N] [--min-area N] [--check c.svg] [-o out.json]\nfframes-vector turntable video.mp4 out.glb [--height 1.7] [--frames 36] [--keep N] [--direction cw|ccw]\nfframes-vector figure sheet.png out.glb [--height 1.7] [--resolution 256] [--order front,side,back] [--side-faces right]\nfframes-vector svg doc.json out.svg [--grouped]\nfframes-vector sprites doc.json dir [--density 1,2] [--group name] [--no-outline]"
             );
             ExitCode::FAILURE
         }

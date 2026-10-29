@@ -92,6 +92,16 @@ embedded as the texture. No tracing. Hollows no view shows
 stay filled. Golden Spurs: farmer 1.7 m and horseman 2.7 m from 2816 x 1584 sheets in
 0.4 and 0.6 s, 23 and 34 MB.
 
+`turntable video.mp4 out.glb --height 1.7` makes the figure from one full, even turn (a
+turntable video, `figure::turntable_glb`): 36 frames (`--frames`) taken with `ffmpeg`, each
+masked, feet on one line, height evened out; a voxel stays where it lies inside the outline in
+33 of 36 frames (`--keep`), so drift and perspective in a few frames do not cut it; each face is
+painted from the frame that looks at it most directly and sees it. Outlines cannot tell the
+turning direction (the other one mirrors the figure front to back); colours can, so it is
+chosen by how well surface points agree in colour between frames (`--direction` to set it).
+Golden Spurs farmer from an 8 s Grok video (848 x 480): 1.0 s, 9.5 MB, anticlockwise
+(disagreement 62.7 against 73.4).
+
 Names are paths: `tree.group("rider")` includes `rider/spurs`, `tree.others("rider")` is
 everything else, `doc.group_bbox("rider")` frames it for a camera. `--check` writes an SVG
 with every piece in its group's colour and the names written on: look at it before trusting
