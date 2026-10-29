@@ -7,13 +7,16 @@ fframes-vector turns one picture into a piece document that already feeds video,
 
 ## Where it stands
 
-State on the `vector` branch of `ediestel/fframes-port` (tip 68b13cc):
+State on `main` of `ediestel/fframes-port` (2026-10-29):
 
 | Capability | What it does today | Measured on the Golden Spurs window |
 | --- | --- | --- |
 | Vectorize | Picture to pieces via potrace, presets for outlined art and drawings | 17 s at 3x, 6,765 pieces |
-| Drawing input | Paper levelled to white, gaps in lines bridged | Synthetic scan only |
+| Drawing input | Paper levelled to white, gaps in lines bridged | Dix-Hallpike plate: 198 pieces in 2.9 s |
 | Objects | Hand zones or colour mask, nested names, cluster snapping, rename | 0.3 s per run |
+| Cut | Pieces split exactly along zone borders, lower part runs on under the upper one | 557 pieces into 1,158 parts in 5 s; plate: line work cut at head and feet |
+| Report | Unnamed pieces and pieces split between names, largest first | 263 unnamed, 179 split with rough zones; none split after cut |
+| Editor | Zones and click selection, live grouping, report and cut, undo, save | Window and plate named by hand |
 | Animation | Cached trees per object and for the rest, object framing | Film render 315 s to 58 s |
 | Sprites | Power-of-two atlases, TexturePacker JSON | 6,097 sprites in 1.2 s |
 | 3D | glTF, flat or tiles, one node per object or per piece | 66 MB as 24 px tiles, 0.3 s |
@@ -42,7 +45,17 @@ This opens architecture, engineering and making.
 Done when: a scanned floor plan with one known dimension exports a DXF whose room areas match
 the plan within 2 %, plus a 3D model with walls.
 
-## Priority 2: rigging
+## Picture exchange (idea)
+
+Select pieces in the editor, give an instruction, and let an image model (xAI Imagine)
+redraw exactly that region of the source picture; the result is traced again locally and
+its pieces replace the selected ones inside the selection, keeping the name. First use: the
+Golden Spurs window shows French lilies on the Flemish side, where the Flemish banner (black
+lion on gold) belongs. The parts exist: `fix_region.sh` (crop, edit, paste back) in the
+picture-to-svg skill, `cut` for the exact replacement. Not built; the picture leaves the
+machine only for this step and only on request.
+
+## Priority 2: rigging (planned, not started)
 
 Rigging turns named parts into a moving character. A scanned drawing becomes a game or film
 character in minutes.
@@ -126,7 +139,9 @@ Recognition models running offline remove the last manual steps. Nothing goes on
 
 ## Workflow
 
-1. **Editor.** Draw zones, click clusters to name them, set pivots and scale, with the check
+1. **Editor.** Done: draw zones, click pieces to name them, live grouping, report and cut,
+   undo (`fframes-vector-editor`, manual in its README). Still to come: set pivots and scale.
+   Earlier plan: draw zones, click clusters to name them, set pivots and scale, with the check
    picture live.
 2. **Batch runs.** A folder of pictures (a comic book, an archive, a set of windows) in one
    command with one settings file.
@@ -144,6 +159,6 @@ Each milestone has a test picture so results are measured, not assumed.
 | M4 Rigging | grouping, adjacency | a scanned figure drawing |
 | M5 Shared-edge geometry | trace | the window and a jigsaw picture |
 | M6 Local recognition | clusters | a comic page, a schematic |
-| M7 Editor and batch | all of the above | a set of windows or a comic book |
+| M7 Editor and batch | all of the above | a set of windows or a comic book (editor done 2026-10-29, batch open) |
 
 Inputs, outputs and motion items attach to whichever milestone first needs them.
