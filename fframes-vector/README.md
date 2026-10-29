@@ -56,6 +56,18 @@ are the units hints snap to, and an unnamed split to look at. `clusters` writes 
 `c0`, `c1`, ... (largest first), `rename` turns them into objects:
 `{"horse": ["c12", "c40"], "battle/knights": ["knights"]}`.
 
+`--cut` (zone SVG only) splits pieces that cross a zone border before the vote, for parts
+that move on their own: an outline running from arm to body, a sleeve across the elbow
+(`cut::cut_at_zones`). Each part takes its zone's name and keeps it after the vote. A part
+under `--cut-min` (0.05) of its piece joins the piece's largest part, so a border that only
+grazes a piece leaves it whole, and pieces off the borders keep their path data. Parts are
+drawn bottom to top: the rest outside every zone, then the zones from last to first, so the
+earlier zone, which wins where zones overlap, is on top. A lower part runs on 3 px under the
+part above it: no hairline where they meet, and the overlap a joint needs when the upper part
+turns. The cut itself is exact (boolean operations on an integer grid, `i_overlay`); curves of
+cut pieces become segments within 0.05 px. On the Golden Spurs window 557 pieces are cut into
+1,158 parts in 5 s, and the rendered picture matches the uncut one except for 396 edge pixels.
+
 Names are paths: `tree.group("rider")` includes `rider/spurs`, `tree.others("rider")` is
 everything else, `doc.group_bbox("rider")` frames it for a camera. `--check` writes an SVG
 with every piece in its group's colour and the names written on: look at it before trusting
@@ -104,7 +116,7 @@ stayed open. `--gap N` and `--clean` also work with the default preset.
 ```bash
 cargo build --release -p fframes_vector
 fframes-vector vectorize picture.png pieces.json [--scale 2] [--colors 96] [--svg pieces.svg] [--flat flat.png] [--preset drawing] [--gap N] [--clean]
-fframes-vector group pieces.json zones.svg [--mask m.png [--legend l.json]] [--clusters] [--share 0.5] [--raster 4096] [--scale N] [--check check.svg] [-o out.json]
+fframes-vector group pieces.json zones.svg [--cut [--cut-min 0.05]] [--mask m.png [--legend l.json]] [--clusters] [--share 0.5] [--raster 4096] [--scale N] [--check check.svg] [-o out.json]
 fframes-vector clusters pieces.json [--k 3000] [--gap 6] [--min-area 400] [--check check.svg] [-o out.json]
 fframes-vector rename pieces.json names.json [--check check.svg] [-o out.json]
 fframes-vector sprites pieces.json out_dir [--density 1,2,3] [--group name] [--max 4096] [--pad 2] [--no-outline]

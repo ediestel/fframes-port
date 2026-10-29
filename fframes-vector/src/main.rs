@@ -11,14 +11,16 @@ fn opt<T: std::str::FromStr>(args: &[String], name: &str) -> Option<T> {
         .and_then(|v| v.parse().ok())
 }
 
-/// `group doc.json [zones.svg] [--zones z.svg] [--mask m.png [--legend l.json]] [--clusters]
+/// `group doc.json [zones.svg] [--zones z.svg] [--cut [--cut-min 0.05]] [--mask m.png [--legend l.json]] [--clusters]
 /// [--k N] [--gap N] [--share 0.5] [--raster 4096] [--scale N] [--check c.svg] [-o out.json]`
 /// `clusters doc.json [--k N] [--gap N] [--min-area N] [--raster 4096] [--check c.svg] [-o out.json]`
 fn group_command(cmd: &str, args: &[String]) -> Result<(), String> {
-    use fframes_vector::{AssignParams, ClusterParams, GroupMap, LabelLayer, PieceRaster, group};
+    use fframes_vector::{
+        AssignParams, ClusterParams, GroupMap, LabelLayer, PieceRaster, cut, group,
+    };
     let doc_path = &args[1];
     let mut doc = PieceDocument::load(doc_path).map_err(|e| format!("{doc_path}: {e}"))?;
-    let raster = PieceRaster::fit(&doc, opt(args, "--raster").unwrap_or(4096));
+    let raster_side = opt(args, "--raster").unwrap_or(4096);
     let mut cp = ClusterParams::default();
     if let Some(k) = opt(args, "--k") {
         cp.k = k;
@@ -30,6 +32,7 @@ fn group_command(cmd: &str, args: &[String]) -> Result<(), String> {
         cp.min_area = a;
     }
     if cmd == "clusters" {
+        let raster = PieceRaster::fit(&doc, raster_side);
         let n = group::name_clusters(&mut doc, &raster, &cp);
         eprintln!("{n} clusters");
     } else {
@@ -38,14 +41,28 @@ fn group_command(cmd: &str, args: &[String]) -> Result<(), String> {
                 .filter(|a| !a.starts_with('-') && a.to_ascii_lowercase().ends_with(".svg"))
                 .cloned()
         });
-        let mut layer: Option<LabelLayer> = None;
+        let scale: f32 = opt(args, "--scale").unwrap_or(doc.scale as f32);
+        let mut map: Option<GroupMap> = None;
         if let Some(z) = &zones_path {
             let svg = std::fs::read_to_string(z).map_err(|e| format!("{z}: {e}"))?;
-            let map = GroupMap::from_svg(&svg);
-            let scale: f32 = opt(args, "--scale").unwrap_or(doc.scale as f32);
-            eprintln!("{z}: {} zone shapes", map.zones.len());
-            layer = Some(map.layer(&raster, scale));
+            let m = GroupMap::from_svg(&svg);
+            eprintln!("{z}: {} zone shapes", m.zones.len());
+            map = Some(m);
         }
+        // --cut: split pieces along the zone borders before the vote
+        let mut cut_names = Vec::new();
+        if args.iter().any(|a| a == "--cut") {
+            let m = map.as_ref().ok_or("--cut needs zones (an .svg)")?;
+            let p = cut::CutParams {
+                min_share: opt(args, "--cut-min").unwrap_or(0.05),
+                ..cut::CutParams::default()
+            };
+            let s = cut::cut_at_zones(&mut doc, m, scale, &p);
+            eprintln!("{} pieces cut into {} parts", s.cut, s.parts);
+            cut_names = s.named;
+        }
+        let raster = PieceRaster::fit(&doc, raster_side);
+        let mut layer: Option<LabelLayer> = map.as_ref().map(|m| m.layer(&raster, scale));
         if let Some(m) = opt::<String>(args, "--mask") {
             let img = image::open(&m).map_err(|e| format!("{m}: {e}"))?.to_rgba8();
             let legend = match opt::<String>(args, "--legend") {
@@ -65,7 +82,14 @@ fn group_command(cmd: &str, args: &[String]) -> Result<(), String> {
             share: opt(args, "--share").unwrap_or(0.5),
             clusters: args.iter().any(|a| a == "--clusters").then_some(cp),
         };
-        let counts = group::assign(&mut doc, &raster, &layer, &p);
+        let mut counts = group::assign(&mut doc, &raster, &layer, &p);
+        if !cut_names.is_empty() {
+            cut::keep_names(&mut doc, &cut_names);
+            counts.clear();
+            for piece in doc.pieces.iter().filter(|q| !q.group.is_empty()) {
+                *counts.entry(piece.group.clone()).or_insert(0) += 1;
+            }
+        }
         let mut names: Vec<_> = counts.iter().collect();
         names.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
         for (name, n) in &names {
@@ -292,7 +316,7 @@ fn main() -> ExitCode {
         },
         _ => {
             eprintln!(
-                "fframes-vector vectorize in.png out.json [--scale N] [--colors N] [--svg out.svg] [--flat flat.png]\nfframes-vector group doc.json zones.svg|--mask m.png [--legend l.json] [--clusters] [--share 0.5] [--check c.svg] [-o out.json]\nfframes-vector clusters doc.json [--k N] [--gap N] [--min-area N] [--check c.svg] [-o out.json]\nfframes-vector svg doc.json out.svg [--grouped]\nfframes-vector sprites doc.json dir [--density 1,2] [--group name] [--no-outline]"
+                "fframes-vector vectorize in.png out.json [--scale N] [--colors N] [--svg out.svg] [--flat flat.png]\nfframes-vector group doc.json zones.svg|--mask m.png [--cut [--cut-min 0.05]] [--legend l.json] [--clusters] [--share 0.5] [--check c.svg] [-o out.json]\nfframes-vector clusters doc.json [--k N] [--gap N] [--min-area N] [--check c.svg] [-o out.json]\nfframes-vector svg doc.json out.svg [--grouped]\nfframes-vector sprites doc.json dir [--density 1,2] [--group name] [--no-outline]"
             );
             ExitCode::FAILURE
         }
