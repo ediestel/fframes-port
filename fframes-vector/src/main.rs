@@ -195,7 +195,12 @@ fn turntable_frames(video: &str, count: usize) -> Result<Vec<image::RgbaImage>, 
         let count = if count > 0 {
             count
         } else {
-            (1..).take_while(|i| dir.join(format!("f_{i:03}.png")).exists()).count()
+            // the frames ffmpeg wrote: f_001.png onwards
+            std::fs::read_dir(&dir)
+                .map_err(|e| format!("{}: {e}", dir.display()))?
+                .filter_map(Result::ok)
+                .filter(|e| e.file_name().to_string_lossy().starts_with("f_"))
+                .count()
         };
         (1..=count)
             .map(|i| {

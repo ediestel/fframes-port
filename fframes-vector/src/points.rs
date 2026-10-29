@@ -162,7 +162,7 @@ pub fn turntable_points(frames: &[image::RgbaImage], p: &PointsParams) -> Result
             let (mut s, mut c) = (0.0_f64, 0.0_f64);
             for (i, &on) in m.iter().enumerate() {
                 if on {
-                    s += (i as u32 % w) as f64;
+                    s += f64::from(i as u32 % w);
                     c += 1.0;
                 }
             }
@@ -344,7 +344,7 @@ pub fn to_glb(points: &[Point], scale: f32, size: f32) -> Vec<u8> {
         "buffers": [{"byteLength": bin.len()}]
     });
     let mut json = serde_json::to_vec(&doc).unwrap_or_default();
-    while json.len() % 4 != 0 {
+    while !json.len().is_multiple_of(4) {
         json.push(b' ');
     }
     let total = 12 + 8 + json.len() + 8 + bin.len();

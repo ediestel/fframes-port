@@ -224,15 +224,12 @@ fn unescape(v: &str) -> String {
             }?;
             Some((c, e + 1))
         });
-        match decoded {
-            Some((c, len)) => {
-                out.push(c);
-                rest = &tail[len..];
-            }
-            None => {
-                out.push('&');
-                rest = &tail[1..];
-            }
+        if let Some((c, len)) = decoded {
+            out.push(c);
+            rest = &tail[len..];
+        } else {
+            out.push('&');
+            rest = &tail[1..];
         }
     }
     out.push_str(rest);

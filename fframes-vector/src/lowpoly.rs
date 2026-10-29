@@ -46,6 +46,11 @@ pub struct Views<'a> {
     pub held: &'a (dyn Fn(usize) -> bool + Sync),
 }
 
+/// One baked texel: its index in the texture, its colour (when a frame saw it), the encoded
+/// tangent-space normal and how far the full model's direction turns from the reduced
+/// surface there (degrees).
+type Texel = (usize, Option<[u8; 3]>, [u8; 3], f32);
+
 const TEXTURE: u32 = 2048;
 const PADDING: u32 = 4;
 
@@ -66,8 +71,8 @@ pub(crate) fn low_poly_glb(mesh: &Mesh, budget: usize, views: &Views<'_>, projec
                 normal_sum.push([0.0; 3]);
                 positions.len() as u32 - 1
             });
-            for c in 0..3 {
-                normal_sum[v as usize][c] += mesh.normals[i as usize][c];
+            for (sum, n) in normal_sum[v as usize].iter_mut().zip(mesh.normals[i as usize]) {
+                *sum += n;
             }
             v
         })
@@ -213,8 +218,8 @@ impl High {
                         let d2 = (0..3).map(|c| (q[c] - p[c]).powi(2)).sum::<f32>() / (self.cell * self.cell);
                         if d2 < 1.0 {
                             let k = (-3.0 * d2).exp();
-                            for c in 0..3 {
-                                sum[c] += k * self.normals[i as usize][c];
+                            for (s, n) in sum.iter_mut().zip(self.normals[i as usize]) {
+                                *s += k * n;
                             }
                             any = true;
                         }
@@ -231,7 +236,7 @@ fn dot(a: [f32; 3], b: [f32; 3]) -> f32 {
 }
 
 /// Empty texels take their filled neighbours' colour, ring by ring, `rings` times.
-fn pad(texture: &mut image::RgbaImage, filled: &mut [bool], rings: u32) {
+pub(crate) fn pad(texture: &mut image::RgbaImage, filled: &mut [bool], rings: u32) {
     let (tw, th) = (texture.width() as usize, texture.height() as usize);
     for _ in 0..rings {
         let before = filled.to_vec();
@@ -252,8 +257,8 @@ fn pad(texture: &mut image::RgbaImage, filled: &mut [bool], rings: u32) {
                         k += 1;
                     }
                 }
-                if k > 0 {
-                    texture.put_pixel(x as u32, y as u32, image::Rgba([(sum[0] / k) as u8, (sum[1] / k) as u8, (sum[2] / k) as u8, 255]));
+                if let [Some(r), Some(g), Some(b)] = sum.map(|s| s.checked_div(k)) {
+                    texture.put_pixel(x as u32, y as u32, image::Rgba([r as u8, g as u8, b as u8, 255]));
                     filled[y * tw + x] = true;
                     any = true;
                 }
@@ -379,7 +384,7 @@ fn bake(m: &Unwrapped, views: &Views<'_>, project: &Project<'_>, high: &High) ->
 
     // 4. bake, triangle by triangle in texture space: colour from the frames, and the full
     // model's normal in the reduced surface's tangent space
-    let painted: Vec<Vec<(usize, Option<[u8; 3]>, [u8; 3], f32)>> = tris
+    let painted: Vec<Vec<Texel>> = tris
         .par_iter()
         .map(|t| {
             let p = t.map(|i| m.positions[i]);

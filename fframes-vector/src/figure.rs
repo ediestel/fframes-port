@@ -149,26 +149,25 @@ pub fn find_views(
             runs.len()
         ));
     }
-    let views = match order {
-        Some(o) => o,
-        None => {
-            // front and back mirror one outline: the pair of most equal width
-            let wd: Vec<i64> = runs.iter().map(|(a, b)| i64::from(b - a)).collect();
-            let odd = (0..3)
-                .min_by_key(|&i| {
-                    let (j, k) = ((i + 1) % 3, (i + 2) % 3);
-                    (wd[j] - wd[k]).abs()
-                })
-                .unwrap_or(1);
-            let mut v = [View::Front; 3];
-            v[odd] = View::Side;
-            let mut pair = (0..3).filter(|&i| i != odd);
-            if let (Some(a), Some(b)) = (pair.next(), pair.next()) {
-                v[a] = View::Front;
-                v[b] = View::Back;
-            }
-            v
+    let views = if let Some(o) = order {
+        o
+    } else {
+        // front and back mirror one outline: the pair of most equal width
+        let wd: Vec<i64> = runs.iter().map(|(a, b)| i64::from(b - a)).collect();
+        let odd = (0..3)
+            .min_by_key(|&i| {
+                let (j, k) = ((i + 1) % 3, (i + 2) % 3);
+                (wd[j] - wd[k]).abs()
+            })
+            .unwrap_or(1);
+        let mut v = [View::Front; 3];
+        v[odd] = View::Side;
+        let mut pair = (0..3).filter(|&i| i != odd);
+        if let (Some(a), Some(b)) = (pair.next(), pair.next()) {
+            v[a] = View::Front;
+            v[b] = View::Back;
         }
+        v
     };
     Ok(runs
         .iter()
@@ -208,9 +207,8 @@ pub fn figure_glb(
     let (mask, w, h) = figure_mask(&img, p.tolerance);
     let views = find_views(&mask, w, h, p.order)?;
     let get = |v: View| views.iter().find(|b| b.view == v).copied();
-    let (front, side) = match (get(View::Front), get(View::Side)) {
-        (Some(f), Some(s)) => (f, s),
-        _ => return Err("need a front and a side view".into()),
+    let (Some(front), Some(side)) = (get(View::Front), get(View::Side)) else {
+        return Err("need a front and a side view".into());
     };
     let back = get(View::Back);
 
@@ -572,13 +570,12 @@ pub fn turntable_glb(
         }
         if count == 0 { 0.0 } else { (total / count as f64) as f32 }
     };
-    let (clockwise, solid, disagree) = match p.clockwise {
-        Some(c) => (c, carve(c), None),
-        None => {
-            let (a, b) = (carve(true), carve(false));
-            let (da, db) = (disagreement(true, &a), disagreement(false, &b));
-            if da <= db { (true, a, Some((da, db))) } else { (false, b, Some((db, da))) }
-        }
+    let (clockwise, solid, disagree) = if let Some(c) = p.clockwise {
+        (c, carve(c), None)
+    } else {
+        let (a, b) = (carve(true), carve(false));
+        let (da, db) = (disagreement(true, &a), disagreement(false, &b));
+        if da <= db { (true, a, Some((da, db))) } else { (false, b, Some((db, da))) }
     };
     let volume = solid.iter().filter(|&&x| x).count();
 
@@ -872,7 +869,7 @@ pub(crate) fn write_glb_maps(m: &Mesh, tangents: Option<&[[f32; 4]]>, png: &[u8]
     let mut bin: Vec<u8> = Vec::new();
     let mut views = Vec::new();
     let mut push = |bin: &mut Vec<u8>, bytes: &[u8], target: Option<u32>| {
-        while bin.len() % 4 != 0 {
+        while !bin.len().is_multiple_of(4) {
             bin.push(0);
         }
         let offset = bin.len();
@@ -894,7 +891,7 @@ pub(crate) fn write_glb_maps(m: &Mesh, tangents: Option<&[[f32; 4]]>, png: &[u8]
     let img = push(&mut bin, png, None);
     let tan = tangents.map(|t| push(&mut bin, &t.iter().flatten().flat_map(|f| f.to_le_bytes()).collect::<Vec<u8>>(), Some(34962)));
     let nimg = normal_png.map(|p| push(&mut bin, p, None));
-    while bin.len() % 4 != 0 {
+    while !bin.len().is_multiple_of(4) {
         bin.push(0);
     }
     let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
@@ -943,7 +940,7 @@ pub(crate) fn write_glb_maps(m: &Mesh, tangents: Option<&[[f32; 4]]>, png: &[u8]
         doc["materials"][0]["normalTexture"] = json!({"index": 1});
     }
     let mut json = serde_json::to_vec(&doc).unwrap_or_default();
-    while json.len() % 4 != 0 {
+    while !json.len().is_multiple_of(4) {
         json.push(b' ');
     }
     let total = 12 + 8 + json.len() + 8 + bin.len();
@@ -1100,7 +1097,7 @@ mod tests {
             .filter(|q| fy(q[1]) < 0.85 && fx(q[0]) > 0.9 && fz(q[2]) > 0.5)
             .count();
         assert_eq!(lance_in_front, 0, "the visible ghost is carved");
-        assert!(!pts.is_empty());
+        assert!(!pts.is_empty(), "no points");
     }
 
     #[test]

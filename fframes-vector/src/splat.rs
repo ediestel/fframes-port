@@ -245,6 +245,21 @@ pub struct Rendered {
     pub spread: Vec<f32>,
 }
 
+/// A splat projected into the image: depth, centre (pixels), the inverse of its 2D
+/// covariance (a, b, c of the conic), its reach (pixels), opacity and colour.
+struct Projected {
+    depth: f32,
+    u: f32,
+    v: f32,
+    conic: [f32; 3],
+    radius: f32,
+    opacity: f32,
+    colour: [f32; 3],
+}
+
+/// Edge of the square image tiles the splats are sorted into, pixels.
+const TILE: usize = 16;
+
 /// [`render`] with depth layers.
 #[must_use]
 pub fn render_layers(splats: &[Splat], cam: &Camera, scale: f32, background: [u8; 3]) -> Rendered {
@@ -259,15 +274,6 @@ pub fn render_layers(splats: &[Splat], cam: &Camera, scale: f32, background: [u8
         [-m[0][1], -m[1][1], -m[2][1]],
         [-m[0][2], -m[1][2], -m[2][2]],
     ];
-    struct Projected {
-        depth: f32,
-        u: f32,
-        v: f32,
-        conic: [f32; 3],
-        radius: f32,
-        opacity: f32,
-        colour: [f32; 3],
-    }
     let mut list: Vec<Projected> = splats
         .iter()
         .filter_map(|s| {
@@ -290,7 +296,7 @@ pub fn render_layers(splats: &[Splat], cam: &Camera, scale: f32, background: [u8
             if det <= 0.0 {
                 return None;
             }
-            let mid = 0.5 * (a + c);
+            let mid = f32::midpoint(a, c);
             let radius = 3.0 * (mid + (mid * mid - det).max(0.1).sqrt()).sqrt();
             if u + radius < 0.0 || v + radius < 0.0 || u - radius >= w as f32 || v - radius >= h as f32 {
                 return None;
@@ -308,8 +314,7 @@ pub fn render_layers(splats: &[Splat], cam: &Camera, scale: f32, background: [u8
         })
         .collect();
     list.sort_by(|p, q| p.depth.total_cmp(&q.depth));
-    // per tile of 16 x 16 pixels, the splats that reach it, nearest first
-    const TILE: usize = 16;
+    // per tile, the splats that reach it, nearest first
     let (tx, ty) = (w.div_ceil(TILE), h.div_ceil(TILE));
     let mut tiles: Vec<Vec<u32>> = vec![Vec::new(); tx * ty];
     for (i, p) in list.iter().enumerate() {
@@ -343,8 +348,8 @@ pub fn render_layers(splats: &[Splat], cam: &Camera, scale: f32, background: [u8
                     continue;
                 }
                 let weight = alpha * through;
-                for c in 0..3 {
-                    colour[c] += p.colour[c] * weight;
+                for (acc, c) in colour.iter_mut().zip(p.colour) {
+                    *acc += c * weight;
                 }
                 sum += weight * p.depth;
                 sum2 += weight * p.depth * p.depth;
@@ -385,7 +390,7 @@ fn percentiles(mut v: Vec<f32>, at: &[f32]) -> Vec<f32> {
         .collect()
 }
 
-/// A camera's world position and its world-to-camera rows (OpenCV axes).
+/// A camera's world position and its world-to-camera rows (x right, y down, z forward).
 fn camera_frame(cam: &Camera) -> ([f32; 3], [[f32; 3]; 3]) {
     let m = cam.to_world;
     (
@@ -431,7 +436,7 @@ pub fn depth_report(
         let (pos, rows) = camera_frame(&cam);
         figure_px += fig.iter().filter(|&&f| f).count();
         // the camera `offset` further on, for the cross-view check
-        let other = layers.iter().find(|(j, _, _)| *j == i + offset).or_else(|| None);
+        let other = layers.iter().find(|(j, _, _)| *j == i + offset);
         let other_render;
         let (o_cam, o_r) = if let Some((j, ro, _)) = other {
             (cams[*j].1, ro)

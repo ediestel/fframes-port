@@ -223,7 +223,7 @@ fn outline(set: &[bool], w: usize, h: usize) -> Vec<bool> {
 /// A frame with the screen's colour taken out along the figure's edge. On a coloured screen
 /// (channel `c` well above the others) the edge picks up the screen colour: on the test video
 /// 94 % of tinted figure pixels lie within 3 px of the edge, 2 % further in than 8 px. Within
-/// SPILL_BAND pixels of the edge channel `c` is kept to the stronger of the other two; the
+/// `SPILL_BAND` pixels of the edge channel `c` is kept to the stronger of the other two; the
 /// inside keeps its colours, green or not.
 #[must_use]
 pub fn despill(img: &image::RgbaImage, mask: &[bool], c: usize) -> image::RgbaImage {
@@ -283,7 +283,7 @@ pub(crate) fn frame_fit(shadow: &[bool], mask: &[bool], w: usize, h: usize) -> F
         missed: missed as f32 / f,
         excess: excess as f32 / f,
         iou: both as f32 / (both + missed + excess).max(1) as f32,
-        boundary: (one_way(&so, &to_mask) + one_way(&mo, &to_shadow)) / 2.0,
+        boundary: f32::midpoint(one_way(&so, &to_mask), one_way(&mo, &to_shadow)),
     }
 }
 
@@ -643,11 +643,11 @@ fn frame_depth(
     depth
 }
 
+/// Depth maps of all frames, the figure masks, frames per half turn and the mean mirror error.
+pub type Calibrated = (DepthMaps, Vec<Vec<bool>>, f32, f32);
+
 /// Depth maps of all frames (see the module notes, steps 1 to 3), with the half turn found.
-pub fn depth_maps(
-    frames: &[image::RgbaImage],
-    p: &DepthParams,
-) -> Result<(DepthMaps, Vec<Vec<bool>>, f32, f32), String> {
+pub fn depth_maps(frames: &[image::RgbaImage], p: &DepthParams) -> Result<Calibrated, String> {
     let (mut d, masks, half, mirror) = prepare_depth(frames, p)?;
     let turn: Vec<f32> = (0..frames.len()).map(|k| k as f32 * std::f32::consts::PI / half).collect();
     d.maps = (0..frames.len())
@@ -659,10 +659,7 @@ pub fn depth_maps(
 }
 
 /// Calibrate and segment before running stereo, so silhouette refinement uses no depth maps.
-fn prepare_depth(
-    frames: &[image::RgbaImage],
-    p: &DepthParams,
-) -> Result<(DepthMaps, Vec<Vec<bool>>, f32, f32), String> {
+fn prepare_depth(frames: &[image::RgbaImage], p: &DepthParams) -> Result<Calibrated, String> {
     let n = frames.len();
     if n < 4 || p.views > n.saturating_sub(2) / 2 {
         return Err(format!("{n} frames; need at least four and enough for the requested neighbouring views"));
@@ -780,6 +777,16 @@ fn consistent_depths(d: &DepthMaps, turn: &[f32], p: &DepthParams) -> Vec<Vec<f3
     }).collect()
 }
 
+/// One z slice of the carving grid: per voxel its kind (0 kept, 1 removed by outline, 2 removed
+/// by depth, 3 outside the turning space) and its signed distance (averaged, in units of
+/// `surface`; negative inside, +1 where the outlines exclude it, NaN where no depth was
+/// measured); per row, [kept, removed by outline, removed by depth].
+struct Slice {
+    kinds: Vec<u8>,
+    field: Vec<f32>,
+    tally: Vec<[usize; 3]>,
+}
+
 /// Damped angle updates with a fixed reference and a positive angular increment.
 /// The upper bound uses the next old angle, so the forward lower bound stays feasible.
 fn refine_turn(turn: &mut [f32], found: &[f32], step: f32, p: &DepthParams) -> (f32, f32) {
@@ -795,7 +802,7 @@ fn refine_turn(turn: &mut [f32], found: &[f32], step: f32, p: &DepthParams) -> (
     for f in 1..turn.len() {
         if p.held(f) {
             turn[f] = if f + 1 < turn.len() {
-                0.5 * (turn[f - 1] + turn[f + 1])
+                f32::midpoint(turn[f - 1], turn[f + 1])
             } else {
                 turn[f - 1] + step
             };
@@ -931,15 +938,6 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
         })
         .collect();
 
-    // one z slice of the grid: per voxel its kind (0 kept, 1 removed by outline, 2 removed by
-    // depth, 3 outside the turning space) and its signed distance (averaged, in units of
-    // `surface`; negative inside, +1 where the outlines exclude it, NaN where no depth was
-    // measured); per row, [kept, removed by outline, removed by depth]
-    struct Slice {
-        kinds: Vec<u8>,
-        field: Vec<f32>,
-        tally: Vec<[usize; 3]>,
-    }
     let carve = |angle: &[(f32, f32)], allowed: usize, depth: Option<(&DepthMaps, f32)>| -> Vec<Slice> {
         (0..nz)
         .into_par_iter()
@@ -1055,7 +1053,7 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
                 for q in -range..=range {
                     let delta = (q as f32 * 0.25).to_radians();
                     let (c, s) = ((turn[f] + delta).cos(), (turn[f] + delta).sin());
-                    shadow.iter_mut().for_each(|b| *b = false);
+                    shadow.fill(false);
                     for &(x, z, j) in &shell {
                         let b = bin(d.axis + x * c + z * s);
                         if b >= 0.0 && (b as usize) < nx {
@@ -1090,12 +1088,11 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
     d.maps = (0..n).into_par_iter()
         .map(|k| frame_depth(frames, &masks, k, axis, reach, &turn, p)).collect();
     d.maps = consistent_depths(&d, &turn, p);
-    let (clockwise, viol) = match p.clockwise {
-        Some(c) => (c, None),
-        None => {
-            let (a, b) = (violations(&d, &turn, 1.0, 3.0), violations(&d, &turn, -1.0, 3.0));
-            if a <= b { (true, Some((a, b))) } else { (false, Some((b, a))) }
-        }
+    let (clockwise, viol) = if let Some(c) = p.clockwise {
+        (c, None)
+    } else {
+        let (a, b) = (violations(&d, &turn, 1.0, 3.0), violations(&d, &turn, -1.0, 3.0));
+        if a <= b { (true, Some((a, b))) } else { (false, Some((b, a))) }
     };
     let sign = if clockwise { 1.0 } else { -1.0 };
     for t in &mut turn {
@@ -1116,8 +1113,8 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
                 field[idx(i, j, k)] = s.field[j * nx + i];
             }
             let band = (j * 10 / ny).min(9);
-            for c in 0..3 {
-                bands[band][c] += s.tally[j][c];
+            for (total, count) in bands[band].iter_mut().zip(&s.tally[j]) {
+                *total += count;
             }
         }
     }
@@ -1178,7 +1175,7 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
         .collect();
     let shadow = |f: usize| -> Vec<bool> {
         front_depth(&shell, angle[f], axis, top as f32, w, h, v)
-            .into_iter().map(|z| z.is_finite()).collect()
+            .into_iter().map(f32::is_finite).collect()
     };
     // how well the model's shadow fits every frame's outline
     let fits: Vec<(bool, FrameFit)> = (0..n)
@@ -1291,34 +1288,7 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
             let (tw, th) = (tw as usize, th as usize);
             let mut filled: Vec<bool> =
                 (0..tw * th).map(|i| masks[f][(top + i / tw) * w + l0 + i % tw]).collect();
-            let mut todo = true;
-            while todo {
-                todo = false;
-                let before = filled.clone();
-                for y in 0..th {
-                    for x in 0..tw {
-                        if before[y * tw + x] {
-                            continue;
-                        }
-                        let (mut sum, mut k) = ([0u32; 3], 0u32);
-                        for (dx, dy) in [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)] {
-                            let (qx, qy) = (x as i64 + dx, y as i64 + dy);
-                            if qx >= 0 && qy >= 0 && (qx as usize) < tw && (qy as usize) < th && before[qy as usize * tw + qx as usize] {
-                                let q = tile.get_pixel(qx as u32, qy as u32).0;
-                                for c in 0..3 {
-                                    sum[c] += u32::from(q[c]);
-                                }
-                                k += 1;
-                            }
-                        }
-                        if k > 0 {
-                            tile.put_pixel(x as u32, y as u32, image::Rgba([(sum[0] / k) as u8, (sum[1] / k) as u8, (sum[2] / k) as u8, 255]));
-                            filled[y * tw + x] = true;
-                            todo = true;
-                        }
-                    }
-                }
-            }
+            crate::lowpoly::pad(&mut tile, &mut filled, u32::MAX);
             tile
         })
         .collect();
@@ -1555,7 +1525,7 @@ mod tests {
             assert!(turn.windows(2).all(|w| w[1] - w[0] >= 0.099 * step));
             for f in 1..turn.len() - 1 {
                 if p.held(f) {
-                    assert!((turn[f] - 0.5 * (turn[f - 1] + turn[f + 1])).abs() < 1e-6);
+                    assert!((turn[f] - f32::midpoint(turn[f - 1], turn[f + 1])).abs() < 1e-6);
                 }
             }
         }
