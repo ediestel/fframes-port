@@ -6,7 +6,8 @@
 //! `fframes-vector group` reads) and the grouped document.
 //!
 //! Keys: `z` draw a zone (click points, `Enter` to close, type the name, `Enter`),
-//! `Backspace` removes the last point, `Esc` cancels; `x` deletes the zone under the
+//! `Backspace` removes the last point, `Esc` cancels; `Cmd+Z` / `u` undo and
+//! `Cmd+Shift+Z` / `U` redo changes to the zones; `x` deletes the zone under the
 //! pointer, `[` / `]` move it earlier / later (earlier wins); `g` picture, mix or groups;
 //! `d` doubtful pieces on or off; `n` / `N` next / previous doubtful piece; `f` fit;
 //! `c` cut pieces along the zones when saving; `s` save; `q` quit. Scroll or drag to pan,

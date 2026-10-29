@@ -70,6 +70,8 @@ a zone drawn later is usually the more specific one (the spurs inside the rider)
 
 - `[` moves the zone under the pointer one place earlier, `]` one place later.
 - `x` deletes the zone under the pointer.
+- `Cmd+Z` (or `u`) undoes the last change to the zones, as many steps back as you like;
+  `Cmd+Shift+Z` (or `U`) redoes it. Steps are kept until you quit.
 
 When saving with cut, the order also decides which part is drawn on top: the earlier zone.
 
@@ -93,6 +95,8 @@ The status bar and the terminal say where the files went.
 | `Enter` | Close the zone, then confirm its name |
 | `Backspace` | Remove the last corner, or the last letter of the name |
 | `Esc` | Stop drawing or naming; with nothing to stop, quit |
+| `Cmd+Z` or `u` | Undo the last change to the zones (new zone, delete, order); while drawing, the last corner |
+| `Cmd+Shift+Z` or `U` | Redo |
 | `x` | Delete the zone under the pointer |
 | `[` / `]` | Zone under the pointer earlier / later |
 | `n` / `N` | Next / previous doubtful piece |
@@ -116,7 +120,6 @@ The status bar and the terminal say where the files went.
 ## Limits of this version
 
 - `q` and `Esc` quit without asking: save with `s` first.
-- No undo. A wrong zone is deleted with `x` and drawn again.
 - A zone cannot be reshaped or renamed in the window: delete it and draw it again, or edit the
   saved zone SVG in any SVG editor and open it again.
 - Zones are polygons. Rectangles, circles and paths from a zone SVG are read, shown and used,

@@ -170,6 +170,10 @@ struct Editor {
     hovered: Option<usize>,
     modifiers: ModifiersState,
     dragging: Option<PhysicalPosition<f64>>,
+
+    /// Zones before each change, for undo; and the undone ones, for redo.
+    undo: Vec<GroupMap>,
+    redo: Vec<GroupMap>,
 }
 
 pub fn run(config: Config) -> Result<(), String> {
@@ -217,6 +221,8 @@ pub fn run(config: Config) -> Result<(), String> {
         hovered: None,
         modifiers: ModifiersState::default(),
         dragging: None,
+        undo: Vec::new(),
+        redo: Vec::new(),
     };
     let event_loop = EventLoop::new().map_err(|e| e.to_string())?;
     event_loop.run_app(&mut editor).map_err(|e| e.to_string())?;
@@ -337,11 +343,35 @@ impl Editor {
         eprintln!("{}", self.message);
     }
 
+    /// Undo (`back`) or redo the last change to the zones.
+    fn step_back(&mut self, back: bool) {
+        let (from, to) = if back {
+            (&mut self.undo, &mut self.redo)
+        } else {
+            (&mut self.redo, &mut self.undo)
+        };
+        let Some(zones) = from.pop() else {
+            self.message = if back { "nothing to undo" } else { "nothing to redo" }.into();
+            return;
+        };
+        to.push(std::mem::replace(&mut self.model.zones, zones));
+        self.model.regroup();
+        self.message = format!(
+            "{}: {} zones, {} of {} pieces grouped ({} more steps back)",
+            if back { "undone" } else { "redone" },
+            self.model.zones.zones.len(),
+            self.model.grouped(),
+            self.model.doc.pieces.len(),
+            self.undo.len()
+        );
+    }
+
     fn handle_key(&mut self, event_loop: &ActiveEventLoop, event: &KeyEvent) {
         if event.state != ElementState::Pressed {
             return;
         }
         let key = event.logical_key.as_ref();
+        let command = self.modifiers.super_key() || self.modifiers.control_key();
         match &mut self.tool {
             Tool::Naming(points, name) => match key {
                 Key::Named(NamedKey::Enter) => {
@@ -353,6 +383,8 @@ impl Editor {
                         let src: Vec<(f32, f32)> = points.iter().map(|&(x, y)| (x / k, y / k)).collect();
                         if let Some(z) = Zone::polygon(&name, &src) {
                             // a new zone is usually more specific: it goes first and wins
+                            self.undo.push(self.model.zones.clone());
+                            self.redo.clear();
                             self.model.zones.zones.insert(0, z);
                             self.model.regroup();
                             self.message = format!(
@@ -381,6 +413,9 @@ impl Editor {
                 }
             },
             Tool::Drawing(points) => match key {
+                Key::Character(c) if command && c.eq_ignore_ascii_case("z") => {
+                    points.pop();
+                }
                 Key::Named(NamedKey::Enter) if points.len() >= 3 => {
                     let points = std::mem::take(points);
                     self.tool = Tool::Naming(points, self.last_name.clone());
@@ -396,6 +431,11 @@ impl Editor {
                 _ => {}
             },
             Tool::Idle => match key {
+                Key::Character(c) if command && c.eq_ignore_ascii_case("z") => {
+                    self.step_back(!self.modifiers.shift_key());
+                }
+                Key::Character("u") => self.step_back(true),
+                Key::Character("U") => self.step_back(false),
                 Key::Character("q") | Key::Named(NamedKey::Escape) => event_loop.exit(),
                 Key::Character("z") => {
                     self.tool = Tool::Drawing(Vec::new());
@@ -404,6 +444,8 @@ impl Editor {
                 Key::Character("x") => {
                     let (x, y) = self.cursor_doc();
                     if let Some(i) = self.model.zone_at(x, y) {
+                        self.undo.push(self.model.zones.clone());
+                        self.redo.clear();
                         let z = self.model.zones.zones.remove(i);
                         self.model.regroup();
                         self.message = format!("zone \"{}\" deleted", z.name);
@@ -414,6 +456,8 @@ impl Editor {
                     if let Some(i) = self.model.zone_at(x, y) {
                         let j = if c == "[" { i.checked_sub(1) } else { Some(i + 1) };
                         if let Some(j) = j.filter(|&j| j < self.model.zones.zones.len()) {
+                            self.undo.push(self.model.zones.clone());
+                            self.redo.clear();
                             self.model.zones.zones.swap(i, j);
                             self.model.regroup();
                             self.message = format!(
@@ -445,7 +489,7 @@ impl Editor {
                 }
                 Key::Character("s") => self.save(),
                 Key::Character("?") => eprintln!(
-                    "z zone, Enter close, Backspace undo point, Esc cancel; x delete zone; [ ] zone order; g look; d doubts; n N next doubtful; f fit; c cut on save; s save; q quit"
+                    "z zone, Enter close, Backspace undo point, Esc cancel; Cmd+Z / u undo, Cmd+Shift+Z / U redo; x delete zone; [ ] zone order; g look; d doubts; n N next doubtful; f fit; c cut on save; s save; q quit"
                 ),
                 _ => {}
             },
