@@ -244,6 +244,8 @@ pub fn figure_glb(
         }
         out
     };
+    // pairs of the row above (front run, side run), for continuity
+    let mut above: Vec<((f32, f32), (f32, f32))> = Vec::new();
     for j in 1..ny - 1 {
         let y = (j as f32 - 0.5) * px;
         // every slice is round, not square: ellipses fitted to pairs of a front run (width)
@@ -254,7 +256,9 @@ pub fn figure_glb(
         // ones are round limbs inside it.
         let across = runs(front, y, nx, &|i| (i as f32 - 0.5) * px);
         let deep = runs(side, y, nz, &|k| side_u(nz - 1 - k));
-        for (cx, rx, cz, rz) in pair_runs(&across, &deep) {
+        let (ellipses, pairs) = pair_runs(&across, &deep, &above);
+        above = pairs;
+        for (cx, rx, cz, rz) in ellipses {
             {
                 for k in 1..nz - 1 {
                     let dz = (k as f32 - cz) / rz.max(0.5);
@@ -408,52 +412,92 @@ fn n_dot_winding(pts: &[[f32; 3]], n: [f32; 3]) -> bool {
 /// Boundary quads between solid and empty voxels, with the axis they face along and
 /// whether the solid side is the lower one (the face points to +axis).
 /// Pairs the runs of one row of the front view (`across`) with those of the side view
-/// (`deep`) and returns the ellipses (centre and radius across, centre and radius in depth).
-/// Each run takes the run of the other view closest to it in size (width against depth); a
-/// run that is not the closest match of its partner is a limb within it: as deep as it is
-/// wide (or as wide as deep), centred on the partner.
-fn pair_runs(across: &[(f32, f32)], deep: &[(f32, f32)]) -> Vec<(f32, f32, f32, f32)> {
+/// (`deep`) and returns the ellipses (centre and radius across, centre and radius in depth)
+/// and the pairs, to pass as `above` to the next row down.
+///
+/// A pair costs the size mismatch of its runs (width against depth), and more when it does
+/// not continue a pair of the row above (both runs overlapping that pair's runs): parts
+/// continue from row to row, a horse's head from its neck, legs from the hips. With as many
+/// runs in both views, every run is used once, at the least total cost (two legs side by side
+/// in front and one behind the other from the side are two legs, not four). Otherwise each run
+/// takes its cheapest partner, and a run that is not its partner's own choice is a limb
+/// within it: as deep as it is wide (or as wide as deep), centred on the partner.
+#[allow(clippy::type_complexity)]
+fn pair_runs(
+    across: &[(f32, f32)],
+    deep: &[(f32, f32)],
+    above: &[((f32, f32), (f32, f32))],
+) -> (Vec<(f32, f32, f32, f32)>, Vec<((f32, f32), (f32, f32))>) {
     if across.is_empty() || deep.is_empty() {
-        return Vec::new();
+        return (Vec::new(), Vec::new());
     }
     let size = |r: &(f32, f32)| (r.1 - r.0).max(0.5);
-    let closest = |r: &(f32, f32), others: &[(f32, f32)]| {
-        (0..others.len())
-            .min_by(|&a, &b| {
-                let da = (size(r) / size(&others[a])).ln().abs();
-                let db = (size(r) / size(&others[b])).ln().abs();
-                da.total_cmp(&db)
-            })
-            .unwrap_or(0)
+    let overlaps = |a: &(f32, f32), b: &(f32, f32)| a.0 < b.1 && b.0 < a.1;
+    let cost = |f: usize, s: usize| {
+        let mismatch = (size(&across[f]) / size(&deep[s])).ln().abs();
+        let continues = above.is_empty()
+            || above
+                .iter()
+                .any(|(a, d)| overlaps(&across[f], a) && overlaps(&deep[s], d));
+        mismatch + if continues { 0.0 } else { 3.0 }
     };
-    let best_deep: Vec<usize> = across.iter().map(|r| closest(r, deep)).collect();
-    let best_across: Vec<usize> = deep.iter().map(|r| closest(r, across)).collect();
-    let mut pairs: Vec<(usize, usize)> = Vec::new();
-    for (f, &s) in best_deep.iter().enumerate() {
-        pairs.push((f, s));
-    }
-    for (s, &f) in best_across.iter().enumerate() {
-        if !pairs.contains(&(f, s)) {
-            pairs.push((f, s));
+    let mut pairs: Vec<(usize, usize, bool)> = Vec::new(); // (front, side, a limb in its partner)
+    if across.len() == deep.len() && across.len() <= 6 {
+        // every run once: the cheapest permutation
+        let n = across.len();
+        let mut perm: Vec<usize> = (0..n).collect();
+        let mut best = (f32::MAX, perm.clone());
+        permutations(&mut perm, 0, &mut |p| {
+            let c: f32 = p.iter().enumerate().map(|(f, &s)| cost(f, s)).sum();
+            if c < best.0 {
+                best = (c, p.to_vec());
+            }
+        });
+        pairs.extend(best.1.iter().enumerate().map(|(f, &s)| (f, s, false)));
+    } else {
+        let cheapest = |f: usize| (0..deep.len()).min_by(|&a, &b| cost(f, a).total_cmp(&cost(f, b))).unwrap_or(0);
+        let cheapest_front = |s: usize| (0..across.len()).min_by(|&a, &b| cost(a, s).total_cmp(&cost(b, s))).unwrap_or(0);
+        for f in 0..across.len() {
+            let s = cheapest(f);
+            pairs.push((f, s, cheapest_front(s) != f));
+        }
+        for s in 0..deep.len() {
+            let f = cheapest_front(s);
+            if !pairs.iter().any(|&(pf, ps, _)| pf == f && ps == s) {
+                // a side run that is not its front run's own choice: a limb across
+                pairs.push((f, s, cheapest(f) != s));
+            }
         }
     }
-    pairs
-        .into_iter()
-        .map(|(f, s)| {
+    let ellipses = pairs
+        .iter()
+        .map(|&(f, s, limb)| {
             let (a, d) = (across[f], deep[s]);
             let (cx, mut rx) = ((a.0 + a.1) / 2.0, (a.1 - a.0) / 2.0);
             let (cz, mut rz) = ((d.0 + d.1) / 2.0, (d.1 - d.0) / 2.0);
-            // a front run that is not its side run's own match: a round limb in it
-            if best_across[s] != f {
-                rz = rz.min(rx);
-            }
-            // a side run that is not its front run's own match: likewise across
-            if best_deep[f] != s {
-                rx = rx.min(rz);
+            if limb {
+                // a round limb, as thick as its smaller dimension, not a slab
+                let r = rx.min(rz);
+                (rx, rz) = (r, r);
             }
             (cx, rx, cz, rz)
         })
-        .collect()
+        .collect();
+    let kept = pairs.iter().map(|&(f, s, _)| (across[f], deep[s])).collect();
+    (ellipses, kept)
+}
+
+/// Calls `visit` with every ordering of `p[k..]` (Heap-style swaps), `p[..k]` fixed.
+fn permutations(p: &mut Vec<usize>, k: usize, visit: &mut dyn FnMut(&[usize])) {
+    if k == p.len() {
+        visit(p);
+        return;
+    }
+    for i in k..p.len() {
+        p.swap(k, i);
+        permutations(p, k + 1, visit);
+        p.swap(k, i);
+    }
 }
 
 fn collect_quads(
@@ -638,7 +682,7 @@ mod tests {
     fn a_head_and_a_lance_make_two_parts_not_four() {
         // front: head 20 wide at 10..30, lance 2 wide at 50..52; side: head 18 deep at
         // 0..18, lance 2 deep at 30..32
-        let e = pair_runs(&[(10.0, 30.0), (50.0, 52.0)], &[(0.0, 18.0), (30.0, 32.0)]);
+        let (e, _) = pair_runs(&[(10.0, 30.0), (50.0, 52.0)], &[(0.0, 18.0), (30.0, 32.0)], &[]);
         assert_eq!(e.len(), 2, "{e:?}");
         assert!(e.iter().any(|&(cx, _, cz, _)| cx == 20.0 && cz == 9.0), "head");
         assert!(e.iter().any(|&(cx, _, cz, _)| cx == 51.0 && cz == 31.0), "lance");
@@ -647,12 +691,31 @@ mod tests {
     #[test]
     fn arms_beside_a_body_are_round_limbs_not_slabs() {
         // front: arm 8, body 30, arm 8; side: one body 20 deep
-        let e = pair_runs(&[(0.0, 8.0), (10.0, 40.0), (42.0, 50.0)], &[(0.0, 20.0)]);
+        let (e, _) = pair_runs(&[(0.0, 8.0), (10.0, 40.0), (42.0, 50.0)], &[(0.0, 20.0)], &[]);
         assert_eq!(e.len(), 3);
         let arm = e.iter().find(|p| p.0 == 4.0).unwrap();
         assert_eq!((arm.1, arm.3), (4.0, 4.0), "an arm as deep as it is wide");
         let body = e.iter().find(|p| p.0 == 25.0).unwrap();
         assert_eq!((body.1, body.3), (15.0, 10.0), "the body keeps its depth");
+    }
+
+    #[test]
+    fn two_legs_seen_twice_are_two_legs_not_four() {
+        // front: legs side by side; side: one leg ahead of the other; hips above
+        let hips = [((0.0, 30.0), (0.0, 20.0))];
+        let (e, _) = pair_runs(&[(2.0, 12.0), (18.0, 28.0)], &[(0.0, 9.0), (11.0, 20.0)], &hips);
+        assert_eq!(e.len(), 2, "{e:?}");
+        let zs: Vec<f32> = e.iter().map(|p| p.2).collect();
+        assert!(zs.contains(&4.5) && zs.contains(&15.5), "one ahead, one behind: {zs:?}");
+    }
+
+    #[test]
+    fn a_part_continues_its_pairing_from_the_row_above() {
+        // a long neck and head from the side (40 deep) and narrow from the front (10 wide)
+        // continue the neck above, although a lance (2 x 2) is closer in size to nothing
+        let neck = [((20.0, 30.0), (0.0, 40.0))];
+        let (e, _) = pair_runs(&[(20.0, 30.0), (60.0, 62.0)], &[(0.0, 40.0), (50.0, 52.0)], &neck);
+        assert!(e.iter().any(|&(cx, _, cz, _)| cx == 25.0 && cz == 20.0), "head on the neck: {e:?}");
     }
 
     #[test]
