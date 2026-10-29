@@ -57,6 +57,8 @@ pub struct DepthParams {
     /// Every `holdout`-th frame is left out of the shape and only used to check it (0 or 1:
     /// none).
     pub holdout: usize,
+    /// Also a reduced model with at most this many vertices and one baked texture.
+    pub low: Option<usize>,
 }
 
 impl Default for DepthParams {
@@ -75,6 +77,7 @@ impl Default for DepthParams {
             hull: false,
             refine: 2,
             holdout: 8,
+            low: None,
         }
     }
 }
@@ -112,6 +115,8 @@ pub struct DepthTurn {
     /// Fit of the model's shadow to the frames that shaped it, and to the held-out frames.
     pub fit_used: FrameFit,
     pub fit_held: FrameFit,
+    /// The reduced model (binary glTF) and what the reduction gave, when asked for.
+    pub low: Option<(Vec<u8>, crate::lowpoly::LowPoly)>,
 }
 
 /// A frame with its lost figure pixels painted: red removed by the outline check, blue by the
@@ -142,7 +147,7 @@ pub struct FrameFit {
 }
 
 impl FrameFit {
-    fn mean(fits: &[&FrameFit]) -> FrameFit {
+    pub(crate) fn mean(fits: &[&FrameFit]) -> FrameFit {
         let n = fits.len().max(1) as f32;
         FrameFit {
             frames: fits.len(),
@@ -193,8 +198,45 @@ fn outline(set: &[bool], w: usize, h: usize) -> Vec<bool> {
         .collect()
 }
 
+/// A frame with the screen's colour taken out along the figure's edge. On a coloured screen
+/// (channel `c` well above the others) the edge picks up the screen colour: on the test video
+/// 94 % of tinted figure pixels lie within 3 px of the edge, 2 % further in than 8 px. Within
+/// SPILL_BAND pixels of the edge channel `c` is kept to the stronger of the other two; the
+/// inside keeps its colours, green or not.
+#[must_use]
+pub fn despill(img: &image::RgbaImage, mask: &[bool], c: usize) -> image::RgbaImage {
+    let (w, h) = (img.width() as usize, img.height() as usize);
+    let mut dist: Vec<u8> = mask.iter().map(|&m| if m { u8::MAX } else { 0 }).collect();
+    for step in 1..=SPILL_BAND {
+        let before = dist.clone();
+        for y in 0..h {
+            for x in 0..w {
+                let i = y * w + x;
+                if before[i] != u8::MAX {
+                    continue;
+                }
+                let near = (x > 0 && before[i - 1] == step - 1)
+                    || (x + 1 < w && before[i + 1] == step - 1)
+                    || (y > 0 && before[i - w] == step - 1)
+                    || (y + 1 < h && before[i + w] == step - 1);
+                if near {
+                    dist[i] = step;
+                }
+            }
+        }
+    }
+    let mut out = img.clone();
+    for (i, px) in out.pixels_mut().enumerate() {
+        if (1..=SPILL_BAND).contains(&dist[i]) {
+            let others = (0..3).filter(|&o| o != c).map(|o| px.0[o]).max().unwrap_or(0);
+            px.0[c] = px.0[c].min(others);
+        }
+    }
+    out
+}
+
 /// The fit of a shadow to a mask.
-fn frame_fit(shadow: &[bool], mask: &[bool], w: usize, h: usize) -> FrameFit {
+pub(crate) fn frame_fit(shadow: &[bool], mask: &[bool], w: usize, h: usize) -> FrameFit {
     let (mut both, mut missed, mut excess, mut figure) = (0usize, 0usize, 0usize, 0usize);
     for (&s, &m) in shadow.iter().zip(mask) {
         both += usize::from(s && m);
@@ -1033,9 +1075,17 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
     let mut atlas = image::RgbaImage::new(tw * cols, th * (n as u32).div_ceil(cols));
     let (screen, _) = screen_colour(frames);
     let spill = (0..3).find(|&c| (0..3).filter(|&o| o != c).all(|o| i32::from(screen[c]) > i32::from(screen[o]) + 40));
+    let clean: Vec<image::RgbaImage> = frames
+        .par_iter()
+        .enumerate()
+        .map(|(f, img)| match spill {
+            Some(c) => despill(img, &masks[f], c),
+            None => img.clone(),
+        })
+        .collect();
     // the screen around the figure filled with the nearest figure colours, so that no texture
     // filtering (between pixels, or smaller copies for distant views) ever mixes in the screen
-    let tiles: Vec<image::RgbaImage> = frames
+    let tiles: Vec<image::RgbaImage> = clean
         .par_iter()
         .enumerate()
         .map(|(f, img)| {
@@ -1043,37 +1093,6 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
             let (tw, th) = (tw as usize, th as usize);
             let mut filled: Vec<bool> =
                 (0..tw * th).map(|i| masks[f][(top + i / tw) * w + l0 + i % tw]).collect();
-            // spill: on a coloured screen (one channel well above the others) the figure's edge
-            // picks up its colour (on the test video 94 % of tinted pixels lie within 3 px of
-            // the edge, 2 % further in than 8 px); within SPILL_BAND pixels of the edge that
-            // channel is kept to the stronger of the other two, the inside keeps its colours
-            if let Some(c) = spill {
-                let mut dist: Vec<u8> = filled.iter().map(|&m| if m { u8::MAX } else { 0 }).collect();
-                for step in 1..=SPILL_BAND {
-                    let before = dist.clone();
-                    for y in 0..th {
-                        for x in 0..tw {
-                            let i = y * tw + x;
-                            if before[i] != u8::MAX {
-                                continue;
-                            }
-                            let near = (x > 0 && before[i - 1] == step - 1)
-                                || (x + 1 < tw && before[i + 1] == step - 1)
-                                || (y > 0 && before[i - tw] == step - 1)
-                                || (y + 1 < th && before[i + tw] == step - 1);
-                            if near {
-                                dist[i] = step;
-                            }
-                        }
-                    }
-                }
-                for (i, px) in tile.pixels_mut().enumerate() {
-                    if dist[i] >= 1 && dist[i] <= SPILL_BAND {
-                        let others = (0..3).filter(|&o| o != c).map(|o| px.0[o]).max().unwrap_or(0);
-                        px.0[c] = px.0[c].min(others);
-                    }
-                }
-            }
             let mut todo = true;
             while todo {
                 todo = false;
@@ -1155,6 +1174,23 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
     };
     let scale = p.height / ((bottom - top + 1) as f32 / v);
     let mesh = surface_mesh(&solid, [nx, ny, nz], scale, &uv);
+    // the reduced model with one baked texture; world (metres, as surface_mesh places it) to
+    // grid to frame
+    let low = match p.low {
+        Some(budget) => {
+            let project = |f: usize, world: [f32; 3]| {
+                let g = [
+                    world[0] / scale + nx as f32 / 2.0,
+                    ny as f32 - 1.0 - world[1] / scale,
+                    world[2] / scale + nz as f32 / 2.0,
+                ];
+                at(f, g)
+            };
+            let views = crate::lowpoly::Views { frames: &clean, masks: &masks, width: w, height: h, to_camera: &to_camera, held: &held };
+            Some(crate::lowpoly::low_poly_glb(&mesh, budget, &views, &project)?)
+        }
+        None => None,
+    };
     Ok((
         write_glb(&mesh, &png),
         DepthTurn {
@@ -1174,6 +1210,7 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
             fragments,
             fit_used,
             fit_held,
+            low,
         },
         d,
     ))

@@ -377,6 +377,8 @@ fn main() -> ExitCode {
             if let Some(v) = opt(&args, "--holdout") {
                 p.holdout = v;
             }
+            // --low 5000: also out_low.glb with at most 5000 vertices and one baked texture
+            p.low = opt(&args, "--low");
             // --check 1,30,60: loss pictures of these frames (1-based) into the --maps folder
             if let Some(list) = opt::<String>(&args, "--check") {
                 p.check = list.split(',').filter_map(|f| f.trim().parse::<usize>().ok()).map(|f| f.saturating_sub(1)).collect();
@@ -397,6 +399,25 @@ fn main() -> ExitCode {
                         let path = format!("{dir}/depth_{:03}.png", f + 1);
                         depth_picture(&maps, f).save(&path).map_err(|e| format!("{path}: {e}"))?;
                     }
+                }
+                // the reduced model next to it: out_low.glb
+                if let Some((low, info)) = &t.low {
+                    let stem = std::path::Path::new(output).with_extension("");
+                    let path = format!("{}_low.glb", stem.display());
+                    std::fs::write(&path, low).map_err(|e| format!("{path}: {e}"))?;
+                    eprintln!(
+                        "{path}: {:.1} MB, {} vertices, {} triangles, texture {} px; fit to the frames that shaped it: missed {:.1} %, excess {:.1} %, overlap {:.3}, outline distance {:.2} px; held-out frames: overlap {:.3}, outline distance {:.2} px",
+                        low.len() as f64 / 1_048_576.0,
+                        info.vertices,
+                        info.triangles,
+                        info.texture,
+                        info.fit_used.missed * 100.0,
+                        info.fit_used.excess * 100.0,
+                        info.fit_used.iou,
+                        info.fit_used.boundary,
+                        info.fit_held.iou,
+                        info.fit_held.boundary
+                    );
                 }
                 // loss pictures next to the model: out_loss_030.png
                 for c in &t.checks {

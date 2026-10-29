@@ -26,6 +26,7 @@ pub mod figure;
 pub mod flatten;
 pub mod gltf;
 pub mod group;
+pub mod lowpoly;
 pub mod quantize;
 pub mod raster;
 pub mod report;

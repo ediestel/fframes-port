@@ -26,6 +26,8 @@ serde_json = "1"
 earcutr = "0.4"
 # Cuts pieces along zone borders (MIT).
 i_overlay = "1.9"
+meshopt = "0.7"
+xatlas-rs-v2 = "0.1.4"
 
 [dev-dependencies]
 # Reads the exported .glb back in the tests (the same reader fframes-three-d uses).

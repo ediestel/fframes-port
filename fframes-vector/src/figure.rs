@@ -190,10 +190,10 @@ pub fn find_views(
 }
 
 pub(crate) struct Mesh {
-    positions: Vec<[f32; 3]>,
-    normals: Vec<[f32; 3]>,
-    uvs: Vec<[f32; 2]>,
-    indices: Vec<u32>,
+    pub(crate) positions: Vec<[f32; 3]>,
+    pub(crate) normals: Vec<[f32; 3]>,
+    pub(crate) uvs: Vec<[f32; 2]>,
+    pub(crate) indices: Vec<u32>,
 }
 
 /// Carves the figure and returns its textured mesh as a binary glTF, with the sheet as the
