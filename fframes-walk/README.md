@@ -15,7 +15,7 @@ fframes-walk --window window.glb [--model statue.glb:left:2:0:3] [--room 14,28,1
 | --- | --- |
 | `--window file.glb[:wall[:height[:sill[:offset]]]]` | A window: an opening is cut into the wall, the glass shows the daylight coming through it in its own colours, lead and dark paint stay dark, and the sun shines in. Default: back wall, 6 m high, lower edge 1.5 m above the floor, in the middle. |
 | `--model file.glb[:wall[:height[:sill[:offset]]]]` | Any other model, standing just in front of the wall, lit like an exhibit by a lamp in front of it and above whose light stays near the model. Default: back wall, 2 m high, on the floor. |
-| wall | `back` (ahead at the start), `front`, `left` or `right` |
+| wall | `back` (ahead at the start), `front`, `left` or `right`, or `floor`: standing free, then the fields after the height are `x:z` (metres from the middle of the floor, z towards the back wall negative), lit from front and behind |
 | offset | Metres along the wall from its middle, to the right seen from inside |
 | `--room W,D,H` | Room width, depth and height in metres. Default: high enough for the tallest model plus 2.5 m, twice as deep as wide. |
 | `--glow N` | Brightness of the daylight behind the windows. Default 1.6. |
@@ -23,6 +23,7 @@ fframes-walk --window window.glb [--model statue.glb:left:2:0:3] [--room 14,28,1
 | `--quality Q` | Render resolution as a share of the window, 0.1 to 1. Default 0.5; higher is sharper and slower. |
 | `--snapshot out.png` | Render one 1280 x 800 picture from the start and quit. |
 | `--video out.mp4` | Render a walk from the start up to the first window, ending with a look up at it and a lens zoom onto a detail of the glass (the last 22 %, field of view 62° to 7°), and encode it with `ffmpeg` (H.264). With `--seconds S` (default 15) and `--size WxH` (default 1920x1080). |
+| `--tour` | With `--video`: walk in (W), circle every model once while looking at it (A and the mouse), move on to the next (D), step back to see them before the window (S), with the keys shown. For models standing free (`floor`). |
 | `--demo` | With `--video`: a scripted walk instead (walk in, step left, look around, step right, run, step back, approach looking up) with the controls drawn top right, W A S D, Shift and the mouse lit while held, at the speeds of the window. |
 | `--captions file.txt` | Text over the video: one caption per line, `start-end|line|line` in seconds; lines after the first are smaller. Lines starting with `#` are comments. |
 
@@ -58,6 +59,16 @@ Several `--window` and `--model` options can be given; each is placed on its wal
 
 The walls stop you; you walk at eye height (1.7 m). The status bar shows the frame rate and
 where you are.
+
+## Figures around the window
+
+```
+fframes-vector figure farmer_sheet.png farmer.glb --height 1.7
+fframes-vector figure horseman_sheet.png knight.glb --height 2.7
+fframes-walk --window window.glb --model farmer.glb:floor:1.7:-2.2:-11.3 --model knight.glb:floor:2.7:2.2:-10.8 --video around.mp4 --seconds 24 --tour
+```
+
+Golden Spurs: 720 frames, rendered in 29 to 34 s on an Apple M1 GPU.
 
 ## A stained-glass window from fframes-vector
 

@@ -14,6 +14,8 @@ pub enum Wall {
     Front,
     Left,
     Right,
+    /// Standing free on the floor; `sill` and `offset` are then its x and z.
+    Floor,
 }
 
 impl Wall {
@@ -23,6 +25,7 @@ impl Wall {
             "front" => Some(Wall::Front),
             "left" => Some(Wall::Left),
             "right" => Some(Wall::Right),
+            "floor" => Some(Wall::Floor),
             _ => None,
         }
     }
@@ -34,6 +37,7 @@ impl Wall {
             Wall::Front => std::f32::consts::PI,
             Wall::Left => std::f32::consts::FRAC_PI_2,
             Wall::Right => -std::f32::consts::FRAC_PI_2,
+            Wall::Floor => 0.0,
         }
     }
 }
@@ -79,6 +83,8 @@ pub struct Room {
     pub start_yaw: f32,
     /// Each window: its centre, the direction into the room, and its height.
     pub windows: Vec<(Vec3, Vec3, f32)>,
+    /// Each other model: its centre and its height.
+    pub models: Vec<(Vec3, f32)>,
 }
 
 /// Builds the room with the models. Models that fail to load are reported and left out.
@@ -92,6 +98,7 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
     let mut openings = Vec::new();
     let mut sun_from: Option<Vec3> = None;
     let mut windows = Vec::new();
+    let mut models = Vec::new();
     for p in placements {
         let bytes = match std::fs::read(&p.path) {
             Ok(b) => b,
@@ -123,10 +130,15 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
         let half_wall = match p.wall {
             Wall::Back | Wall::Front => d / 2.0,
             Wall::Left | Wall::Right => w / 2.0,
+            Wall::Floor => 0.0,
         };
         // a window sits in the wall's thickness, an object just in front of the wall
         let inset = if p.glow > 0.0 { -WALL * 0.3 } else { 0.02 + (b.max.z - b.min.z) * s / 2.0 };
-        let local = vec3(p.offset, p.sill + p.height / 2.0, -half_wall + inset);
+        let local = if p.wall == Wall::Floor {
+            vec3(p.sill, p.height / 2.0, p.offset)
+        } else {
+            vec3(p.offset, p.sill + p.height / 2.0, -half_wall + inset)
+        };
         let at = rot * local;
         let root = &mut scene[inst.root];
         root.rotation = rot;
@@ -161,6 +173,7 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
             windows.push((at, rot * vec3(0.0, 0.0, 1.0), p.height));
         }
         if p.glow <= 0.0 {
+            models.push((at, p.height));
             // an exhibit: a warm light in front of it and above, at a third of its height
             let lamp = rot * (local + vec3(0.0, p.height * 0.35, 1.2 + p.height * 0.4));
             scene.add(
@@ -172,6 +185,18 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
                 ))
                 .with_position(lamp),
             );
+            if p.wall == Wall::Floor {
+                // standing free, it is seen from behind too: a softer lamp there
+                let rear = rot * (local + vec3(0.0, p.height * 0.35, -(1.2 + p.height * 0.4)));
+                scene.add(
+                    fframes_three_d::Node::light(Light::point(
+                        Rgb::hex(0xe8ecff),
+                        1.0 * p.height,
+                        2.0 + p.height * 1.2,
+                    ))
+                    .with_position(rear),
+                );
+            }
         }
         eprintln!(
             "{}: {:.2} x {:.2} m on the {:?} wall",
@@ -193,7 +218,7 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
     for wall in [Wall::Back, Wall::Front, Wall::Left, Wall::Right] {
         let (len, half) = match wall {
             Wall::Back | Wall::Front => (w + 2.0 * WALL, d / 2.0),
-            Wall::Left | Wall::Right => (d, w / 2.0),
+            Wall::Left | Wall::Right | Wall::Floor => (d, w / 2.0),
         };
         let holes: Vec<&Opening> = openings.iter().filter(|o| o.wall == wall).collect();
         let rot = fframes_three_d::Quat::from_rotation_y(wall.yaw());
@@ -228,6 +253,7 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
         start: vec3(0.0, 1.7, d / 2.0 - 1.5),
         start_yaw: 0.0,
         windows,
+        models,
     }
 }
 

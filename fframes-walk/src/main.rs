@@ -3,13 +3,15 @@
 //!
 //! Walk through a room with glTF models in it. The room (metres) has a polished stone floor
 //! that mirrors, stone walls and a ceiling. `--model` puts a model on a wall (`back`,
-//! `front`, `left`, `right`), `height` metres high with its lower edge `sill` above the
+//! `front`, `left`, `right`) or free on the floor (`floor`, then `height:x:z`), `height` metres high with its lower edge `sill` above the
 //! floor; `--window` does the same and cuts an opening for it, its colours glow as if lit from
 //! behind and the sun shines in through it. Rendered with `fframes-three-d` on the GPU into the
 //! native player's window.
 //!
 //! `--video out.mp4 [--seconds 15] [--size 1920x1080]` renders a walk from the start up to the
 //! first window, ending with a look up at it, and encodes it with the `ffmpeg` command.
+//! `--tour` walks around every `--model` in turn (they should stand free: wall `floor`), then
+//! steps back to see them before the window, with the keys shown as in the demo.
 //! `--demo` instead plays a scripted walk with the controls drawn top right (W A S D, Shift,
 //! the mouse), lit while held, at the speeds of the window. `--captions captions.txt` writes
 //! text over it: one caption per line, `start-end|line|line`
@@ -159,8 +161,14 @@ fn run() -> Result<(), String> {
             Some(c) => read_captions(&c)?,
             None => Vec::new(),
         };
-        let demo = args.iter().any(|a| a == "--demo");
-        return video(&room, &path, seconds, w, h, &captions, demo);
+        let mode = if args.iter().any(|a| a == "--tour") {
+            Mode::Tour
+        } else if args.iter().any(|a| a == "--demo") {
+            Mode::Demo
+        } else {
+            Mode::Walk
+        };
+        return video(&room, &path, seconds, w, h, &captions, mode);
     }
 
     if let Some(path) = value("--snapshot") {
@@ -250,6 +258,114 @@ fn tour_camera(room: &room::Room, u: f32) -> Camera {
         return zoom_end(room, position, look, u);
     }
     Camera::perspective(62.0).position(position).look_at(look).clip(0.05, 300.0)
+}
+
+/// What a video shows.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Mode {
+    /// A walk to the first window.
+    Walk,
+    /// The scripted controls demo.
+    Demo,
+    /// Around every model in turn, then back to see them before the window.
+    Tour,
+}
+
+/// One stop of a tour: where the eye is, what it looks at, what is held on the way there,
+/// and how long (relative) that way takes.
+#[derive(Clone, Copy)]
+struct Stop {
+    eye: Vec3,
+    look: Vec3,
+    held: Held,
+    span: f32,
+}
+
+const NONE: Held = Held { w: false, a: false, s: false, d: false, shift: false, mouse: false };
+
+/// The tour: walk in (W), circle every model once while looking at it (A and the mouse:
+/// stepping sideways while turning), move on to the next (D), step back (S) to see them all
+/// before the window. Circles stay inside the walls.
+fn tour_stops(room: &room::Room) -> Vec<Stop> {
+    let eye_y = room.start.y;
+    let s = room.size;
+    let inside = |p: Vec3| {
+        vec3(
+            p.x.clamp(-s.width / 2.0 + 0.4, s.width / 2.0 - 0.4),
+            p.y,
+            p.z.clamp(-s.depth / 2.0 + 0.4, s.depth / 2.0 - 0.4),
+        )
+    };
+    let mut stops = vec![Stop {
+        eye: room.start,
+        look: room.start + vec3(0.0, 0.0, -1.0),
+        held: NONE,
+        span: 0.0,
+    }];
+    let mut models = room.models.clone();
+    models.sort_by(|a, b| a.0.x.total_cmp(&b.0.x));
+    for (n, &(c, h)) in models.iter().enumerate() {
+        let r = (h * 0.95).max(1.7);
+        let target = vec3(c.x, c.y * 0.9, c.z);
+        let front = inside(vec3(c.x, eye_y, c.z + r));
+        let way = if n == 0 { Held { w: true, ..NONE } } else { Held { d: true, ..NONE } };
+        stops.push(Stop { eye: front, look: target, held: way, span: if n == 0 { 3.0 } else { 1.6 } });
+        // once around, counterclockwise seen from above: stepping left while turning right
+        let steps = 24;
+        for k in 1..=steps {
+            let a = k as f32 / steps as f32 * std::f32::consts::TAU;
+            stops.push(Stop {
+                eye: inside(vec3(c.x + r * a.sin(), eye_y, c.z + r * a.cos())),
+                look: target,
+                held: Held { a: true, mouse: true, ..NONE },
+                span: 5.5 / steps as f32,
+            });
+        }
+    }
+    let (centre, _, height) = room.windows.first().copied().unwrap_or((
+        vec3(0.0, s.height / 2.0, -s.depth / 2.0),
+        vec3(0.0, 0.0, 1.0),
+        s.height / 2.0,
+    ));
+    let mid_z = models.iter().map(|m| m.0.z).sum::<f32>() / models.len().max(1) as f32;
+    let back_z = (mid_z + 7.0).min(s.depth / 2.0 - 0.6);
+    let view = Stop {
+        eye: vec3(0.0, eye_y, back_z),
+        look: vec3(0.0, centre.y - height * 0.25, centre.z),
+        held: Held { s: true, ..NONE },
+        span: 3.0,
+    };
+    stops.push(view);
+    stops.push(Stop { held: NONE, span: 1.2, ..view });
+    stops
+}
+
+/// The tour at `u` in `0..1`: eased between stops, with the keys of the way being walked.
+fn tour_state(room: &room::Room, u: f32) -> (Camera, Held) {
+    let stops = tour_stops(room);
+    let total: f32 = stops.iter().map(|s| s.span).sum();
+    let mut t = u.clamp(0.0, 1.0) * total;
+    let mut camera = (stops[0].eye, stops[0].look);
+    let mut held = NONE;
+    for w in stops.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        if t <= b.span {
+            // ease where a way begins or ends, keep the circle steady
+            let f = t / b.span.max(1e-6);
+            let f = if b.held.a && a.held.a { f } else { ease(f) };
+            camera = (a.eye + (b.eye - a.eye) * f, a.look + (b.look - a.look) * f);
+            held = b.held;
+            break;
+        }
+        t -= b.span;
+        camera = (b.eye, b.look);
+        held = b.held;
+    }
+    let cam = Camera::perspective(62.0)
+        .position(camera.0)
+        .look_at(camera.1)
+        .clip(0.05, 300.0);
+    (cam, held)
 }
 
 /// What is held in a moment of the demo: keys and the mouse.
@@ -507,7 +623,7 @@ fn video(
     w: u32,
     h: u32,
     captions: &[Caption],
-    demo: bool,
+    mode: Mode,
 ) -> Result<(), String> {
     let font_mgr = FontMgr::new();
     let typeface = SYSTEM_FONTS
@@ -537,11 +653,16 @@ fn video(
     for f in 0..frames {
         let u = f as f32 / (frames - 1).max(1) as f32;
         let time = f as f32 / fps as f32;
-        let (camera, held) = if demo {
-            let (camera, held) = demo_state(room, time, seconds);
-            (camera, Some(held))
-        } else {
-            (tour_camera(room, u), None)
+        let (camera, held) = match mode {
+            Mode::Demo => {
+                let (camera, held) = demo_state(room, time, seconds);
+                (camera, Some(held))
+            }
+            Mode::Tour => {
+                let (camera, held) = tour_state(room, u);
+                (camera, Some(held))
+            }
+            Mode::Walk => (tour_camera(room, u), None),
         };
         let mut pixels = renderer.render_pixels(&room.scene, &camera);
         draw_captions(&mut pixels.rgba, w, h, captions, time, &typeface);
