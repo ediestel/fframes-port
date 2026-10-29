@@ -12,13 +12,15 @@ fn opt<T: std::str::FromStr>(args: &[String], name: &str) -> Option<T> {
 }
 
 /// `group doc.json [zones.svg] [--zones z.svg] [--cut [--cut-min 0.05]] [--mask m.png [--legend l.json]] [--clusters]
-/// [--k N] [--gap N] [--share 0.5] [--raster 4096] [--scale N] [--check c.svg] [-o out.json]`
+/// [--k N] [--gap N] [--share 0.5] [--raster 4096] [--scale N] [--split 0.3] [--report r.json]
+/// [--check c.svg] [-o out.json]`
 /// `clusters doc.json [--k N] [--gap N] [--min-area N] [--raster 4096] [--check c.svg] [-o out.json]`
 fn group_command(cmd: &str, args: &[String]) -> Result<(), String> {
     use fframes_vector::{
-        AssignParams, ClusterParams, GroupMap, LabelLayer, PieceRaster, cut, group,
+        AssignParams, ClusterParams, GroupMap, LabelLayer, PieceRaster, cut, group, report,
     };
     let doc_path = &args[1];
+    let mut doubts: Option<report::Report> = None;
     let mut doc = PieceDocument::load(doc_path).map_err(|e| format!("{doc_path}: {e}"))?;
     let raster_side = opt(args, "--raster").unwrap_or(4096);
     let mut cp = ClusterParams::default();
@@ -101,11 +103,46 @@ fn group_command(cmd: &str, args: &[String]) -> Result<(), String> {
             doc.pieces.len(),
             names.len()
         );
+        let r = report::report(
+            &doc,
+            &raster,
+            &layer,
+            &report::ReportParams {
+                split: opt(args, "--split").unwrap_or(0.3),
+            },
+        );
+        eprintln!("doubtful: {} unnamed, {} split", r.unnamed, r.split);
+        for e in r.entries.iter().take(5) {
+            let [x, y, w, h] = e.bbox;
+            let shares: Vec<String> = e
+                .shares
+                .iter()
+                .take(3)
+                .map(|(n, s)| format!("{} {:.0} %", if n.is_empty() { "-" } else { n }, s * 100.0))
+                .collect();
+            eprintln!(
+                "  piece {} ({:?}, {:.0} px² visible, box {x:.0},{y:.0} {w:.0}x{h:.0}): {}",
+                e.id,
+                e.doubt,
+                e.visible,
+                shares.join(", ")
+            );
+        }
+        if let Some(path) = opt::<String>(args, "--report") {
+            let json = serde_json::to_string_pretty(&r).map_err(|e| e.to_string())?;
+            std::fs::write(&path, json).map_err(|e| format!("{path}: {e}"))?;
+            eprintln!("report: {path}");
+        }
+        doubts = Some(r);
     }
     let out = opt::<String>(args, "-o").unwrap_or_else(|| doc_path.clone());
     doc.save(&out).map_err(|e| format!("{out}: {e}"))?;
     if let Some(check) = opt::<String>(args, "--check") {
-        std::fs::write(&check, doc.to_group_check_svg()).map_err(|e| format!("{check}: {e}"))?;
+        let svg = match &doubts {
+            Some(r) => doc.to_report_svg(r),
+            None => doc.to_group_check_svg(),
+        };
+        std::fs::write(&check, svg).map_err(|e| format!("{check}: {e}"))?;
         eprintln!("check picture: {check}");
     }
     Ok(())
@@ -316,7 +353,7 @@ fn main() -> ExitCode {
         },
         _ => {
             eprintln!(
-                "fframes-vector vectorize in.png out.json [--scale N] [--colors N] [--svg out.svg] [--flat flat.png]\nfframes-vector group doc.json zones.svg|--mask m.png [--cut [--cut-min 0.05]] [--legend l.json] [--clusters] [--share 0.5] [--check c.svg] [-o out.json]\nfframes-vector clusters doc.json [--k N] [--gap N] [--min-area N] [--check c.svg] [-o out.json]\nfframes-vector svg doc.json out.svg [--grouped]\nfframes-vector sprites doc.json dir [--density 1,2] [--group name] [--no-outline]"
+                "fframes-vector vectorize in.png out.json [--scale N] [--colors N] [--svg out.svg] [--flat flat.png]\nfframes-vector group doc.json zones.svg|--mask m.png [--cut [--cut-min 0.05]] [--legend l.json] [--clusters] [--share 0.5] [--report r.json] [--check c.svg] [-o out.json]\nfframes-vector clusters doc.json [--k N] [--gap N] [--min-area N] [--check c.svg] [-o out.json]\nfframes-vector svg doc.json out.svg [--grouped]\nfframes-vector sprites doc.json dir [--density 1,2] [--group name] [--no-outline]"
             );
             ExitCode::FAILURE
         }

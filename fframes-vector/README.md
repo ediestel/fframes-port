@@ -68,6 +68,13 @@ turns. The cut itself is exact (boolean operations on an integer grid, `i_overla
 cut pieces become segments within 0.05 px. On the Golden Spurs window 557 pieces are cut into
 1,158 parts in 5 s, and the rendered picture matches the uncut one except for 396 edge pixels.
 
+After the vote `group` lists the doubtful pieces (`report::report`), largest visible area
+first: **unnamed** pieces, and **split** pieces, where a second name or no name covers at
+least `--split` (0.3) of the piece, so its name may be wrong. `--report r.json` writes them
+with id, box and the share of every name; the check picture outlines them, red for unnamed,
+yellow for split. Only these need a look. On the window with its 25 rough zones: 263 unnamed
+(the frame and the lead lines outside the zones) and 179 split; with `--cut` none split.
+
 Names are paths: `tree.group("rider")` includes `rider/spurs`, `tree.others("rider")` is
 everything else, `doc.group_bbox("rider")` frames it for a camera. `--check` writes an SVG
 with every piece in its group's colour and the names written on: look at it before trusting
@@ -116,7 +123,7 @@ stayed open. `--gap N` and `--clean` also work with the default preset.
 ```bash
 cargo build --release -p fframes_vector
 fframes-vector vectorize picture.png pieces.json [--scale 2] [--colors 96] [--svg pieces.svg] [--flat flat.png] [--preset drawing] [--gap N] [--clean]
-fframes-vector group pieces.json zones.svg [--cut [--cut-min 0.05]] [--mask m.png [--legend l.json]] [--clusters] [--share 0.5] [--raster 4096] [--scale N] [--check check.svg] [-o out.json]
+fframes-vector group pieces.json zones.svg [--cut [--cut-min 0.05]] [--mask m.png [--legend l.json]] [--clusters] [--split 0.3] [--report r.json] [--share 0.5] [--raster 4096] [--scale N] [--check check.svg] [-o out.json]
 fframes-vector clusters pieces.json [--k 3000] [--gap 6] [--min-area 400] [--check check.svg] [-o out.json]
 fframes-vector rename pieces.json names.json [--check check.svg] [-o out.json]
 fframes-vector sprites pieces.json out_dir [--density 1,2,3] [--group name] [--max 4096] [--pad 2] [--no-outline]
