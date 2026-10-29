@@ -374,6 +374,9 @@ fn main() -> ExitCode {
             if let Some(v) = opt(&args, "--refine") {
                 p.refine = v;
             }
+            if let Some(v) = opt(&args, "--holdout") {
+                p.holdout = v;
+            }
             // --check 1,30,60: loss pictures of these frames (1-based) into the --maps folder
             if let Some(list) = opt::<String>(&args, "--check") {
                 p.check = list.split(',').filter_map(|f| f.trim().parse::<usize>().ok()).map(|f| f.saturating_sub(1)).collect();
@@ -401,11 +404,12 @@ fn main() -> ExitCode {
                     let path = format!("{}_loss_{:03}.png", path.display(), c.frame + 1);
                     c.picture.save(&path).map_err(|e| format!("{path}: {e}"))?;
                     eprintln!(
-                        "{path}: frame {}, {} figure pixels, lost {} by the outline check (red), {} by the depth check (blue)",
+                        "{path}: frame {}, {} figure pixels, lost {} by the outline check (red), {} by the depth check (blue), excess {} (magenta)",
                         c.frame + 1,
                         c.figure,
                         c.by_outline,
-                        c.by_depth
+                        c.by_depth,
+                        c.excess
                     );
                 }
                 Ok((glb.len(), t))
@@ -435,6 +439,16 @@ fn main() -> ExitCode {
                         eprintln!("angle round {}: frames corrected by {mean:.2}° on average, at most {max:.2}°", r + 1);
                     }
                     eprintln!("{} loose fragments removed", t.fragments);
+                    for (name, fit) in [("frames that shaped it", &t.fit_used), ("held-out frames", &t.fit_held)] {
+                        eprintln!(
+                            "fit to the {name} ({}): missed {:.1} %, excess {:.1} %, overlap {:.3}, outline distance {:.2} px",
+                            fit.frames,
+                            fit.missed * 100.0,
+                            fit.excess * 100.0,
+                            fit.iou,
+                            fit.boundary
+                        );
+                    }
                     eprintln!("height band (top to bottom): outline disagreement half a turn later / kept / removed by outline / removed by depth");
                     for (b, [kept, outline, depth]) in t.bands.iter().enumerate() {
                         eprintln!(

@@ -54,6 +54,9 @@ pub struct DepthParams {
     pub hull: bool,
     /// Rounds of measuring every frame's own angle against the envelope (0: even turn).
     pub refine: usize,
+    /// Every `holdout`-th frame is left out of the shape and only used to check it (0 or 1:
+    /// none).
+    pub holdout: usize,
 }
 
 impl Default for DepthParams {
@@ -71,6 +74,7 @@ impl Default for DepthParams {
             check: Vec::new(),
             hull: false,
             refine: 2,
+            holdout: 8,
         }
     }
 }
@@ -105,6 +109,9 @@ pub struct DepthTurn {
     pub disagreement: Vec<f32>,
     /// Loose fragments removed.
     pub fragments: usize,
+    /// Fit of the model's shadow to the frames that shaped it, and to the held-out frames.
+    pub fit_used: FrameFit,
+    pub fit_held: FrameFit,
 }
 
 /// A frame with its lost figure pixels painted: red removed by the outline check, blue by the
@@ -116,6 +123,99 @@ pub struct LossPicture {
     pub figure: usize,
     pub by_outline: usize,
     pub by_depth: usize,
+    /// Background pixels the model's shadow covers (painted magenta).
+    pub excess: usize,
+}
+
+/// How well the model's shadow fits a frame's outline (or the mean over several frames).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct FrameFit {
+    pub frames: usize,
+    /// Figure pixels the shadow misses, share of the figure.
+    pub missed: f32,
+    /// Background pixels the shadow covers, share of the figure.
+    pub excess: f32,
+    /// Overlap over union of shadow and figure.
+    pub iou: f32,
+    /// Mean distance between the two outlines, both ways, pixels.
+    pub boundary: f32,
+}
+
+impl FrameFit {
+    fn mean(fits: &[&FrameFit]) -> FrameFit {
+        let n = fits.len().max(1) as f32;
+        FrameFit {
+            frames: fits.len(),
+            missed: fits.iter().map(|f| f.missed).sum::<f32>() / n,
+            excess: fits.iter().map(|f| f.excess).sum::<f32>() / n,
+            iou: fits.iter().map(|f| f.iou).sum::<f32>() / n,
+            boundary: fits.iter().map(|f| f.boundary).sum::<f32>() / n,
+        }
+    }
+}
+
+/// Distance of every pixel to the nearest pixel where `set` is true (city block, capped).
+fn distance_to(set: &[bool], w: usize, h: usize) -> Vec<u16> {
+    let mut d: Vec<u16> = set.iter().map(|&s| if s { 0 } else { u16::MAX }).collect();
+    for y in 0..h {
+        for x in 0..w {
+            let i = y * w + x;
+            if x > 0 {
+                d[i] = d[i].min(d[i - 1].saturating_add(1));
+            }
+            if y > 0 {
+                d[i] = d[i].min(d[i - w].saturating_add(1));
+            }
+        }
+    }
+    for y in (0..h).rev() {
+        for x in (0..w).rev() {
+            let i = y * w + x;
+            if x + 1 < w {
+                d[i] = d[i].min(d[i + 1].saturating_add(1));
+            }
+            if y + 1 < h {
+                d[i] = d[i].min(d[i + w].saturating_add(1));
+            }
+        }
+    }
+    d
+}
+
+/// Outline pixels: inside, with a 4-neighbour outside.
+fn outline(set: &[bool], w: usize, h: usize) -> Vec<bool> {
+    (0..w * h)
+        .map(|i| {
+            let (x, y) = (i % w, i / w);
+            set[i]
+                && (x == 0 || y == 0 || x + 1 == w || y + 1 == h || !set[i - 1] || !set[i + 1] || !set[i - w] || !set[i + w])
+        })
+        .collect()
+}
+
+/// The fit of a shadow to a mask.
+fn frame_fit(shadow: &[bool], mask: &[bool], w: usize, h: usize) -> FrameFit {
+    let (mut both, mut missed, mut excess, mut figure) = (0usize, 0usize, 0usize, 0usize);
+    for (&s, &m) in shadow.iter().zip(mask) {
+        both += usize::from(s && m);
+        missed += usize::from(m && !s);
+        excess += usize::from(s && !m);
+        figure += usize::from(m);
+    }
+    let (so, mo) = (outline(shadow, w, h), outline(mask, w, h));
+    let (to_mask, to_shadow) = (distance_to(&mo, w, h), distance_to(&so, w, h));
+    let one_way = |from: &[bool], to: &[u16]| {
+        let (sum, k) = from.iter().zip(to).filter(|(o, _)| **o).fold((0u64, 0u64), |(s, k), (_, &d)| (s + u64::from(d), k + 1));
+        if k == 0 { 0.0 } else { sum as f32 / k as f32 }
+    };
+    let f = figure.max(1) as f32;
+    FrameFit {
+        frames: 1,
+        missed: missed as f32 / f,
+        excess: excess as f32 / f,
+        iou: both as f32 / (both + missed + excess).max(1) as f32,
+        boundary: (one_way(&so, &to_mask) + one_way(&mo, &to_shadow)) / 2.0,
+    }
 }
 
 /// Depth maps of all frames: `D` per pixel (pixels, towards the camera for the clockwise
@@ -550,6 +650,8 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
     let (nx, ny, nz) = (2 * nh + 1, ((bottom - top + 1) as f32 / v).ceil() as usize + 2, 2 * nh + 1);
     let idx = |i: usize, j: usize, k: usize| (k * ny + j) * nx + i;
     let allowed = p.outside.unwrap_or(n / 40);
+    // frames held out from the shape, for checking it against views it was not built from
+    let held = |f: usize| p.holdout > 1 && f % p.holdout == p.holdout / 2;
     let mu = p.surface;
 
     // how well every row keeps its outline over the turn: frame k's left edge against the
@@ -638,6 +740,9 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
                     }
                     let (mut outside, mut tsdf, mut weight) = (0usize, 0.0_f32, 0.0_f32);
                     for (f, &(c, s)) in angle.iter().enumerate() {
+                        if held(f) {
+                            continue;
+                        }
                         let (fx, fz) = (x * c + z * s, -x * s + z * c);
                         let px = (d.axis + fx).round();
                         if px < 0.0 || px as usize >= w || !hull_masks[f][y * w + px as usize] {
@@ -805,8 +910,50 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
     drop(piece);
     let voxels = solid.iter().filter(|&&s| s).count();
 
+    // the model's shadow in a frame: its outer voxels (the inside casts no other shadow),
+    // each covering its voxel's span of columns and rows
+    let shell: Vec<(f32, f32, usize)> = (1..nz - 1)
+        .flat_map(|k| (1..ny - 1).flat_map(move |j| (1..nx - 1).map(move |i| (i, j, k))))
+        .filter(|&(i, j, k)| {
+            solid[idx(i, j, k)]
+                && [idx(i + 1, j, k), idx(i - 1, j, k), idx(i, j + 1, k), idx(i, j - 1, k), idx(i, j, k + 1), idx(i, j, k - 1)]
+                    .iter()
+                    .any(|&q| !solid[q])
+        })
+        .map(|(i, j, k)| ((i as f32 - nh as f32) * v, (k as f32 - nh as f32) * v, j))
+        .collect();
+    let shadow = |f: usize| -> Vec<bool> {
+        let (c, s) = angle[f];
+        let mut out = vec![false; w * h];
+        for &(x, z, j) in &shell {
+            let px = d.axis + x * c + z * s;
+            let (x0, x1) = ((px - v / 2.0).ceil().max(0.0) as usize, ((px + v / 2.0).ceil() as usize).min(w));
+            let (y0, y1) = (
+                (top as f32 + (j as f32 - 1.0) * v).ceil().max(0.0) as usize,
+                ((top as f32 + j as f32 * v).ceil() as usize).min(h),
+            );
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    out[y * w + x] = true;
+                }
+            }
+        }
+        out
+    };
+    // how well the model's shadow fits every frame's outline
+    let fits: Vec<(bool, FrameFit)> = (0..n)
+        .into_par_iter()
+        .map(|f| (held(f), frame_fit(&shadow(f), &masks[f], w, h)))
+        .collect();
+    let average = |which: bool| {
+        let chosen: Vec<&FrameFit> = fits.iter().filter(|(hf, _)| *hf == which).map(|(_, x)| x).collect();
+        FrameFit::mean(&chosen)
+    };
+    let (fit_used, fit_held) = (average(false), average(true));
+
     // check pictures: figure pixels of a frame with no solid voxel behind them, red where
-    // the outline check removed the voxels along their ray, blue where the depth check did
+    // the outline check removed the voxels along their ray, blue where the depth check did;
+    // magenta where the model's shadow covers background (excess)
     let checks: Vec<LossPicture> = p
         .check
         .iter()
@@ -815,6 +962,14 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
             let (c, s) = angle[f];
             let mut picture = frames[f].clone();
             let (mut figure, mut by_outline, mut by_depth) = (0, 0, 0);
+            let cast = shadow(f);
+            let mut excess = 0;
+            for (i, (&m, &sh)) in masks[f].iter().zip(&cast).enumerate() {
+                if sh && !m {
+                    excess += 1;
+                    picture.get_pixel_mut((i % w) as u32, (i / w) as u32).0 = [255, 0, 255, 255];
+                }
+            }
             for y in 0..h {
                 let j = ((y as f32 - top as f32) / v + 0.5).round();
                 if j < 0.0 || j as usize >= ny {
@@ -833,11 +988,12 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
                         let (ox, oz) = (fx * c - fz * s, fx * s + fz * c);
                         let (i, k) = ((ox / v + nh as f32).round(), (oz / v + nh as f32).round());
                         if i >= 0.0 && k >= 0.0 && (i as usize) < nx && (k as usize) < nz {
-                            match kinds[idx(i as usize, j, k as usize)] {
-                                0 => {
-                                    kept = true;
-                                    break;
-                                }
+                            let q = idx(i as usize, j, k as usize);
+                            if solid[q] {
+                                kept = true;
+                                break;
+                            }
+                            match kinds[q] {
                                 1 => outline += 1,
                                 2 => depth += 1,
                                 _ => {}
@@ -857,7 +1013,7 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
                     }
                 }
             }
-            LossPicture { frame: f, picture, figure, by_outline, by_depth }
+            LossPicture { frame: f, picture, figure, by_outline, by_depth, excess }
         })
         .collect();
 
@@ -1016,6 +1172,8 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
             corrections,
             disagreement: band_disagreement,
             fragments,
+            fit_used,
+            fit_held,
         },
         d,
     ))
@@ -1074,6 +1232,22 @@ mod tests {
                 })
             })
             .collect()
+    }
+
+    #[test]
+    fn fit_counts_missed_excess_and_outline_distance() {
+        let (w, h) = (40, 30);
+        let square = |x0: usize, x1: usize| -> Vec<bool> {
+            (0..w * h).map(|i| (x0..x1).contains(&(i % w)) && (10..20).contains(&(i / w))).collect()
+        };
+        let same = frame_fit(&square(10, 20), &square(10, 20), w, h);
+        assert_eq!((same.missed, same.excess, same.iou, same.boundary), (0.0, 0.0, 1.0, 0.0));
+        // a shadow 4 columns too wide on the right: 40 % excess, nothing missed
+        let wide = frame_fit(&square(10, 24), &square(10, 20), w, h);
+        assert_eq!(wide.missed, 0.0);
+        assert!((wide.excess - 0.4).abs() < 1e-6, "{wide:?}");
+        assert!((wide.iou - 100.0 / 140.0).abs() < 1e-6, "{wide:?}");
+        assert!(wide.boundary > 0.5 && wide.boundary < 4.0, "{wide:?}");
     }
 
     #[test]
