@@ -477,7 +477,7 @@ fn main() -> ExitCode {
                     let path = format!("{}_low.glb", stem.display());
                     std::fs::write(&path, low).map_err(|e| format!("{path}: {e}"))?;
                     eprintln!(
-                        "{path}: {:.1} MB, {} vertices, {} triangles, texture {} px; fit to the frames that shaped it: missed {:.1} %, excess {:.1} %, overlap {:.3}, outline distance {:.2} px; held-out frames: overlap {:.3}, outline distance {:.2} px",
+                        "{path}: {:.1} MB, {} vertices, {} triangles, texture {} px; fit to the frames that shaped it: missed {:.1} %, excess {:.1} %, overlap {:.3}, outline distance {:.2} px; held-out frames: overlap {:.3}, outline distance {:.2} px; normal map detail: median {:.1}°, p90 {:.1}°",
                         low.len() as f64 / 1_048_576.0,
                         info.vertices,
                         info.triangles,
@@ -487,7 +487,9 @@ fn main() -> ExitCode {
                         info.fit_used.iou,
                         info.fit_used.boundary,
                         info.fit_held.iou,
-                        info.fit_held.boundary
+                        info.fit_held.boundary,
+                        info.normal_detail.0,
+                        info.normal_detail.1
                     );
                 }
                 // loss pictures next to the model: out_loss_030.png

@@ -840,6 +840,12 @@ fn normal(p: &[[f32; 3]]) -> [f32; 3] {
 
 /// A binary glTF with one textured mesh; the PNG is embedded as its texture.
 pub(crate) fn write_glb(m: &Mesh, png: &[u8]) -> Vec<u8> {
+    write_glb_maps(m, None, png, None)
+}
+
+/// [`write_glb`] with an optional tangent-space normal map: per-vertex tangents (xyz and the
+/// bitangent sign w, as glTF defines them) and the normal map's PNG.
+pub(crate) fn write_glb_maps(m: &Mesh, tangents: Option<&[[f32; 4]]>, png: &[u8], normal_png: Option<&[u8]>) -> Vec<u8> {
     let mut bin: Vec<u8> = Vec::new();
     let mut views = Vec::new();
     let mut push = |bin: &mut Vec<u8>, bytes: &[u8], target: Option<u32>| {
@@ -863,6 +869,8 @@ pub(crate) fn write_glb(m: &Mesh, png: &[u8]) -> Vec<u8> {
     let idx_bytes: Vec<u8> = m.indices.iter().flat_map(|i| i.to_le_bytes()).collect();
     let ind = push(&mut bin, &idx_bytes, Some(34963));
     let img = push(&mut bin, png, None);
+    let tan = tangents.map(|t| push(&mut bin, &t.iter().flatten().flat_map(|f| f.to_le_bytes()).collect::<Vec<u8>>(), Some(34962)));
+    let nimg = normal_png.map(|p| push(&mut bin, p, None));
     while bin.len() % 4 != 0 {
         bin.push(0);
     }
@@ -874,7 +882,7 @@ pub(crate) fn write_glb(m: &Mesh, png: &[u8]) -> Vec<u8> {
         }
     }
     let n = m.positions.len();
-    let doc = json!({
+    let mut doc = json!({
         "asset": {"version": "2.0", "generator": "fframes-vector figure"},
         "scene": 0,
         "scenes": [{"nodes": [0]}],
@@ -898,6 +906,19 @@ pub(crate) fn write_glb(m: &Mesh, png: &[u8]) -> Vec<u8> {
         "bufferViews": views,
         "buffers": [{"byteLength": bin.len()}]
     });
+    if let (Some(tan), Some(nimg)) = (tan, nimg) {
+        if let Some(a) = doc["accessors"].as_array_mut() {
+            a.push(json!({"bufferView": tan, "componentType": 5126, "count": n, "type": "VEC4"}));
+        }
+        doc["meshes"][0]["primitives"][0]["attributes"]["TANGENT"] = json!(4);
+        if let Some(a) = doc["images"].as_array_mut() {
+            a.push(json!({"bufferView": nimg, "mimeType": "image/png"}));
+        }
+        if let Some(a) = doc["textures"].as_array_mut() {
+            a.push(json!({"source": 1, "sampler": 0}));
+        }
+        doc["materials"][0]["normalTexture"] = json!({"index": 1});
+    }
     let mut json = serde_json::to_vec(&doc).unwrap_or_default();
     while json.len() % 4 != 0 {
         json.push(b' ');

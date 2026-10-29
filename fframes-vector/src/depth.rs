@@ -1631,5 +1631,17 @@ mod tests {
         assert!(depths.maps[4].iter().all(|d| d.is_nan()));
         eprintln!("solid box: hull {} voxels, stereo {} voxels; held IoU {:.3}",
             hull.voxels, stereo.voxels, stereo.fit_held.iou);
+
+        // the reduced model: tangents, a normal map, both textures 2048 x 2048, and the box's
+        // flat faces give a nearly neutral normal map
+        let (low, info) = hull.low.expect("reduced model");
+        let (doc, _, images) = gltf::import_slice(&low).expect("glTF");
+        let prim = doc.meshes().next().and_then(|m| m.primitives().next()).expect("primitive");
+        assert!(prim.get(&gltf::Semantic::Tangents).is_some(), "no tangents");
+        assert!(prim.material().normal_texture().is_some(), "no normal map");
+        assert!(images.iter().all(|i| (i.width, i.height) == (2048, 2048)), "texture sizes");
+        assert!(info.normal_detail.0 < 10.0, "median normal detail {:?}", info.normal_detail);
+        eprintln!("reduced box: {} vertices, normal detail median {:.1}°, p90 {:.1}°",
+            info.vertices, info.normal_detail.0, info.normal_detail.1);
     }
 }
