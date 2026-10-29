@@ -81,6 +81,15 @@ window for drawing and naming zones: the pieces drawn with Skia through the nati
 pieces outlined, `n` jumps to the next one. `s` writes the zone SVG and the grouped
 document (`c`: cut along the zones when saving). Keys are listed in its `main.rs`.
 
+`figure sheet.png out.glb --height 1.7` makes a 3D figure from a sheet of three views (front,
+side, back) on a plain background, as an image model draws them (`figure.rs`): the
+background colour comes from the corners, the views are found as column runs (front and back
+are the pair of equal width, the side the odd one, or `--order`), the volume is carved from
+the front and side outlines in a voxel grid, its surface (surface nets) is textured with the
+views it faces, and the sheet is embedded as the texture. No tracing. Hollows no view shows
+stay filled. Golden Spurs: farmer 1.7 m and horseman 2.7 m from 2816 x 1584 sheets in
+0.4 and 0.6 s, 23 and 34 MB.
+
 Names are paths: `tree.group("rider")` includes `rider/spurs`, `tree.others("rider")` is
 everything else, `doc.group_bbox("rider")` frames it for a camera. `--check` writes an SVG
 with every piece in its group's colour and the names written on: look at it before trusting

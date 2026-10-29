@@ -14,7 +14,7 @@ fframes-walk --window window.glb [--model statue.glb:left:2:0:3] [--room 14,28,1
 | Option | Meaning |
 | --- | --- |
 | `--window file.glb[:wall[:height[:sill[:offset]]]]` | A window: an opening is cut into the wall, the glass shows the daylight coming through it in its own colours, lead and dark paint stay dark, and the sun shines in. Default: back wall, 6 m high, lower edge 1.5 m above the floor, in the middle. |
-| `--model file.glb[:wall[:height[:sill[:offset]]]]` | Any other model, standing just in front of the wall. Default: back wall, 2 m high, on the floor. |
+| `--model file.glb[:wall[:height[:sill[:offset]]]]` | Any other model, standing just in front of the wall, lit like an exhibit by a lamp in front of it and above whose light stays near the model. Default: back wall, 2 m high, on the floor. |
 | wall | `back` (ahead at the start), `front`, `left` or `right` |
 | offset | Metres along the wall from its middle, to the right seen from inside |
 | `--room W,D,H` | Room width, depth and height in metres. Default: high enough for the tallest model plus 2.5 m, twice as deep as wide. |

@@ -160,6 +160,19 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
             sun_from.get_or_insert(rot * vec3(0.0, 1.2, -1.0));
             windows.push((at, rot * vec3(0.0, 0.0, 1.0), p.height));
         }
+        if p.glow <= 0.0 {
+            // an exhibit: a warm light in front of it and above, at a third of its height
+            let lamp = rot * (local + vec3(0.0, p.height * 0.35, 1.2 + p.height * 0.4));
+            scene.add(
+                fframes_three_d::Node::light(Light::point(
+                    Rgb::hex(0xfff0dc),
+                    1.6 * p.height,
+                    // reaches the figure, not the room
+                    2.0 + p.height * 1.2,
+                ))
+                .with_position(lamp),
+            );
+        }
         eprintln!(
             "{}: {:.2} x {:.2} m on the {:?} wall",
             p.path, width, p.height, p.wall

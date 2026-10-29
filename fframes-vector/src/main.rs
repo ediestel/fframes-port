@@ -251,6 +251,60 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some("figure") if args.len() >= 3 => {
+            // figure sheet.png out.glb [--height 1.7] [--resolution 256] [--order front,side,back] [--side-faces right]
+            use fframes_vector::figure::{FigureParams, View, figure_glb};
+            let (input, output) = (&args[1], &args[2]);
+            let mut p = FigureParams::default();
+            if let Some(h) = opt(&args, "--height") {
+                p.height = h;
+            }
+            if let Some(r) = opt(&args, "--resolution") {
+                p.resolution = r;
+            }
+            if opt::<String>(&args, "--side-faces").as_deref() == Some("right") {
+                p.side_faces_left = false;
+            }
+            if let Some(o) = opt::<String>(&args, "--order") {
+                let v: Vec<View> = o
+                    .split(',')
+                    .filter_map(|x| match x.trim() {
+                        "front" => Some(View::Front),
+                        "side" => Some(View::Side),
+                        "back" => Some(View::Back),
+                        _ => None,
+                    })
+                    .collect();
+                if let [a, b, c] = v[..] {
+                    p.order = Some([a, b, c]);
+                }
+            }
+            let result = std::fs::read(input)
+                .map_err(|e| format!("{input}: {e}"))
+                .and_then(|png| figure_glb(&png, &p))
+                .and_then(|(glb, views)| {
+                    std::fs::write(output, &glb).map_err(|e| format!("{output}: {e}"))?;
+                    Ok((glb.len(), views))
+                });
+            match result {
+                Ok((bytes, views)) => {
+                    for v in &views {
+                        eprintln!("{:?}: x {} y {}, {} x {} px", v.view, v.x, v.y, v.w, v.h);
+                    }
+                    eprintln!(
+                        "{output}: {:.1} MB, {} m high ({:.1} s)",
+                        bytes as f64 / 1_048_576.0,
+                        p.height,
+                        start.elapsed().as_secs_f32()
+                    );
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some("gltf") if args.len() >= 3 => {
             // gltf doc.json out.glb [--depth N] [--unit M] [--tolerance T] [--per-piece] [--no-outline] [--group name]
             let doc = match PieceDocument::load(&args[1]) {
@@ -353,7 +407,7 @@ fn main() -> ExitCode {
         },
         _ => {
             eprintln!(
-                "fframes-vector vectorize in.png out.json [--scale N] [--colors N] [--svg out.svg] [--flat flat.png]\nfframes-vector group doc.json zones.svg|--mask m.png [--cut [--cut-min 0.05]] [--legend l.json] [--clusters] [--share 0.5] [--report r.json] [--check c.svg] [-o out.json]\nfframes-vector clusters doc.json [--k N] [--gap N] [--min-area N] [--check c.svg] [-o out.json]\nfframes-vector svg doc.json out.svg [--grouped]\nfframes-vector sprites doc.json dir [--density 1,2] [--group name] [--no-outline]"
+                "fframes-vector vectorize in.png out.json [--scale N] [--colors N] [--svg out.svg] [--flat flat.png]\nfframes-vector group doc.json zones.svg|--mask m.png [--cut [--cut-min 0.05]] [--legend l.json] [--clusters] [--share 0.5] [--report r.json] [--check c.svg] [-o out.json]\nfframes-vector clusters doc.json [--k N] [--gap N] [--min-area N] [--check c.svg] [-o out.json]\nfframes-vector figure sheet.png out.glb [--height 1.7] [--resolution 256] [--order front,side,back] [--side-faces right]\nfframes-vector svg doc.json out.svg [--grouped]\nfframes-vector sprites doc.json dir [--density 1,2] [--group name] [--no-outline]"
             );
             ExitCode::FAILURE
         }

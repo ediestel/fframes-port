@@ -21,6 +21,7 @@ pub mod cluster;
 pub mod cut;
 pub mod document;
 pub mod drawing;
+pub mod figure;
 pub mod flatten;
 pub mod gltf;
 pub mod group;
