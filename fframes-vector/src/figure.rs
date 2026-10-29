@@ -227,17 +227,44 @@ pub fn figure_glb(
     };
     let mut solid = vec![false; nx * ny * nz];
     let idx = |i: usize, j: usize, k: usize| (k * ny + j) * nx + i;
-    for k in 1..nz - 1 {
-        for j in 1..ny - 1 {
-            let y = (j as f32 - 0.5) * px;
-            let su = side_u(nz - 1 - k);
-            if !inside_view(side, su, y) {
-                continue;
+    // a row of a view as runs of figure: (from, to) in grid units
+    let runs = |b: ViewBox, y: f32, n: usize, at: &dyn Fn(usize) -> f32| -> Vec<(f32, f32)> {
+        let mut out = Vec::new();
+        let mut open: Option<usize> = None;
+        for c in 1..=n {
+            let on = c < n - 1 && inside_view(b, at(c), y);
+            match (open, on) {
+                (None, true) => open = Some(c),
+                (Some(a), false) => {
+                    out.push((a as f32 - 0.5, c as f32 - 0.5));
+                    open = None;
+                }
+                _ => {}
             }
-            for i in 1..nx - 1 {
-                let u = (i as f32 - 0.5) * px;
-                if inside_view(front, u, y) {
-                    solid[idx(i, j, k)] = true;
+        }
+        out
+    };
+    for j in 1..ny - 1 {
+        let y = (j as f32 - 0.5) * px;
+        // every slice is round, not square: inside an ellipse fitted to each pair of a
+        // front run (width) and a side run (depth)
+        let across = runs(front, y, nx, &|i| (i as f32 - 0.5) * px);
+        let deep = runs(side, y, nz, &|k| side_u(nz - 1 - k));
+        for &(x0, x1) in &across {
+            let (cx, rx) = ((x0 + x1) / 2.0, (x1 - x0) / 2.0);
+            for &(z0, z1) in &deep {
+                let (cz, rz) = ((z0 + z1) / 2.0, (z1 - z0) / 2.0);
+                for k in 1..nz - 1 {
+                    let dz = (k as f32 - cz) / rz.max(0.5);
+                    if dz.abs() > 1.0 {
+                        continue;
+                    }
+                    for i in 1..nx - 1 {
+                        let dx = (i as f32 - cx) / rx.max(0.5);
+                        if dx * dx + dz * dz <= 1.0 {
+                            solid[idx(i, j, k)] = true;
+                        }
+                    }
                 }
             }
         }
@@ -302,6 +329,30 @@ pub fn figure_glb(
         indices: Vec::new(),
     };
     let (sw, sh) = (w as f32, h as f32);
+    // smooth shading: every vertex the average normal of its faces, oriented outwards
+    let oriented = |q: &[u32; 4], axis: usize, positive: bool| {
+        let pts: Vec<[f32; 3]> = q.iter().map(|&v| world(verts[v as usize])).collect();
+        let mut out = [0.0_f32; 3];
+        out[axis] = if positive { 1.0 } else { -1.0 };
+        if axis == 1 {
+            out[1] = -out[1];
+        }
+        let n = normal(&pts);
+        if n[0] * out[0] + n[1] * out[1] + n[2] * out[2] < 0.0 { [-n[0], -n[1], -n[2]] } else { n }
+    };
+    let mut vertex_normal = vec![[0.0_f32; 3]; verts.len()];
+    for (q, axis, positive) in &faces {
+        let n = oriented(q, *axis, *positive);
+        for &v in q {
+            for c in 0..3 {
+                vertex_normal[v as usize][c] += n[c];
+            }
+        }
+    }
+    for n in &mut vertex_normal {
+        let l = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt().max(1e-9);
+        *n = [n[0] / l, n[1] / l, n[2] / l];
+    }
     for (q, axis, positive) in &faces {
         let pts: Vec<[f32; 3]> = q.iter().map(|&v| world(verts[v as usize])).collect();
         // outward in world space: the grid's y runs down the sheet, the world's up
@@ -338,7 +389,7 @@ pub fn figure_glb(
                 View::Side => view.x as f32 + side_u(nz - 1 - g[2].round() as usize).clamp(0.0, view.w as f32),
             };
             mesh.positions.push(*pt);
-            mesh.normals.push(n);
+            mesh.normals.push(vertex_normal[v as usize]);
             mesh.uvs.push([x / sw, y / sh]);
         }
         mesh.indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
@@ -564,5 +615,18 @@ mod tests {
         assert!((wd - 1.0).abs() < 0.1, "width {wd}");
         assert!((dp - 0.5).abs() < 0.1, "depth {dp}");
         assert!(b.min[1].abs() < 0.05, "feet at y = 0, got {}", b.min[1]);
+        // round slices: no surface near the corners of the 1.0 x 0.5 m rectangle
+        let (_, buffers, _) = gltf::import_slice(&glb).unwrap();
+        let data = &buffers[0];
+        let acc = prim.get(&gltf::Semantic::Positions).unwrap();
+        let view = acc.view().unwrap();
+        let start = view.offset() + acc.offset();
+        let corner = (0..acc.count()).any(|i| {
+            let o = start + i * 12;
+            let f = |k: usize| f32::from_le_bytes(data[o + k * 4..o + k * 4 + 4].try_into().unwrap());
+            let (x, z) = (f(0) - (b.min[0] + b.max[0]) / 2.0, f(2) - (b.min[2] + b.max[2]) / 2.0);
+            (x / (wd / 2.0)).abs() > 0.85 && (z / (dp / 2.0)).abs() > 0.85
+        });
+        assert!(!corner, "a slice of the figure has square corners");
     }
 }

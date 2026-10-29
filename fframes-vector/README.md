@@ -85,8 +85,10 @@ document (`c`: cut along the zones when saving). Keys are listed in its `main.rs
 side, back) on a plain background, as an image model draws them (`figure.rs`): the
 background colour comes from the corners, the views are found as column runs (front and back
 are the pair of equal width, the side the odd one, or `--order`), the volume is carved from
-the front and side outlines in a voxel grid, its surface (surface nets) is textured with the
-views it faces, and the sheet is embedded as the texture. No tracing. Hollows no view shows
+the front and side outlines in a voxel grid with round slices (each row an ellipse fitted to
+a front run and a side run, so arms and legs are separate rounds, not boxes), its surface
+(surface nets, smooth vertex normals) is textured with the views it faces, and the sheet is
+embedded as the texture. No tracing. Hollows no view shows
 stay filled. Golden Spurs: farmer 1.7 m and horseman 2.7 m from 2816 x 1584 sheets in
 0.4 and 0.6 s, 23 and 34 MB.
 
