@@ -26,6 +26,7 @@ pub mod gltf;
 pub mod group;
 pub mod quantize;
 pub mod raster;
+pub mod report;
 pub mod trace;
 pub mod tree;
 
