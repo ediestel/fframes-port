@@ -495,6 +495,71 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some("splat-video") if args.len() >= 4 => {
+            // splat-video splats.ply dataset_dir out.mp4 [--scale 2] [--fps 24]: the splats seen
+            // by every camera of the dataset's transforms.json, encoded with ffmpeg; every 8th
+            // camera also checked against its image's outline
+            use fframes_vector::splat::{read_cameras, read_splats, render};
+            let (ply, dir, output) = (&args[1], std::path::Path::new(&args[2]), &args[3]);
+            let scale: f32 = opt(&args, "--scale").unwrap_or(2.0);
+            let fps: u32 = opt(&args, "--fps").unwrap_or(24);
+            let run = || -> Result<String, String> {
+                let splats = read_splats(std::path::Path::new(ply))?;
+                let cams = read_cameras(&dir.join("transforms.json"))?;
+                let first = cams.first().ok_or("no cameras")?.1;
+                let (vw, vh) = (
+                    ((first.width as f32 * scale).round() as u32) & !1,
+                    ((first.height as f32 * scale).round() as u32) & !1,
+                );
+                // frames straight into ffmpeg as raw RGBA, nothing on disk
+                let mut ffmpeg = std::process::Command::new("ffmpeg")
+                    .args(["-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgba", "-s"])
+                    .arg(format!("{vw}x{vh}"))
+                    .args(["-framerate", &fps.to_string(), "-i", "-", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16", output])
+                    .stdin(std::process::Stdio::piped())
+                    .spawn()
+                    .map_err(|e| format!("ffmpeg: {e}"))?;
+                let mut pipe = ffmpeg.stdin.take().ok_or("ffmpeg: no input")?;
+                let mut fits = Vec::new();
+                for (i, (name, cam)) in cams.iter().enumerate() {
+                    let (img, _) = render(&splats, cam, scale, [40, 40, 40]);
+                    let img = image::imageops::crop_imm(&img, 0, 0, vw, vh).to_image();
+                    std::io::Write::write_all(&mut pipe, img.as_raw()).map_err(|e| format!("ffmpeg: {e}"))?;
+                    if i % 8 == 0 {
+                        let (_, cover) = render(&splats, cam, 1.0, [0, 0, 0]);
+                        let image = image::open(dir.join(name)).map_err(|e| format!("{name}: {e}"))?.to_rgba8();
+                        let mask: Vec<bool> = image.pixels().map(|p| p.0[3] > 127).collect();
+                        let shadow: Vec<bool> = cover.iter().map(|&a| a > 0.5).collect();
+                        fits.push(fframes_vector::depth::fit(&shadow, &mask, image.width() as usize, image.height() as usize));
+                    }
+                }
+                drop(pipe);
+                if !ffmpeg.wait().map_err(|e| format!("ffmpeg: {e}"))?.success() {
+                    return Err(format!("ffmpeg failed on {output}"));
+                }
+                let n = fits.len().max(1) as f32;
+                Ok(format!(
+                    "{output}: {} splats, {} frames at {scale}x, {fps} fps; outline against the images ({} frames): missed {:.1} %, excess {:.1} %, overlap {:.3}, outline distance {:.2} px",
+                    splats.len(),
+                    cams.len(),
+                    fits.len(),
+                    fits.iter().map(|f| f.missed).sum::<f32>() / n * 100.0,
+                    fits.iter().map(|f| f.excess).sum::<f32>() / n * 100.0,
+                    fits.iter().map(|f| f.iou).sum::<f32>() / n,
+                    fits.iter().map(|f| f.boundary).sum::<f32>() / n
+                ))
+            };
+            match run() {
+                Ok(report) => {
+                    eprintln!("{report} ({:.1} s)", start.elapsed().as_secs_f32());
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some("figure") if args.len() >= 3 => {
             // figure sheet.png out.glb [--height 1.7] [--resolution 256] [--order front,side,back] [--side-faces right]
             use fframes_vector::figure::{FigureParams, View, figure_glb};

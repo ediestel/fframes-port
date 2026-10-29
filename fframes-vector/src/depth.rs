@@ -250,6 +250,11 @@ pub fn despill(img: &image::RgbaImage, mask: &[bool], c: usize) -> image::RgbaIm
 }
 
 /// The fit of a shadow to a mask.
+#[must_use]
+pub fn fit(shadow: &[bool], mask: &[bool], w: usize, h: usize) -> FrameFit {
+    frame_fit(shadow, mask, w, h)
+}
+
 pub(crate) fn frame_fit(shadow: &[bool], mask: &[bool], w: usize, h: usize) -> FrameFit {
     let (mut both, mut missed, mut excess, mut figure) = (0usize, 0usize, 0usize, 0usize);
     for (&s, &m) in shadow.iter().zip(mask) {
