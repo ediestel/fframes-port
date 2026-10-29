@@ -45,11 +45,11 @@ fn main() -> ExitCode {
         .filter(|a| !a.starts_with('-') && a.to_ascii_lowercase().ends_with(".svg"))
         .map(PathBuf::from);
     let config = editor::Config {
-        out: opt(&args, "-o").map_or_else(|| beside(&doc_path, "_grouped.json"), PathBuf::from),
+        out: opt(&args, "-o").map_or_else(|| beside(&doc_path, ".edited.json"), PathBuf::from),
         zones_out: opt(&args, "--zones-out").map_or_else(
             || match &zones_path {
                 Some(z) => beside(z, ".edited.svg"),
-                None => beside(&doc_path, "_zones.svg"),
+                None => beside(&doc_path, ".zones.edited.svg"),
             },
             PathBuf::from,
         ),

@@ -16,8 +16,8 @@ fframes-vector-editor pieces.json [zones.svg] [options]
 | Option | Meaning |
 | --- | --- |
 | `zones.svg` | Zones to start from. Without it you start with none. |
-| `-o out.json` | Where the grouped document is saved. Default: `<pieces>_grouped.json` next to `pieces.json`. |
-| `--zones-out z.svg` | Where the zones are saved. Default: `<zones>.edited.svg` next to `zones.svg`, or `<pieces>_zones.svg` without one. The zone file you start from is never overwritten. |
+| `-o out.json` | Where the grouped document is saved. Default: `<pieces>.edited.json` next to `pieces.json`. |
+| `--zones-out z.svg` | Where the zones are saved. Default: `<zones>.edited.svg` next to `zones.svg`, or `<pieces>.zones.edited.svg` without one. The defaults never overwrite the files you start from or earlier results with other names. |
 | `--scale N` | Zone coordinates to document pixels. Default: the document's own scale, so zones are in pixels of the source picture. |
 | `--cut` | Cut pieces along the zones when saving (also `c` in the window). |
 
@@ -26,6 +26,8 @@ Example, the Golden Spurs window:
 ```
 target/release/fframes-vector-editor examples/golden_spurs/vector/window3x.json examples/golden_spurs/vector/zones.svg
 ```
+
+`s` then writes `zones.edited.svg` and `window3x.edited.json` next to them.
 
 ## The window
 
