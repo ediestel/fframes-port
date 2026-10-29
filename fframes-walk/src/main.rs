@@ -10,7 +10,9 @@
 //!
 //! `--video out.mp4 [--seconds 15] [--size 1920x1080]` renders a walk from the start up to the
 //! first window, ending with a look up at it, and encodes it with the `ffmpeg` command.
-//! `--captions captions.txt` writes text over it: one caption per line, `start-end|line|line`
+//! `--demo` instead plays a scripted walk with the controls drawn top right (W A S D, Shift,
+//! the mouse), lit while held, at the speeds of the window. `--captions captions.txt` writes
+//! text over it: one caption per line, `start-end|line|line`
 //! in seconds, for example `0.5-3.5|A stained-glass window|6,765 pieces`; each line after the
 //! first is smaller.
 //! `--at x,z` starts there instead of near the front wall. `--snapshot out.png` renders one 1280 x 800 picture from the starting point and quits.
@@ -157,7 +159,8 @@ fn run() -> Result<(), String> {
             Some(c) => read_captions(&c)?,
             None => Vec::new(),
         };
-        return video(&room, &path, seconds, w, h, &captions);
+        let demo = args.iter().any(|a| a == "--demo");
+        return video(&room, &path, seconds, w, h, &captions, demo);
     }
 
     if let Some(path) = value("--snapshot") {
@@ -248,6 +251,160 @@ fn tour_camera(room: &room::Room, u: f32) -> Camera {
         .clip(0.05, 300.0)
 }
 
+/// What is held in a moment of the demo: keys and the mouse.
+#[derive(Clone, Copy, Default)]
+struct Held {
+    w: bool,
+    a: bool,
+    s: bool,
+    d: bool,
+    shift: bool,
+    mouse: bool,
+}
+
+/// The demo script, as fractions of its length: (until, held, look per second (yaw, pitch)).
+/// The same speeds as the window: 1.6 m/s walking, 4.5 m/s with Shift.
+const DEMO: [(f32, Held, (f32, f32)); 9] = [
+    (0.06, Held { w: false, a: false, s: false, d: false, shift: false, mouse: false }, (0.0, 0.0)),
+    (0.26, Held { w: true, a: false, s: false, d: false, shift: false, mouse: false }, (0.0, 0.0)),
+    (0.36, Held { w: false, a: true, s: false, d: false, shift: false, mouse: false }, (0.0, 0.0)),
+    (0.44, Held { w: false, a: false, s: false, d: false, shift: false, mouse: true }, (0.55, 0.12)),
+    (0.52, Held { w: false, a: false, s: false, d: false, shift: false, mouse: true }, (-0.55, -0.12)),
+    (0.62, Held { w: false, a: false, s: false, d: true, shift: false, mouse: false }, (0.0, 0.0)),
+    (0.74, Held { w: true, a: false, s: false, d: false, shift: true, mouse: false }, (0.0, 0.0)),
+    (0.81, Held { w: false, a: false, s: true, d: false, shift: false, mouse: false }, (0.0, 0.0)),
+    (1.0, Held { w: true, a: false, s: false, d: false, shift: false, mouse: true }, (0.0, 0.1)),
+];
+
+/// The camera and the held keys at `time` of a demo `seconds` long, by playing the script
+/// from the start with the movement of the window.
+fn demo_state(room: &room::Room, time: f32, seconds: f32) -> (Camera, Held) {
+    let dt = 1.0 / 120.0;
+    let (mut p, mut yaw, mut pitch) = (room.start, room.start_yaw, 0.0_f32);
+    let mut held = Held::default();
+    let mut t = 0.0;
+    while t <= time {
+        let u = t / seconds;
+        let (_, h, (dyaw, dpitch)) = DEMO.iter().find(|(until, ..)| u <= *until).copied().unwrap_or(DEMO[DEMO.len() - 1]);
+        held = h;
+        let speed = if h.shift { 4.5 } else { 1.6 };
+        let ahead = vec3(-yaw.sin(), 0.0, -yaw.cos());
+        let right = vec3(yaw.cos(), 0.0, -yaw.sin());
+        let mut v = Vec3::ZERO;
+        if h.w {
+            v += ahead;
+        }
+        if h.s {
+            v -= ahead;
+        }
+        if h.d {
+            v += right;
+        }
+        if h.a {
+            v -= right;
+        }
+        if v.length_squared() > 0.0 {
+            p += v.normalize() * speed * dt;
+        }
+        yaw += dyaw * dt;
+        pitch = (pitch + dpitch * dt).clamp(-1.4, 1.4);
+        let s = room.size;
+        p.x = p.x.clamp(-s.width / 2.0 + 0.35, s.width / 2.0 - 0.35);
+        p.z = p.z.clamp(-s.depth / 2.0 + 0.35, s.depth / 2.0 - 0.35);
+        t += dt;
+    }
+    let forward = vec3(-yaw.sin() * pitch.cos(), pitch.sin(), -yaw.cos() * pitch.cos());
+    let camera = Camera::perspective(62.0)
+        .position(p)
+        .look_at(p + forward)
+        .clip(0.05, 300.0);
+    (camera, held)
+}
+
+/// The keys W A S D, Shift and a mouse, top right; held ones lit.
+fn draw_keys(rgba: &mut [u8], w: u32, h: u32, held: Held, typeface: &skia_safe::Typeface) {
+    let info = ImageInfo::new((w as i32, h as i32), ColorType::RGBA8888, AlphaType::Premul, None);
+    let Some(canvas) = skia_safe::Canvas::from_raster_direct(&info, rgba, w as usize * 4, None)
+    else {
+        return;
+    };
+    let u = h as f32 / 1080.0;
+    let k = 64.0 * u;
+    let gap = 10.0 * u;
+    let right = w as f32 - 72.0 * u;
+    let top = 64.0 * u;
+    let mut font = Font::from_typeface(typeface, 28.0 * u);
+    font.set_edging(skia_safe::font::Edging::AntiAlias);
+    let key = |canvas: &skia_safe::Canvas, x: f32, y: f32, width: f32, label: &str, on: bool| {
+        let r = skia_safe::RRect::new_rect_xy(Rect::from_xywh(x, y, width, k), 10.0 * u, 10.0 * u);
+        let mut fill = Paint::default();
+        fill.set_anti_alias(true);
+        fill.set_color(if on {
+            Color::from_argb(235, 255, 214, 120)
+        } else {
+            Color::from_argb(120, 20, 20, 24)
+        });
+        canvas.draw_rrect(r, &fill);
+        let mut edge = Paint::default();
+        edge.set_anti_alias(true);
+        edge.set_style(skia_safe::PaintStyle::Stroke);
+        edge.set_stroke_width(2.0 * u);
+        edge.set_color(Color::from_argb(200, 240, 235, 225));
+        canvas.draw_rrect(r, &edge);
+        let mut text = Paint::default();
+        text.set_anti_alias(true);
+        text.set_color(if on { Color::from_rgb(30, 25, 15) } else { Color::from_rgb(240, 235, 225) });
+        let (tw, _) = font.measure_str(label, Some(&text));
+        canvas.draw_str(label, (x + (width - tw) / 2.0, y + k * 0.68), &font, &text);
+    };
+    // mouse, then D S A in a row, W above S, Shift left of A
+    let mouse_w = 48.0 * u;
+    let mx = right - mouse_w;
+    let row_y = top + k + gap;
+    let d_x = mx - 28.0 * u - k;
+    let s_x = d_x - gap - k;
+    let a_x = s_x - gap - k;
+    let shift_w = 1.7 * k;
+    key(&canvas, s_x, top, k, "W", held.w);
+    key(&canvas, a_x, row_y, k, "A", held.a);
+    key(&canvas, s_x, row_y, k, "S", held.s);
+    key(&canvas, d_x, row_y, k, "D", held.d);
+    key(&canvas, a_x - gap - shift_w, row_y, shift_w, "Shift", held.shift);
+    // the mouse: a rounded body with a line between the buttons
+    let body = skia_safe::RRect::new_rect_xy(
+        Rect::from_xywh(mx, top + 6.0 * u, mouse_w, 2.0 * k),
+        mouse_w / 2.0,
+        mouse_w / 2.0,
+    );
+    let mut fill = Paint::default();
+    fill.set_anti_alias(true);
+    fill.set_color(if held.mouse {
+        Color::from_argb(235, 255, 214, 120)
+    } else {
+        Color::from_argb(120, 20, 20, 24)
+    });
+    canvas.draw_rrect(body, &fill);
+    let mut edge = Paint::default();
+    edge.set_anti_alias(true);
+    edge.set_style(skia_safe::PaintStyle::Stroke);
+    edge.set_stroke_width(2.0 * u);
+    edge.set_color(Color::from_argb(200, 240, 235, 225));
+    canvas.draw_rrect(body, &edge);
+    canvas.draw_line(
+        (mx + mouse_w / 2.0, top + 6.0 * u),
+        (mx + mouse_w / 2.0, top + 6.0 * u + 0.8 * k),
+        &edge,
+    );
+    let mut label = Paint::default();
+    label.set_anti_alias(true);
+    label.set_color(Color::from_argb(220, 240, 235, 225));
+    let mut small = Font::from_typeface(typeface, 20.0 * u);
+    small.set_edging(skia_safe::font::Edging::AntiAlias);
+    let (tw, _) = small.measure_str("look", Some(&label));
+    canvas.draw_str("look", (mx + (mouse_w - tw) / 2.0, top + 2.0 * k + 34.0 * u), &small, &label);
+    drop(canvas);
+}
+
 /// A caption: from, to (seconds) and its lines.
 type Caption = (f32, f32, Vec<String>);
 
@@ -317,6 +474,7 @@ fn video(
     w: u32,
     h: u32,
     captions: &[Caption],
+    demo: bool,
 ) -> Result<(), String> {
     let font_mgr = FontMgr::new();
     let typeface = SYSTEM_FONTS
@@ -345,8 +503,18 @@ fn video(
     let t = Instant::now();
     for f in 0..frames {
         let u = f as f32 / (frames - 1).max(1) as f32;
-        let mut pixels = renderer.render_pixels(&room.scene, &tour_camera(room, u));
-        draw_captions(&mut pixels.rgba, w, h, captions, f as f32 / fps as f32, &typeface);
+        let time = f as f32 / fps as f32;
+        let (camera, held) = if demo {
+            let (camera, held) = demo_state(room, time, seconds);
+            (camera, Some(held))
+        } else {
+            (tour_camera(room, u), None)
+        };
+        let mut pixels = renderer.render_pixels(&room.scene, &camera);
+        draw_captions(&mut pixels.rgba, w, h, captions, time, &typeface);
+        if let Some(held) = held {
+            draw_keys(&mut pixels.rgba, w, h, held, &typeface);
+        }
         stdin.write_all(&pixels.rgba).map_err(|e| format!("ffmpeg: {e}"))?;
         if f % fps == 0 {
             eprint!("\r{}/{frames} frames", f + 1);

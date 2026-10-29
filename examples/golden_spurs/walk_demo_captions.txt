@@ -1,0 +1,8 @@
+# Captions for the controls demo of the Golden Spurs walk (18 s):
+# fframes-walk --window vector/window.glb --video film/walk_demo.mp4 --seconds 18 --demo --captions walk_demo_captions.txt
+0.3-3.2|A stained-glass window you can walk through|One AI picture, 1664 × 2496 px → 6,765 glass pieces in 96 colours
+3.3-6.4|Interactive: W A S D to walk, the mouse to look|Shift to run · the keys light up as they are pressed
+6.5-9.6|Traced and grouped on this laptop|Apple M1 · vectorized in 17 s · 21 named objects from 25 rough zones
+9.7-12.4|Room built in code, rendered by fframes|14 × 28 × 10 m · mirroring stone floor · 3D on the GPU (Metal)
+12.5-15.2|Rendered in real time on the GPU|This 18-second film: 1920 × 1080, 540 frames, in under 18 seconds
+15.3-17.9|Uses: heritage tours, museums, restoration, teaching, film|Written 28–29 Oct 2026 · 6,605 lines of Rust · tools 45 MB on disk
