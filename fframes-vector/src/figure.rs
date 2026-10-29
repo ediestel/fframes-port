@@ -246,14 +246,16 @@ pub fn figure_glb(
     };
     for j in 1..ny - 1 {
         let y = (j as f32 - 0.5) * px;
-        // every slice is round, not square: inside an ellipse fitted to each pair of a
-        // front run (width) and a side run (depth)
+        // every slice is round, not square: ellipses fitted to pairs of a front run (width)
+        // and a side run (depth). Not every pair is a part: the head in front and the lance
+        // beside it are seen from the side as head and lance too, and crossing them would
+        // make ghosts. A run pairs with the run of the other view closest to it in size;
+        // where several share one (two arms in front, one body from the side), the smaller
+        // ones are round limbs inside it.
         let across = runs(front, y, nx, &|i| (i as f32 - 0.5) * px);
         let deep = runs(side, y, nz, &|k| side_u(nz - 1 - k));
-        for &(x0, x1) in &across {
-            let (cx, rx) = ((x0 + x1) / 2.0, (x1 - x0) / 2.0);
-            for &(z0, z1) in &deep {
-                let (cz, rz) = ((z0 + z1) / 2.0, (z1 - z0) / 2.0);
+        for (cx, rx, cz, rz) in pair_runs(&across, &deep) {
+            {
                 for k in 1..nz - 1 {
                     let dz = (k as f32 - cz) / rz.max(0.5);
                     if dz.abs() > 1.0 {
@@ -405,6 +407,55 @@ fn n_dot_winding(pts: &[[f32; 3]], n: [f32; 3]) -> bool {
 
 /// Boundary quads between solid and empty voxels, with the axis they face along and
 /// whether the solid side is the lower one (the face points to +axis).
+/// Pairs the runs of one row of the front view (`across`) with those of the side view
+/// (`deep`) and returns the ellipses (centre and radius across, centre and radius in depth).
+/// Each run takes the run of the other view closest to it in size (width against depth); a
+/// run that is not the closest match of its partner is a limb within it: as deep as it is
+/// wide (or as wide as deep), centred on the partner.
+fn pair_runs(across: &[(f32, f32)], deep: &[(f32, f32)]) -> Vec<(f32, f32, f32, f32)> {
+    if across.is_empty() || deep.is_empty() {
+        return Vec::new();
+    }
+    let size = |r: &(f32, f32)| (r.1 - r.0).max(0.5);
+    let closest = |r: &(f32, f32), others: &[(f32, f32)]| {
+        (0..others.len())
+            .min_by(|&a, &b| {
+                let da = (size(r) / size(&others[a])).ln().abs();
+                let db = (size(r) / size(&others[b])).ln().abs();
+                da.total_cmp(&db)
+            })
+            .unwrap_or(0)
+    };
+    let best_deep: Vec<usize> = across.iter().map(|r| closest(r, deep)).collect();
+    let best_across: Vec<usize> = deep.iter().map(|r| closest(r, across)).collect();
+    let mut pairs: Vec<(usize, usize)> = Vec::new();
+    for (f, &s) in best_deep.iter().enumerate() {
+        pairs.push((f, s));
+    }
+    for (s, &f) in best_across.iter().enumerate() {
+        if !pairs.contains(&(f, s)) {
+            pairs.push((f, s));
+        }
+    }
+    pairs
+        .into_iter()
+        .map(|(f, s)| {
+            let (a, d) = (across[f], deep[s]);
+            let (cx, mut rx) = ((a.0 + a.1) / 2.0, (a.1 - a.0) / 2.0);
+            let (cz, mut rz) = ((d.0 + d.1) / 2.0, (d.1 - d.0) / 2.0);
+            // a front run that is not its side run's own match: a round limb in it
+            if best_across[s] != f {
+                rz = rz.min(rx);
+            }
+            // a side run that is not its front run's own match: likewise across
+            if best_deep[f] != s {
+                rx = rx.min(rz);
+            }
+            (cx, rx, cz, rz)
+        })
+        .collect()
+}
+
 fn collect_quads(
     solid: &[bool],
     cell_vertex: &[u32],
@@ -581,6 +632,27 @@ mod tests {
         img.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
             .unwrap();
         png
+    }
+
+    #[test]
+    fn a_head_and_a_lance_make_two_parts_not_four() {
+        // front: head 20 wide at 10..30, lance 2 wide at 50..52; side: head 18 deep at
+        // 0..18, lance 2 deep at 30..32
+        let e = pair_runs(&[(10.0, 30.0), (50.0, 52.0)], &[(0.0, 18.0), (30.0, 32.0)]);
+        assert_eq!(e.len(), 2, "{e:?}");
+        assert!(e.iter().any(|&(cx, _, cz, _)| cx == 20.0 && cz == 9.0), "head");
+        assert!(e.iter().any(|&(cx, _, cz, _)| cx == 51.0 && cz == 31.0), "lance");
+    }
+
+    #[test]
+    fn arms_beside_a_body_are_round_limbs_not_slabs() {
+        // front: arm 8, body 30, arm 8; side: one body 20 deep
+        let e = pair_runs(&[(0.0, 8.0), (10.0, 40.0), (42.0, 50.0)], &[(0.0, 20.0)]);
+        assert_eq!(e.len(), 3);
+        let arm = e.iter().find(|p| p.0 == 4.0).unwrap();
+        assert_eq!((arm.1, arm.3), (4.0, 4.0), "an arm as deep as it is wide");
+        let body = e.iter().find(|p| p.0 == 25.0).unwrap();
+        assert_eq!((body.1, body.3), (15.0, 10.0), "the body keeps its depth");
     }
 
     #[test]
