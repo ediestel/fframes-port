@@ -239,16 +239,17 @@ fn tour_camera(room: &room::Room, u: f32) -> Camera {
     ));
     let end = centre + into_room * (height * 0.65).max(2.5);
     let end = vec3(end.x, room.start.y, end.z);
-    let walk = ease(u / 0.85);
+    let walk = ease(u / ZOOM_FROM);
     let position = room.start + (end - room.start) * walk;
     // look at the window's middle, then let the gaze rise to its upper third
-    let look = centre + vec3(0.0, height * 0.18 * ease((u - 0.55) / 0.45), 0.0);
+    let look = centre + vec3(0.0, height * 0.18 * ease((u - 0.45) / (ZOOM_FROM - 0.45)), 0.0);
     // a slight sway of the steps, fading out when standing
     let sway = (u * 9.0 * std::f32::consts::TAU).sin() * 0.012 * (1.0 - walk);
-    Camera::perspective(62.0)
-        .position(position + vec3(0.0, sway, 0.0))
-        .look_at(look)
-        .clip(0.05, 300.0)
+    let position = position + vec3(0.0, sway, 0.0);
+    if u > ZOOM_FROM {
+        return zoom_end(room, position, look, u);
+    }
+    Camera::perspective(62.0).position(position).look_at(look).clip(0.05, 300.0)
 }
 
 /// What is held in a moment of the demo: keys and the mouse.
@@ -264,16 +265,18 @@ struct Held {
 
 /// The demo script, as fractions of its length: (until, held, look per second (yaw, pitch)).
 /// The same speeds as the window: 1.6 m/s walking, 4.5 m/s with Shift.
-const DEMO: [(f32, Held, (f32, f32)); 9] = [
-    (0.06, Held { w: false, a: false, s: false, d: false, shift: false, mouse: false }, (0.0, 0.0)),
-    (0.26, Held { w: true, a: false, s: false, d: false, shift: false, mouse: false }, (0.0, 0.0)),
-    (0.36, Held { w: false, a: true, s: false, d: false, shift: false, mouse: false }, (0.0, 0.0)),
-    (0.44, Held { w: false, a: false, s: false, d: false, shift: false, mouse: true }, (0.55, 0.12)),
-    (0.52, Held { w: false, a: false, s: false, d: false, shift: false, mouse: true }, (-0.55, -0.12)),
-    (0.62, Held { w: false, a: false, s: false, d: true, shift: false, mouse: false }, (0.0, 0.0)),
-    (0.74, Held { w: true, a: false, s: false, d: false, shift: true, mouse: false }, (0.0, 0.0)),
-    (0.81, Held { w: false, a: false, s: true, d: false, shift: false, mouse: false }, (0.0, 0.0)),
-    (1.0, Held { w: true, a: false, s: false, d: false, shift: false, mouse: true }, (0.0, 0.1)),
+const DEMO: [(f32, Held, (f32, f32)); 10] = [
+    (0.05, Held { w: false, a: false, s: false, d: false, shift: false, mouse: false }, (0.0, 0.0)),
+    (0.21, Held { w: true, a: false, s: false, d: false, shift: false, mouse: false }, (0.0, 0.0)),
+    (0.29, Held { w: false, a: true, s: false, d: false, shift: false, mouse: false }, (0.0, 0.0)),
+    (0.35, Held { w: false, a: false, s: false, d: false, shift: false, mouse: true }, (0.55, 0.12)),
+    (0.41, Held { w: false, a: false, s: false, d: false, shift: false, mouse: true }, (-0.55, -0.12)),
+    (0.49, Held { w: false, a: false, s: false, d: true, shift: false, mouse: false }, (0.0, 0.0)),
+    (0.59, Held { w: true, a: false, s: false, d: false, shift: true, mouse: false }, (0.0, 0.0)),
+    (0.65, Held { w: false, a: false, s: true, d: false, shift: false, mouse: false }, (0.0, 0.0)),
+    (0.78, Held { w: true, a: false, s: false, d: false, shift: false, mouse: true }, (0.0, 0.1)),
+    // the lens zoom of `zoom_end`: nothing held
+    (1.0, Held { w: false, a: false, s: false, d: false, shift: false, mouse: false }, (0.0, 0.0)),
 ];
 
 /// The camera and the held keys at `time` of a demo `seconds` long, by playing the script
@@ -314,10 +317,15 @@ fn demo_state(room: &room::Room, time: f32, seconds: f32) -> (Camera, Held) {
         t += dt;
     }
     let forward = vec3(-yaw.sin() * pitch.cos(), pitch.sin(), -yaw.cos() * pitch.cos());
-    let camera = Camera::perspective(62.0)
-        .position(p)
-        .look_at(p + forward)
-        .clip(0.05, 300.0);
+    let u = time / seconds;
+    let camera = if u > ZOOM_FROM {
+        zoom_end(room, p, p + forward, u)
+    } else {
+        Camera::perspective(62.0)
+            .position(p)
+            .look_at(p + forward)
+            .clip(0.05, 300.0)
+    };
     (camera, held)
 }
 
@@ -464,6 +472,31 @@ fn draw_captions(
         }
     }
     drop(canvas);
+}
+
+/// The last part of a video zooms in with the lens (the visitor stays at eye height): the
+/// gaze settles on a point of the first window and the field of view narrows to `ZOOM_FOV`.
+const ZOOM_FROM: f32 = 0.78;
+const ZOOM_FOV: f32 = 7.0;
+
+/// `camera` turned towards a detail of the first window and zoomed in, by `u` in `0..1`.
+fn zoom_end(room: &room::Room, position: Vec3, look: Vec3, u: f32) -> Camera {
+    let e = ease((u - ZOOM_FROM) / (1.0 - ZOOM_FROM));
+    let (centre, _, height) = room.windows.first().copied().unwrap_or((
+        vec3(0.0, room.size.height / 2.0, -room.size.depth / 2.0),
+        vec3(0.0, 0.0, 1.0),
+        room.size.height / 2.0,
+    ));
+    let detail = centre + vec3(0.0, height * 0.12, 0.0);
+    // aim along the current gaze at the window's distance, then onto the detail
+    let dist = (detail - position).length();
+    let gaze = position + (look - position).normalize_or_zero() * dist;
+    let target = gaze + (detail - gaze) * e;
+    let fov = 62.0 + (ZOOM_FOV - 62.0) * e;
+    Camera::perspective(fov)
+        .position(position)
+        .look_at(target)
+        .clip(0.05, 300.0)
 }
 
 /// Renders the walk and pipes the frames into `ffmpeg`.

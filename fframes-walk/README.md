@@ -22,7 +22,7 @@ fframes-walk --window window.glb [--model statue.glb:left:2:0:3] [--room 14,28,1
 | `--at x,z` | Where to start, metres from the middle of the floor (z towards the back wall is negative). Default: near the front wall, facing the back wall. |
 | `--quality Q` | Render resolution as a share of the window, 0.1 to 1. Default 0.5; higher is sharper and slower. |
 | `--snapshot out.png` | Render one 1280 x 800 picture from the start and quit. |
-| `--video out.mp4` | Render a walk from the start up to the first window, ending with a look up at it, and encode it with `ffmpeg` (H.264). With `--seconds S` (default 15) and `--size WxH` (default 1920x1080). |
+| `--video out.mp4` | Render a walk from the start up to the first window, ending with a look up at it and a lens zoom onto a detail of the glass (the last 22 %, field of view 62° to 7°), and encode it with `ffmpeg` (H.264). With `--seconds S` (default 15) and `--size WxH` (default 1920x1080). |
 | `--demo` | With `--video`: a scripted walk instead (walk in, step left, look around, step right, run, step back, approach looking up) with the controls drawn top right, W A S D, Shift and the mouse lit while held, at the speeds of the window. |
 | `--captions file.txt` | Text over the video: one caption per line, `start-end|line|line` in seconds; lines after the first are smaller. Lines starting with `#` are comments. |
 
@@ -32,10 +32,10 @@ fframes-walk --window window.glb [--model statue.glb:left:2:0:3] [--room 14,28,1
 fframes-walk --window window.glb --video walk.mp4 --captions captions.txt
 ```
 
-A controls demo, 18 s, 540 frames, rendered in 14 s, 8.8 MB:
+A controls demo, 22 s, 660 frames, rendered in 19 s:
 
 ```
-fframes-walk --window window.glb --video walk_demo.mp4 --seconds 18 --demo --captions captions.txt
+fframes-walk --window window.glb --video walk_demo.mp4 --seconds 22 --demo --captions captions.txt
 ```
 
 The Golden Spurs example (`examples/golden_spurs/walk_captions.txt`, `walk_demo_captions.txt`): 15 s at 1920 x 1080,
