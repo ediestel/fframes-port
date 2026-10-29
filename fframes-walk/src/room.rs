@@ -77,6 +77,8 @@ pub struct Room {
     pub size: RoomSize,
     pub start: Vec3,
     pub start_yaw: f32,
+    /// Each window: its centre, the direction into the room, and its height.
+    pub windows: Vec<(Vec3, Vec3, f32)>,
 }
 
 /// Builds the room with the models. Models that fail to load are reported and left out.
@@ -89,6 +91,7 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
 
     let mut openings = Vec::new();
     let mut sun_from: Option<Vec3> = None;
+    let mut windows = Vec::new();
     for p in placements {
         let bytes = match std::fs::read(&p.path) {
             Ok(b) => b,
@@ -155,6 +158,7 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
             });
             // the sun comes in through the first window, from outside and above
             sun_from.get_or_insert(rot * vec3(0.0, 1.2, -1.0));
+            windows.push((at, rot * vec3(0.0, 0.0, 1.0), p.height));
         }
         eprintln!(
             "{}: {:.2} x {:.2} m on the {:?} wall",
@@ -210,6 +214,7 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
         size,
         start: vec3(0.0, 1.7, d / 2.0 - 1.5),
         start_yaw: 0.0,
+        windows,
     }
 }
 

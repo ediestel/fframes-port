@@ -8,6 +8,11 @@
 //! behind and the sun shines in through it. Rendered with `fframes-three-d` on the GPU into the
 //! native player's window.
 //!
+//! `--video out.mp4 [--seconds 15] [--size 1920x1080]` renders a walk from the start up to the
+//! first window, ending with a look up at it, and encodes it with the `ffmpeg` command.
+//! `--captions captions.txt` writes text over it: one caption per line, `start-end|line|line`
+//! in seconds, for example `0.5-3.5|A stained-glass window|6,765 pieces`; each line after the
+//! first is smaller.
 //! `--at x,z` starts there instead of near the front wall. `--snapshot out.png` renders one 1280 x 800 picture from the starting point and quits.
 //!
 //! Walk: `W` `A` `S` `D` or the arrow keys, `Shift` faster. Look: drag with the mouse or
@@ -140,6 +145,21 @@ fn run() -> Result<(), String> {
         t.elapsed().as_secs_f32()
     );
 
+    if let Some(path) = value("--video") {
+        let seconds: f32 = value("--seconds").and_then(|v| v.parse().ok()).unwrap_or(15.0);
+        let (w, h) = value("--size")
+            .and_then(|v| {
+                let (a, b) = v.split_once('x')?;
+                Some((a.parse().ok()?, b.parse().ok()?))
+            })
+            .unwrap_or((1920_u32, 1080_u32));
+        let captions = match value("--captions") {
+            Some(c) => read_captions(&c)?,
+            None => Vec::new(),
+        };
+        return video(&room, &path, seconds, w, h, &captions);
+    }
+
     if let Some(path) = value("--snapshot") {
         let camera = Camera::perspective(70.0)
             .position(room.start)
@@ -198,6 +218,151 @@ fn run() -> Result<(), String> {
     let event_loop = EventLoop::new().map_err(|e| e.to_string())?;
     event_loop.run_app(&mut walk).map_err(|e| e.to_string())?;
     walk.error.map_or(Ok(()), Err)
+}
+
+/// Smooth start and stop.
+fn ease(u: f32) -> f32 {
+    let u = u.clamp(0.0, 1.0);
+    u * u * (3.0 - 2.0 * u)
+}
+
+/// The camera of the walk at `u` in `0..1`: from the start to a few metres before the first
+/// window (or the back wall), looking at it, at the end tilting up to its upper part.
+fn tour_camera(room: &room::Room, u: f32) -> Camera {
+    let (centre, into_room, height) = room.windows.first().copied().unwrap_or((
+        vec3(0.0, room.size.height / 2.0, -room.size.depth / 2.0),
+        vec3(0.0, 0.0, 1.0),
+        room.size.height / 2.0,
+    ));
+    let end = centre + into_room * (height * 0.65).max(2.5);
+    let end = vec3(end.x, room.start.y, end.z);
+    let walk = ease(u / 0.85);
+    let position = room.start + (end - room.start) * walk;
+    // look at the window's middle, then let the gaze rise to its upper third
+    let look = centre + vec3(0.0, height * 0.18 * ease((u - 0.55) / 0.45), 0.0);
+    // a slight sway of the steps, fading out when standing
+    let sway = (u * 9.0 * std::f32::consts::TAU).sin() * 0.012 * (1.0 - walk);
+    Camera::perspective(62.0)
+        .position(position + vec3(0.0, sway, 0.0))
+        .look_at(look)
+        .clip(0.05, 300.0)
+}
+
+/// A caption: from, to (seconds) and its lines.
+type Caption = (f32, f32, Vec<String>);
+
+fn read_captions(path: &str) -> Result<Vec<Caption>, String> {
+    let text = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
+    let mut out = Vec::new();
+    for line in text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')) {
+        let mut parts = line.split('|');
+        let span = parts.next().unwrap_or_default();
+        let (a, b) = span
+            .split_once('-')
+            .and_then(|(a, b)| Some((a.trim().parse().ok()?, b.trim().parse().ok()?)))
+            .ok_or_else(|| format!("{path}: \"{span}\" is not start-end"))?;
+        out.push((a, b, parts.map(str::to_string).collect()));
+    }
+    Ok(out)
+}
+
+/// Draws the captions shown at `time` onto premultiplied RGBA pixels, fading in and out.
+fn draw_captions(
+    rgba: &mut [u8],
+    w: u32,
+    h: u32,
+    captions: &[Caption],
+    time: f32,
+    typeface: &skia_safe::Typeface,
+) {
+    let info = ImageInfo::new((w as i32, h as i32), ColorType::RGBA8888, AlphaType::Premul, None);
+    let Some(canvas) = skia_safe::Canvas::from_raster_direct(&info, rgba, w as usize * 4, None)
+    else {
+        return;
+    };
+    let unit = h as f32 / 1080.0;
+    for (a, b, lines) in captions.iter().filter(|(a, b, _)| time >= *a && time <= *b) {
+        let fade = ((time - a) / 0.5).min((b - time) / 0.5).clamp(0.0, 1.0);
+        let alpha = |x: f32| (x * fade * 255.0) as u8;
+        let x = 96.0 * unit;
+        let mut y = h as f32 - 96.0 * unit - (lines.len().saturating_sub(1)) as f32 * 46.0 * unit;
+        let mut band = Paint::default();
+        band.set_color(Color::from_argb(alpha(0.55), 0, 0, 0));
+        let top = y - 62.0 * unit;
+        canvas.draw_rect(Rect::from_ltrb(0.0, top, w as f32, h as f32), &band);
+        for (i, line) in lines.iter().enumerate() {
+            let (size, colour) = if i == 0 {
+                (52.0, Color::from_argb(alpha(1.0), 255, 248, 235))
+            } else {
+                (34.0, Color::from_argb(alpha(0.9), 225, 215, 195))
+            };
+            let mut font = Font::from_typeface(typeface, size * unit);
+            font.set_subpixel(true);
+            font.set_edging(skia_safe::font::Edging::AntiAlias);
+            let mut paint = Paint::default();
+            paint.set_anti_alias(true);
+            paint.set_color(colour);
+            canvas.draw_str(line, (x, y), &font, &paint);
+            y += if i == 0 { 58.0 } else { 46.0 } * unit;
+        }
+    }
+    drop(canvas);
+}
+
+/// Renders the walk and pipes the frames into `ffmpeg`.
+fn video(
+    room: &room::Room,
+    path: &str,
+    seconds: f32,
+    w: u32,
+    h: u32,
+    captions: &[Caption],
+) -> Result<(), String> {
+    let font_mgr = FontMgr::new();
+    let typeface = SYSTEM_FONTS
+        .iter()
+        .find_map(|f| font_mgr.match_family_style(f, FontStyle::normal()))
+        .or_else(|| font_mgr.legacy_make_typeface(None, FontStyle::normal()))
+        .ok_or("no system font available")?;
+    use std::io::Write;
+    let fps = 30;
+    let frames = (seconds * fps as f32).round().max(1.0) as u32;
+    let mut ffmpeg = std::process::Command::new("ffmpeg")
+        .args(["-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgba", "-s"])
+        .arg(format!("{w}x{h}"))
+        .args(["-r", &fps.to_string(), "-i", "-", "-c:v", "libx264", "-preset", "slow"])
+        .args(["-crf", "17", "-pix_fmt", "yuv420p", "-movflags", "+faststart"])
+        .arg(path)
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("ffmpeg: {e}"))?;
+    let mut stdin = ffmpeg.stdin.take().ok_or("ffmpeg: no input")?;
+    let renderer = Renderer::new(w, h).gpu().bloom(Bloom {
+        strength: 0.5,
+        radius: 0.6,
+        threshold: 1.0,
+    });
+    let t = Instant::now();
+    for f in 0..frames {
+        let u = f as f32 / (frames - 1).max(1) as f32;
+        let mut pixels = renderer.render_pixels(&room.scene, &tour_camera(room, u));
+        draw_captions(&mut pixels.rgba, w, h, captions, f as f32 / fps as f32, &typeface);
+        stdin.write_all(&pixels.rgba).map_err(|e| format!("ffmpeg: {e}"))?;
+        if f % fps == 0 {
+            eprint!("\r{}/{frames} frames", f + 1);
+        }
+    }
+    drop(stdin);
+    let status = ffmpeg.wait().map_err(|e| format!("ffmpeg: {e}"))?;
+    if !status.success() {
+        return Err(format!("ffmpeg failed: {status}"));
+    }
+    eprintln!(
+        "\r{path}: {frames} frames, {seconds} s, {w}x{h}, rendered in {:.0} s ({})",
+        t.elapsed().as_secs_f32(),
+        if renderer.uses_gpu() { "GPU" } else { "CPU" }
+    );
+    Ok(())
 }
 
 struct Walk {
