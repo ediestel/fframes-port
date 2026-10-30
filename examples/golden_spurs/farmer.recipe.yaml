@@ -59,3 +59,44 @@ steps:
       outline_distance_px: 1.93
       missed_percent: 1.4
       excess_percent: 5.3
+
+# ---------------------------------------------------------------------------------------------
+# Review of this recipe (pasted by the user, 30 Oct 2026), verbatim:
+#
+# **I would keep this pipeline initially and optimize supervision, camera fitting, and validation before changing the trainer.** From the manifest alone, the strongest signal is the imbalance between **5.3% excess** and **1.4% missed** silhouette area. That warrants checking background opacity, splat footprint, and camera alignment first. The clip and implementation would be needed to identify the cause.
+#
+# **Recommended changes, in priority order:**
+#
+# | Priority | Change | Reason / verification |
+# |---|---|---|
+# | 1 | Compare the exported PLY in Brush and your renderer at identical cameras and resolution. | Isolates rendering differences before retraining. Check projection, covariance filtering, opacity, SH conventions, and background composition. |
+# | 2 | Verify that dataset images carry useful **alpha supervision**. | Brush distinguishes transparent images, which constrain output transparency, from masks, which ignore pixels. Ignoring background removes evidence against excess opacity. Inspect edge alpha and background color contamination. [GitHub](https://github.com/ArthurBrussee/brush/blob/main/README.md?utm_source=chatgpt.com) |
+# | 3 | Test whether the generated figure remains rigid throughout the turn. | Compare matching orientations one revolution apart. Changing anatomy, clothing, or tools creates conflicting observations for a static reconstruction. |
+# | 4 | Refine the camera trajectory beyond a single turn-rate estimate, if that is what `depth.rs` uses. | Fit smooth, monotonic per-frame azimuth with small, regularized framing corrections. Compare perspective and orthographic models. Evaluate silhouette boundaries and feature tracks; point-on-figure percentages alone provide a weak camera check. |
+# | 5 | Evaluate existing 5k–30k exports on withheld angular sectors. | Select the earliest checkpoint that meets quality requirements. The manifest reports no held-out evaluation, so 30k is currently an unvalidated stopping point. |
+# | 6 | Test SH degrees 0, 1, and 3. | Lower degrees may reduce storage and view-dependent fitting of generated inconsistencies. Retain degree 3 if it improves withheld-view appearance. |
+# | 7 | Decode retained source frames directly into lossless dataset images. | Removes the intermediate CRF-8 encode and subsequent decode. This preserves decoded source information; it cannot restore losses already present in Grok’s MP4. |
+#
+# Your angular measurements are internally consistent: **191 frame intervals × 180 / 84.88 ≈ 405°**. One revolution occupies approximately **169.76 intervals**. Use the additional ~45° as a repeatability check. For training, sample approximately uniformly by angle so that repeated orientations do not receive disproportionate weight.
+#
+# **Geometry initialization deserves a separate check.** If `--hull` means silhouette visual hull, it cannot recover concavities unsupported by silhouettes. Treat it as an initialization or loose bound. Likewise, `depth_known_percent: 83` reports coverage under your algorithm’s definition; it does not establish depth accuracy. Sample initial points according to surface coverage and confidence, then compare against the current 29,702-point initialization.
+#
+# **Existing technologies worth testing:**
+#
+# | Alternative | Where it fits | Main tradeoff |
+# |---|---|---|
+# | **SV3D_p** | Replace the generic turntable generator with an explicitly camera-conditioned orbital generator. It accepts specified elevation and azimuth sequences. | More direct camera control; character fidelity and actual geometric consistency still require comparison against Grok. [GitHub](https://github.com/Stability-AI/generative-models/blob/main/README.md?plain=1\&utm_source=chatgpt.com) |
+# | **TRELLIS.2** | Generate a textured 3D asset directly from the original image, then render a known camera orbit. | Removes video-based camera recovery. Unseen geometry remains generated, and the result may differ from the intended farmer. Supports textured assets and GLB export. [GitHub](https://github.com/microsoft/TRELLIS.2?utm_source=chatgpt.com) |
+# | **2D Gaussian Splatting** | Prefer when surface geometry and mesh extraction matter. | Uses oriented surface disks with depth-distortion and normal-consistency regularization. Requires changing the training/rendering representation. [surfsplatting.github.io](https://surfsplatting.github.io/?utm_source=chatgpt.com) |
+# | **gsplat** | Use as an experimental backend for camera optimization, custom losses, or antialiased rendering. | Integration work must earn its benefit. Its example trainer includes camera optimization, and its rasterizer supports orthographic projection and antialiasing. [GitHub](https://github.com/nerfstudio-project/gsplat/blob/main/examples/simple_trainer.py?utm_source=chatgpt.com) |
+#
+# Brush 0.3 already uses an **MCMC-style training method**, so adopting MCMC alone would not justify switching. [GitHub](https://github.com/ArthurBrussee/brush/releases/tag/v0.3.0?utm_source=chatgpt.com)
+#
+# **Custom research directions**—proposals here, without claiming novelty or an available implementation:
+#
+# - **Confidence-weighted reconstruction:** combine repeat-view disagreement, silhouette residuals, and feature consistency into observation weights. Downweight contradictory frames or regions instead of forcing one static shape to explain all of them.
+# - **Reconstruction-guided generation:** reconstruct a coarse asset, render target-camera depth/normals/silhouettes, and condition regenerated views on those constraints. Accept replacements only when consistency improves while identity remains acceptable.
+#
+# Finally, record stage runtimes, hardware, resolved training settings, seeds, binary hashes, and metric definitions. Report outline distance at a stated resolution and evaluate silhouettes from alpha where possible. `--scale 2` increases output sampling; additional verified detail requires better source observations. A second elevation would also provide evidence for surfaces a single orbit barely observes.
+#
+# **First experiment:** renderer parity → alpha audit → existing-checkpoint evaluation. That should reveal whether the next investment belongs in rendering, training, or source generation.
