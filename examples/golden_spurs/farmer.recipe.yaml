@@ -1,0 +1,61 @@
+# The Flemish farmer, exactly as built on 29 Oct 2026 (session 8a8a2aea), local times.
+# Every step and setting as it was run; expected values are what that run measured.
+# Paths are relative to the repository root unless absolute.
+
+figure: flemish_farmer
+
+source:
+  # NTGT / Grok Imagine video, 21:35; input picture examples/golden_spurs/flemish_farmer_2k_green.png
+  clip: "~/Library/Application Support/engineering.amdg.ntgt.desktop/cases/2026-10-29T09-47-02_Untitled/results/actions/1402c79e-a89c-4b4b-a837-6b8eb7d1958e/out/Clip_(Grok)_29.10._21_35.mp4"
+  md5: 2fa0a7e441f8ba60804ecaf69c32a32b
+  size: [736, 400]
+  frames: 193
+
+steps:
+  - name: trim
+    # the first frame is the input sheet, not the turn
+    run: ffmpeg -y -i {source.clip} -vf "trim=start_frame=1,setpts=PTS-STARTPTS" -c:v libx264 -crf 8 -pix_fmt yuv444p examples/golden_spurs/turntable_farmer.mp4
+    output: examples/golden_spurs/turntable_farmer.mp4
+    expect:
+      md5: 8b4458bcb77af2afd39639342ffe26ec
+      frames: 192
+      background: [203, 203, 203]
+
+  - name: dataset
+    # Brush training set from the measured turn; mesh written alongside
+    code: fdd5a6f   # depth.rs as it was at 22:33, before the revision ac3105e
+    run: target/release/fframes-vector depth examples/golden_spurs/turntable_farmer.mp4 examples/golden_spurs/turntable_3d/models/farmer_v3.glb --height 1.7 --hull --splat examples/golden_spurs/turntable_3d/splat_farmer
+    output: examples/golden_spurs/turntable_3d/splat_farmer
+    expect:
+      half_turn_frames: 84.88   # found automatically, not set
+      turn_degrees: 405
+      axis_x: 372.5
+      mirror_error_px: 1.75
+      direction: anticlockwise
+      direction_vote: [24.3, 61.8]   # % in front of another frame's surface: chosen / other way
+      depth_known_percent: 83
+      voxels: 578308
+      images: 192
+      start_points: 29702
+      camera_check_percent: [89, 95]   # start points landing on the figure, per checked frame
+
+  - name: train
+    tool: brush 0.3.0 (~/.local/opt/brush-0.3.0, linked as ~/.local/bin/brush)
+    # defaults: 30000 steps; exports every 5000 steps into the working directory (moved afterwards)
+    run: brush examples/golden_spurs/turntable_3d/splat_farmer --with-viewer
+    output: examples/golden_spurs/turntable_3d/splat_farmer/export/export_30000.ply
+    expect:
+      splats: 43113
+      sh_degree: 3
+
+  - name: render
+    code: 60f3c88
+    run: target/release/fframes-vector splat-video examples/golden_spurs/turntable_3d/splat_farmer/export/export_30000.ply examples/golden_spurs/turntable_3d/splat_farmer examples/golden_spurs/film/farmer_splat.mp4 --scale 2
+    output: examples/golden_spurs/film/farmer_splat.mp4
+    expect:
+      frames: 192
+      size: [1472, 800]
+      overlap: 0.937
+      outline_distance_px: 1.93
+      missed_percent: 1.4
+      excess_percent: 5.3
