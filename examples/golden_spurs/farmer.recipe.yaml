@@ -81,15 +81,6 @@ steps:
 #
 # **Geometry initialization deserves a separate check.** If `--hull` means silhouette visual hull, it cannot recover concavities unsupported by silhouettes. Treat it as an initialization or loose bound. Likewise, `depth_known_percent: 83` reports coverage under your algorithm’s definition; it does not establish depth accuracy. Sample initial points according to surface coverage and confidence, then compare against the current 29,702-point initialization.
 #
-# **Existing technologies worth testing:**
-#
-# | Alternative | Where it fits | Main tradeoff |
-# |---|---|---|
-# | **SV3D_p** | Replace the generic turntable generator with an explicitly camera-conditioned orbital generator. It accepts specified elevation and azimuth sequences. | More direct camera control; character fidelity and actual geometric consistency still require comparison against Grok. [GitHub](https://github.com/Stability-AI/generative-models/blob/main/README.md?plain=1\&utm_source=chatgpt.com) |
-# | **TRELLIS.2** | Generate a textured 3D asset directly from the original image, then render a known camera orbit. | Removes video-based camera recovery. Unseen geometry remains generated, and the result may differ from the intended farmer. Supports textured assets and GLB export. [GitHub](https://github.com/microsoft/TRELLIS.2?utm_source=chatgpt.com) |
-# | **2D Gaussian Splatting** | Prefer when surface geometry and mesh extraction matter. | Uses oriented surface disks with depth-distortion and normal-consistency regularization. Requires changing the training/rendering representation. [surfsplatting.github.io](https://surfsplatting.github.io/?utm_source=chatgpt.com) |
-# | **gsplat** | Use as an experimental backend for camera optimization, custom losses, or antialiased rendering. | Integration work must earn its benefit. Its example trainer includes camera optimization, and its rasterizer supports orthographic projection and antialiasing. [GitHub](https://github.com/nerfstudio-project/gsplat/blob/main/examples/simple_trainer.py?utm_source=chatgpt.com) |
-#
 # Brush 0.3 already uses an **MCMC-style training method**, so adopting MCMC alone would not justify switching. [GitHub](https://github.com/ArthurBrussee/brush/releases/tag/v0.3.0?utm_source=chatgpt.com)
 #
 # **Custom research directions**—proposals here, without claiming novelty or an available implementation:
