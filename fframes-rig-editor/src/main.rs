@@ -735,13 +735,10 @@ impl Editor {
                 return Some(Grab::Joint(i));
             }
         }
-        let a = self.active?;
+        // a corner of any section of a cut, seen from wherever the camera is
         let find = |cut: &Cut, me: &Self| -> Option<(usize, usize, usize)> {
             for (vi, v) in cut.views.iter().enumerate() {
                 for (si, s) in v.sections.iter().enumerate() {
-                    if !v.plane.parallel_to(&a.plane) || (s.offset - a.offset).abs() > ON_PLANE {
-                        continue;
-                    }
                     if let Some(pi) = s.contour.iter().position(|q| near(v.plane.to_3d(*q, s.offset), me)) {
                         return Some((vi, si, pi));
                     }
@@ -1052,13 +1049,11 @@ impl Editor {
             };
             for view in &cut.views {
                 let Some((lo, hi)) = view.range() else { continue };
-                // the dots of a section on the plane, to drag
-                if let Some(a) = self.active.filter(|a| view.plane.parallel_to(&a.plane)) {
-                    for s in view.sections.iter().filter(|s| (s.offset - a.offset).abs() <= ON_PLANE) {
-                        for q in &s.contour {
-                            if let Some(p) = self.screen(view.plane.to_3d(*q, s.offset)) {
-                                dots.push((p, colour, 4.5));
-                            }
+                // every section's corners as dots, to drag from any view
+                for s in &view.sections {
+                    for q in &s.contour {
+                        if let Some(p) = self.screen(view.plane.to_3d(*q, s.offset)) {
+                            dots.push((p, colour, 5.0));
                         }
                     }
                 }
@@ -1077,22 +1072,29 @@ impl Editor {
             }
         }
         // joints and the bones between them
-        // proposed magenta, being placed yellow, accepted cyan; the selected one ringed white
+        // by side: the figure's left blue, its right orange, the middle yellow; a proposed joint
+        // is a ring, an accepted one filled, the one being placed white; the selected one
+        // ringed white
         for j in &rig.joints {
             let pending = self.joint.as_ref().is_some_and(|p| p.name == j.name);
             let Some((p, _)) = j.position() else { continue };
             let colour = if pending {
-                Color::from_rgb(255, 210, 60)
-            } else if j.proposed {
-                Color::from_rgb(235, 80, 225)
+                Color::WHITE
+            } else if j.name.ends_with("_l") {
+                Color::from_rgb(80, 150, 255)
+            } else if j.name.ends_with("_r") {
+                Color::from_rgb(255, 130, 50)
             } else {
-                Color::from_rgb(80, 230, 230)
+                Color::from_rgb(245, 215, 60)
             };
             if let Some(s) = self.screen(p) {
                 if self.selected.as_ref() == Some(&j.name) {
                     dots.push((s, Color::WHITE, 9.0));
                 }
                 dots.push((s, colour, 6.0));
+                if j.proposed && !pending {
+                    dots.push((s, Color::from_rgb(25, 25, 30), 3.0));
+                }
                 if let Some(parent) = j.parent.as_ref().and_then(|n| rig.joints.iter().find(|q| &q.name == n)).and_then(Joint::position) {
                     if let Some(t) = self.screen(parent.0) {
                         lines.push((s, t, colour, 2.5));
