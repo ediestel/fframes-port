@@ -53,6 +53,9 @@ pub struct DepthParams {
     /// The figure from the stacked outlines alone (the envelope): no depth check; depths
     /// still choose which frame paints a face.
     pub hull: bool,
+    /// Frames per half turn when known (a clip too short for the half turn to be found, as a
+    /// clean stretch of a little over half a turn); `None`: found from the mirrored outlines.
+    pub half: Option<f32>,
     /// Rounds of measuring every frame's own angle against the envelope (0: even turn).
     pub refine: usize,
     /// Rounds of smoothing of the surface (each moves a corner halfway to its neighbours'
@@ -95,6 +98,7 @@ impl Default for DepthParams {
             clockwise: None,
             check: Vec::new(),
             hull: false,
+            half: None,
             refine: 2,
             smooth: 2,
             holdout: 8,
@@ -432,7 +436,8 @@ fn row_edges(mask: &[bool], w: usize, h: usize) -> Vec<Option<(f32, f32)>> {
 
 /// Frames per half turn (fractional), the axis column and the mean mirror error, from the
 /// row edges: at half a turn the left edge of one frame mirrors the right edge of the other.
-fn half_turn(edges: &[Vec<Option<(f32, f32)>>]) -> Result<(f32, f32, f32), String> {
+/// With `known` frames per half turn only the axis and the error are measured, there.
+fn half_turn(edges: &[Vec<Option<(f32, f32)>>], known: Option<f32>) -> Result<(f32, f32, f32), String> {
     let n = edges.len();
     let score = |p: usize| -> Option<(f32, f32)> {
         let mut sums = Vec::new();
@@ -453,6 +458,10 @@ fn half_turn(edges: &[Vec<Option<(f32, f32)>>]) -> Result<(f32, f32, f32), Strin
         let err = sums.iter().map(|s| (s - c2).abs()).sum::<f32>() / sums.len() as f32 / 2.0;
         Some((err, c2 / 2.0))
     };
+    if let Some(h) = known {
+        let (e, c) = score(h.round() as usize).ok_or("too few frames for the given half turn")?;
+        return Ok((h, c, e));
+    }
     let lo = (n / 8).max(4);
     let hi = n.saturating_sub(n / 8).max(lo + 1);
     let scores: Vec<(usize, f32, f32)> =
@@ -708,7 +717,7 @@ fn prepare_depth(frames: &[image::RgbaImage], p: &DepthParams) -> Result<Calibra
     let edges: Vec<_> = masks.iter().enumerate()
         .map(|(f, m)| if p.held(f) { vec![None; h as usize] } else { row_edges(m, w as usize, h as usize) })
         .collect();
-    let (half, axis, mirror) = half_turn(&edges)?;
+    let (half, axis, mirror) = half_turn(&edges, p.half)?;
     let reach = edges
         .iter()
         .flatten()
