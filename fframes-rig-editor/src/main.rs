@@ -603,7 +603,7 @@ impl Editor {
             }
         };
         view.sections.retain(|s| (s.offset - a.offset).abs() > 1e-4);
-        view.sections.push(Section { offset: a.offset, contour });
+        view.sections.push(Section::new(a.offset, contour));
         view.sort();
         let sections = view.sections.len();
         if !self.message.starts_with("warning") {
@@ -723,8 +723,8 @@ impl Editor {
             };
             for (vi, v) in cut.views.iter().enumerate().filter(|(_, v)| v.corresponding()) {
                 for (l, s) in v.sections.iter().enumerate() {
-                    for (k, q) in s.contour.iter().enumerate() {
-                        if me.screen(v.plane.to_3d(*q, s.offset)).is_some_and(|p| (p - at).length() < reach) {
+                    for k in 0..s.contour.len() {
+                        if me.screen(s.corner(&v.plane, k)).is_some_and(|p| (p - at).length() < reach) {
                             return Some(Change::Remove(vi, l, k));
                         }
                     }
@@ -733,14 +733,14 @@ impl Editor {
                     let n = s.contour.len();
                     for k in 0..n {
                         let (p, q) = (s.contour[k], s.contour[(k + 1) % n]);
-                        if let Some(t) = along(v.plane.to_3d(p, s.offset), v.plane.to_3d(q, s.offset)) {
+                        if let Some(t) = along(s.corner(&v.plane, k), s.corner(&v.plane, (k + 1) % n)) {
                             return Some(Change::Corner(vi, l, k, [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]));
                         }
                         if let Some(up) = v.sections.get(l + 1) {
-                            let r = up.contour[k];
-                            if let Some(t) = along(v.plane.to_3d(p, s.offset), v.plane.to_3d(r, up.offset)) {
-                                let offset = s.offset + (up.offset - s.offset) * t;
-                                return Some(Change::Level(vi, offset, k, [p[0] + (r[0] - p[0]) * t, p[1] + (r[1] - p[1]) * t]));
+                            let (a, b) = (s.corner(&v.plane, k), up.corner(&v.plane, k));
+                            if let Some(t) = along(a, b) {
+                                let point: V3 = std::array::from_fn(|c| a[c] + (b[c] - a[c]) * t);
+                                return Some(Change::Level(vi, v.plane.offset_of(point), k, v.plane.to_2d(point)));
                             }
                         }
                     }
@@ -882,7 +882,7 @@ impl Editor {
         let find = |cut: &Cut, me: &Self| -> Option<(usize, usize, usize)> {
             for (vi, v) in cut.views.iter().enumerate() {
                 for (si, s) in v.sections.iter().enumerate() {
-                    if let Some(pi) = s.contour.iter().position(|q| near(v.plane.to_3d(*q, s.offset), me)) {
+                    if let Some(pi) = (0..s.contour.len()).position(|k| near(s.corner(&v.plane, k), me)) {
                         return Some((vi, si, pi));
                     }
                 }
@@ -895,7 +895,7 @@ impl Editor {
                 for (si, s) in v.sections.iter().enumerate() {
                     let n = s.contour.len();
                     for k in 0..n {
-                        let (p, q) = (v.plane.to_3d(s.contour[k], s.offset), v.plane.to_3d(s.contour[(k + 1) % n], s.offset));
+                        let (p, q) = (s.corner(&v.plane, k), s.corner(&v.plane, (k + 1) % n));
                         let (Some(a), Some(b)) = (me.screen(p), me.screen(q)) else { continue };
                         let ab = b - a;
                         let t = (((at - a).x * ab.x + (at - a).y * ab.y) / (ab.x * ab.x + ab.y * ab.y).max(1e-6)).clamp(0.0, 1.0);
@@ -1247,7 +1247,7 @@ impl Editor {
                 // every section's corners as dots, to drag from any view; a box's corners named
                 // by where they lie in it: l(ateral) or m(edial) from the figure's midline,
                 // a(nterior) or p(osterior), cr(anial) or ca(udal)
-                let corners: Vec<V3> = view.sections.iter().flat_map(|s| s.contour.iter().map(|q| view.plane.to_3d(*q, s.offset))).collect();
+                let corners: Vec<V3> = view.sections.iter().flat_map(|s| (0..s.contour.len()).map(|k| s.corner(&view.plane, k))).collect();
                 let (side, up, front) = axes(self.rig.front_yaw);
                 let centre = self.centre.to_array();
                 let along = |p: &V3, axis: V3| (0..3).map(|k| (p[k] - centre[k]) * axis[k]).sum::<f32>();
@@ -1278,9 +1278,9 @@ impl Editor {
                     for (l, s) in view.sections.iter().enumerate() {
                         let n = s.contour.len();
                         for k in 0..n {
-                            seg(view.plane.to_3d(s.contour[k], s.offset), view.plane.to_3d(s.contour[(k + 1) % n], s.offset), 2.0);
+                            seg(s.corner(&view.plane, k), s.corner(&view.plane, (k + 1) % n), 2.0);
                             if let Some(up) = view.sections.get(l + 1) {
-                                seg(view.plane.to_3d(s.contour[k], s.offset), view.plane.to_3d(up.contour[k], up.offset), 2.0);
+                                seg(s.corner(&view.plane, k), up.corner(&view.plane, k), 2.0);
                             }
                         }
                     }
@@ -1728,21 +1728,25 @@ impl ApplicationHandler for Editor {
                                 }
                             }
                             Grab::Section(vi, si, pi) => {
-                                // as a joint: across the screen at the dot's depth; on a box
-                                // the height moves the dot's whole level
+                                // as a joint: across the screen at the dot's depth; a box's
+                                // corner moves on its own, wherever it goes (a drawn contour's
+                                // dot stays on its plane)
                                 let at = self.pending.as_ref().map(|c| {
                                     let v = &c.views[vi];
-                                    v.plane.to_3d(v.sections[si].contour[pi], v.sections[si].offset)
+                                    v.sections[si].corner(&v.plane, pi)
                                 });
                                 let moved = at.and_then(|at| self.screen_drag(position, at));
                                 if let (Some(p), Some(cut)) = (moved, &mut self.pending) {
                                     let v = &mut cut.views[vi];
-                                    let moves_level = v.corresponding();
+                                    let free = v.corresponding();
+                                    let plane = v.plane;
                                     let s = &mut v.sections[si];
-                                    s.contour[pi] = v.plane.to_2d(p);
-                                    if moves_level {
-                                        s.offset = v.plane.offset_of(p);
+                                    if free {
+                                        s.set_corner(&plane, pi, p);
+                                    } else {
+                                        s.contour[pi] = plane.to_2d(p);
                                     }
+                                    self.message = format!("corner at x {:.3} y {:.3} z {:.3}", p[0], p[1], p[2]);
                                 }
                             }
                         }

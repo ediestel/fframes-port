@@ -130,6 +130,36 @@ pub struct Section {
     pub offset: f32,
     /// Closed polygon in the plane's 2D coordinates (metres).
     pub contour: Vec<[f32; 2]>,
+    /// Per corner, how far it lies off the section's plane along the normal (metres): a box's
+    /// corners move freely. Empty: all on the plane.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lift: Vec<f32>,
+}
+
+impl Section {
+    #[must_use]
+    pub fn new(offset: f32, contour: Vec<[f32; 2]>) -> Self {
+        Section { offset, contour, lift: Vec::new() }
+    }
+
+    /// Corner `k`'s offset along the plane's normal.
+    #[must_use]
+    pub fn corner_offset(&self, k: usize) -> f32 {
+        self.offset + self.lift.get(k).copied().unwrap_or(0.0)
+    }
+
+    /// Corner `k` in model space.
+    #[must_use]
+    pub fn corner(&self, plane: &Plane, k: usize) -> V3 {
+        plane.to_3d(self.contour[k], self.corner_offset(k))
+    }
+
+    /// Moves corner `k` to the model point `p`, wherever it lies.
+    pub fn set_corner(&mut self, plane: &Plane, k: usize, p: V3) {
+        self.lift.resize(self.contour.len(), 0.0);
+        self.contour[k] = plane.to_2d(p);
+        self.lift[k] = plane.offset_of(p) - self.offset;
+    }
 }
 
 /// A cut drawn in one plane direction: its sections, sorted by offset, and how far the
@@ -154,9 +184,9 @@ impl View {
     /// The offsets the volume spans.
     #[must_use]
     pub fn range(&self) -> Option<(f32, f32)> {
-        let first = self.sections.first()?;
-        let last = self.sections.last()?;
-        Some((first.offset - self.before, last.offset + self.after))
+        let offsets = self.sections.iter().flat_map(|s| (0..s.contour.len().max(1)).map(|k| s.corner_offset(k)));
+        let (lo, hi) = offsets.fold(None, |r: Option<(f32, f32)>, o| Some(r.map_or((o, o), |(a, b)| (a.min(o), b.max(o)))))?;
+        Some((lo - self.before, hi + self.after))
     }
 
     /// Keeps the sections in offset order (after adding one).
@@ -200,7 +230,7 @@ impl View {
             return (Vec::new(), Vec::new());
         }
         let n = self.sections[0].contour.len() as u32;
-        let pos: Vec<V3> = self.sections.iter().flat_map(|s| s.contour.iter().map(|q| self.plane.to_3d(*q, s.offset))).collect();
+        let pos: Vec<V3> = self.sections.iter().flat_map(|s| (0..s.contour.len()).map(|k| s.corner(&self.plane, k))).collect();
         let mut ind = Vec::new();
         for l in 0..self.sections.len() as u32 - 1 {
             for k in 0..n {
@@ -227,6 +257,10 @@ impl View {
             let m = s.contour.len();
             let (p, q) = (s.contour[edge % m], s.contour[(edge + 1) % m]);
             let at = if i == section { point } else { [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t] };
+            if !s.lift.is_empty() {
+                let (lp, lq) = (s.lift[edge % m], s.lift[(edge + 1) % m]);
+                s.lift.insert(edge % m + 1, lp + (lq - lp) * t);
+            }
             s.contour.insert(edge % m + 1, at);
         }
     }
@@ -238,7 +272,7 @@ impl View {
         if let Some(c) = contour.get_mut(corner) {
             *c = point;
         }
-        self.sections.push(Section { offset, contour });
+        self.sections.push(Section::new(offset, contour));
         self.sort();
     }
 
@@ -249,13 +283,27 @@ impl View {
         }
         for s in &mut self.sections {
             s.contour.remove(corner);
+            if corner < s.lift.len() {
+                s.lift.remove(corner);
+            }
         }
         true
     }
 
-    /// Whether a point lies in this view's volume.
+    /// Whether a box's corner lies off its level (moved on its own).
+    #[must_use]
+    pub fn lifted(&self) -> bool {
+        self.corresponding() && self.sections.iter().any(|s| s.lift.iter().any(|l| *l != 0.0))
+    }
+
+    /// Whether a point lies in this view's volume (a box with corners off their levels:
+    /// inside its surface).
     #[must_use]
     pub fn contains(&self, p: V3) -> bool {
+        if self.lifted() {
+            let (pos, ind) = self.surface();
+            return enclosed(&pos, &ind, p);
+        }
         self.contour_at(self.plane.offset_of(p)).is_some_and(|c| inside(&c, self.plane.to_2d(p)))
     }
 }
@@ -421,15 +469,20 @@ struct PreparedView {
     lo: f32,
     hi: f32,
     sections: Vec<(f32, Vec<[f32; 2]>)>,
+    /// A box: its surface, through its corners wherever they lie.
+    surface: Option<(Vec<V3>, Vec<u32>)>,
 }
 
 impl PreparedView {
     fn new(v: &View) -> Option<Self> {
         let (lo, hi) = v.range()?;
         let mut sections: Vec<(f32, Vec<[f32; 2]>)> = Vec::new();
+        if v.lifted() {
+            return Some(PreparedView { plane: v.plane, lo, hi, sections, surface: Some(v.surface()) });
+        }
         // sections with the same corners (a box): corner to corner, as drawn
         if v.corresponding() {
-            return Some(PreparedView { plane: v.plane, lo, hi, sections: v.sections.iter().map(|s| (s.offset, s.contour.clone())).collect() });
+            return Some(PreparedView { plane: v.plane, lo, hi, sections: v.sections.iter().map(|s| (s.offset, s.contour.clone())).collect(), surface: None });
         }
         for s in &v.sections {
             let ring = resample(&s.contour, SAMPLES);
@@ -445,13 +498,16 @@ impl PreparedView {
             };
             sections.push((s.offset, ring));
         }
-        Some(PreparedView { plane: v.plane, lo, hi, sections })
+        Some(PreparedView { plane: v.plane, lo, hi, sections, surface: None })
     }
 
     fn contains(&self, p: V3) -> bool {
         let t = self.plane.offset_of(p);
         if t < self.lo || t > self.hi {
             return false;
+        }
+        if let Some((pos, ind)) = &self.surface {
+            return enclosed(pos, ind, p);
         }
         let q = self.plane.to_2d(p);
         let s = &self.sections;
@@ -832,7 +888,7 @@ pub fn propose_cuts(positions: &[V3], indices: &[u32], front_yaw: f32) -> Vec<Cu
         // one box: its bottom and top rectangles, corner over corner
         let t = planes.0;
         let corner = |s: f32, fr: f32, y: f32| -> [f32; 2] { t.to_2d(std::array::from_fn(|k| side[k] * s + front[k] * fr + if k == 1 { y } else { 0.0 })) };
-        let across = |y: f32| Section { offset: y, contour: vec![corner(s0, f0, y), corner(s1, f0, y), corner(s1, f1, y), corner(s0, f1, y)] };
+        let across = |y: f32| Section::new(y, vec![corner(s0, f0, y), corner(s1, f0, y), corner(s1, f1, y), corner(s0, f1, y)]);
         let views = vec![View { plane: t, sections: vec![across(y0), across(y1)], before: 0.0, after: 0.0 }];
         out.push(Cut { name: format!("{name} bridge"), protect: false, views, proposed: true });
     }
@@ -930,6 +986,37 @@ pub fn inside(poly: &[[f32; 2]], p: [f32; 2]) -> bool {
     for i in 0..n {
         let (a, b) = (poly[i], poly[(i + 1) % n]);
         if (a[1] > p[1]) != (b[1] > p[1]) && p[0] < a[0] + (p[1] - a[1]) / (b[1] - a[1]) * (b[0] - a[0]) {
+            odd = !odd;
+        }
+    }
+    odd
+}
+
+/// Whether a point lies inside a closed triangle surface: a ray from it crosses the surface
+/// an odd number of times (the ray slanted so it misses edges and corners of a box).
+#[must_use]
+pub fn enclosed(positions: &[V3], indices: &[u32], p: V3) -> bool {
+    let d = [0.573_576_4, 0.577_350_3, 0.581_238_2];
+    let mut odd = false;
+    for t in indices.chunks_exact(3) {
+        let [a, b, c] = [t[0], t[1], t[2]].map(|i| positions[i as usize]);
+        let (e1, e2) = (sub(b, a), sub(c, a));
+        let h = cross(d, e2);
+        let det = dot(e1, h);
+        if det.abs() < 1e-12 {
+            continue;
+        }
+        let s = sub(p, a);
+        let u = dot(s, h) / det;
+        if !(0.0..1.0).contains(&u) {
+            continue;
+        }
+        let q = cross(s, e1);
+        let v = dot(d, q) / det;
+        if v < 0.0 || u + v >= 1.0 {
+            continue;
+        }
+        if dot(e2, q) / det > 0.0 {
             odd = !odd;
         }
     }
@@ -1080,8 +1167,8 @@ mod tests {
     #[test]
     fn sections_interpolate_and_end() {
         let mut view = View::new(Preset::Transverse.plane(0.0));
-        view.sections.push(Section { offset: 1.0, contour: square(0.0, 0.0, 0.01) });
-        view.sections.push(Section { offset: 1.2, contour: square(0.0, 0.0, 0.03) });
+        view.sections.push(Section::new(1.0, square(0.0, 0.0, 0.01)));
+        view.sections.push(Section::new(1.2, square(0.0, 0.0, 0.03)));
         view.sort();
         // at 1.1 m the square is 2 cm across each way from the middle
         assert!(view.contains([0.019, 1.1, 0.0]) && !view.contains([0.021, 1.1, 0.0]));
@@ -1094,12 +1181,12 @@ mod tests {
     #[test]
     fn views_intersect_and_protection_wins() {
         let mut across = View::new(Preset::Transverse.plane(0.0));
-        across.sections.push(Section { offset: 1.0, contour: square(0.3, 0.0, 0.02) });
+        across.sections.push(Section::new(1.0, square(0.3, 0.0, 0.02)));
         across.before = 0.1;
         across.after = 0.1;
         // seen from the front: only the lower half of that height range
         let mut front = View::new(Preset::Coronal.plane(0.0));
-        front.sections.push(Section { offset: 0.0, contour: square(0.3, 0.95, 0.05) });
+        front.sections.push(Section::new(0.0, square(0.3, 0.95, 0.05)));
         front.before = 0.5;
         front.after = 0.5;
         let cut = Cut { name: "bridge".into(), views: vec![across, front], ..Cut::default() };
@@ -1108,7 +1195,7 @@ mod tests {
         let mut rig = RigFile { cuts: vec![cut], ..RigFile::default() };
         assert!(rig.removes([0.3, 0.92, 0.0]));
         let mut shoulder = View::new(Preset::Transverse.plane(0.0));
-        shoulder.sections.push(Section { offset: 0.92, contour: square(0.3, 0.0, 0.05) });
+        shoulder.sections.push(Section::new(0.92, square(0.3, 0.0, 0.05)));
         rig.cuts.push(Cut { name: "shoulder".into(), protect: true, views: vec![shoulder], ..Cut::default() });
         assert!(!rig.removes([0.3, 0.92, 0.0]), "protected");
         assert!(rig.removes([0.3, 0.97, 0.0]), "outside the protection");
@@ -1337,8 +1424,8 @@ mod tests {
     #[test]
     fn box_corners_and_levels() {
         let mut v = View { plane: Preset::Transverse.plane(0.0), sections: vec![
-            Section { offset: 1.0, contour: square(0.0, 0.0, 0.05) },
-            Section { offset: 1.2, contour: square(0.0, 0.0, 0.05) },
+            Section::new(1.0, square(0.0, 0.0, 0.05)),
+            Section::new(1.2, square(0.0, 0.0, 0.05)),
         ], before: 0.0, after: 0.0 };
         let closed = |v: &View| {
             let (_, ind) = v.surface();
@@ -1361,6 +1448,16 @@ mod tests {
         assert_eq!(v.sections.len(), 3);
         assert!(v.contains(v.plane.to_3d([0.08, 0.0], 1.1)) && !v.contains(v.plane.to_3d([0.08, 0.0], 1.01)));
         assert!(v.remove_corner(2) && v.sections.iter().all(|s| s.contour.len() == 4) && closed(&v));
+        // a corner moved on its own, like a joint (10 cm up): the box reaches up to it there
+        let plane = v.plane;
+        let last = v.sections.len() - 1;
+        let (c0, c2) = (v.sections[last].corner(&plane, 0), v.sections[last].corner(&plane, 2));
+        let raised: V3 = std::array::from_fn(|k| c0[k] + plane.normal[k] * 0.1);
+        let probe: V3 = std::array::from_fn(|k| c2[k] + (c0[k] - c2[k]) * 0.75 + plane.normal[k] * 0.05);
+        assert!(!v.contains(probe));
+        v.sections[last].set_corner(&plane, 0, raised);
+        assert!(v.contains(probe) && closed(&v) && v.range().is_some_and(|(_, hi)| hi > 1.29));
+        assert!(Removal::new(&RigFile { cuts: vec![Cut { name: "box".into(), views: vec![v.clone()], ..Cut::default() }], ..RigFile::default() }).removes(probe));
     }
 
     /// A draft keeps unaccepted work through saving and loading; an empty one leaves no file.
@@ -1380,7 +1477,7 @@ mod tests {
     #[test]
     fn rig_file_round_trip() {
         let mut view = View::new(Preset::Sagittal.plane(10.0));
-        view.sections.push(Section { offset: 0.2, contour: square(0.0, 1.0, 0.02) });
+        view.sections.push(Section::new(0.2, square(0.0, 1.0, 0.02)));
         let rig = RigFile {
             model: "farmer.glb".into(),
             source: Some(Source { video: "turntable_farmer.mp4".into(), options: vec!["--hull".into()] }),
