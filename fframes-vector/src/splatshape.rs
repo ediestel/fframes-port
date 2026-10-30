@@ -135,43 +135,6 @@ pub fn robust_voxel(points: &[[f32; 3]], cells: usize) -> f32 {
     extent / cells.max(1) as f32
 }
 
-/// Median distance from a point to its nearest neighbour: the scale windows are measured in,
-/// so they hold as many splats in a sparse model as in a dense one.
-#[must_use]
-pub fn spacing(points: &[[f32; 3]]) -> f32 {
-    // nearest neighbours searched in the 27 cells around; cells grow until most points find one
-    let mut voxel = robust_voxel(points, 512);
-    loop {
-        let grid = Grid::new(points, voxel);
-        let mut d: Vec<f32> = points
-            .par_iter()
-            .enumerate()
-            .filter_map(|(i, p)| {
-                let c = Grid::key(p, voxel);
-                let mut best = f32::MAX;
-                for dz in -1..=1 {
-                    for dy in -1..=1 {
-                        for dx in -1..=1 {
-                            for &j in grid.cell([c[0] + dx, c[1] + dy, c[2] + dz]) {
-                                if j != i {
-                                    best = best.min((0..3).map(|a| (points[j][a] - p[a]).powi(2)).sum::<f32>());
-                                }
-                            }
-                        }
-                    }
-                }
-                // farther than one cell may hide a nearer point in a cell not searched
-                (best <= voxel * voxel).then(|| best.sqrt())
-            })
-            .collect();
-        if d.len() * 2 > points.len() || voxel > 1e6 {
-            d.sort_by(f32::total_cmp);
-            return d.get(d.len() / 2).copied().unwrap_or(voxel);
-        }
-        voxel *= 2.0;
-    }
-}
-
 /// Points binned in a sparse voxel grid.
 struct Grid {
     voxel: f32,
@@ -501,12 +464,6 @@ mod tests {
         assert_eq!(mid.local, Local::Surface);
         assert!(mid.normal[2].abs() > 0.99 && mid.variation < 0.01);
         assert_eq!(h[pts.len() - 1].local, Local::Floater);
-    }
-
-    #[test]
-    fn spacing_is_the_lattice_step() {
-        let s = spacing(&plane(30, 0.0, 0.01));
-        assert!((s - 0.01).abs() < 1e-4, "{s}");
     }
 
     #[test]
