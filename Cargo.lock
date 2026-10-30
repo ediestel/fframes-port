@@ -1361,6 +1361,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "fframes_rig"
+version = "1.3.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "fframes_rig_editor"
+version = "1.3.0"
+dependencies = [
+ "fframes_native_player",
+ "fframes_rig",
+ "fframes_three_d",
+]
+
+[[package]]
 name = "fframes_skia_renderer"
 version = "1.3.0"
 dependencies = [
@@ -1410,6 +1427,7 @@ name = "fframes_vector"
 version = "1.3.0"
 dependencies = [
  "earcutr",
+ "fframes_rig",
  "gltf",
  "i_overlay",
  "image",

@@ -458,6 +458,18 @@ fn main() -> ExitCode {
             }
             // --splat dir: a Gaussian splatting dataset (Nerfstudio format) from the measured turn
             p.splat = opt::<String>(&args, "--splat").map(std::path::PathBuf::from);
+            // --cuts figure.rig.json: the rig editor's cuts taken out of the solid
+            if let Some(path) = opt::<String>(&args, "--cuts") {
+                match fframes_rig::RigFile::load(std::path::Path::new(&path)) {
+                    Ok(rig) => p.cuts = Some(rig),
+                    Err(e) => {
+                        eprintln!("{e}");
+                        return ExitCode::FAILURE;
+                    }
+                }
+            }
+            // --solid out.solid: the solid with its transform, for editing
+            p.solid = opt::<String>(&args, "--solid").map(std::path::PathBuf::from);
             // --check 1,30,60: loss pictures of these frames (1-based) into the --maps folder
             if let Some(list) = opt::<String>(&args, "--check") {
                 p.check = list.split(',').filter_map(|f| f.trim().parse::<usize>().ok()).map(|f| f.saturating_sub(1)).collect();
@@ -540,7 +552,10 @@ fn main() -> ExitCode {
                     for (r, (mean, max)) in t.corrections.iter().enumerate() {
                         eprintln!("angle round {}: frames corrected by {mean:.2}° on average, at most {max:.2}°", r + 1);
                     }
-                    eprintln!("{} loose fragments removed", t.fragments);
+                    eprintln!("{} loose fragments removed; voxel {:.1} mm", t.fragments, t.voxel_metres * 1000.0);
+                    if p.cuts.is_some() {
+                        eprintln!("cuts took out {} voxels", t.cut_voxels);
+                    }
                     for (name, fit) in [
                         ("frames that shaped it", &t.fit_used),
                         ("held-out frames", &t.fit_held),

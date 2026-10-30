@@ -68,6 +68,11 @@ pub struct DepthParams {
     pub search: f32,
     /// Also a dataset for Gaussian splatting (Nerfstudio format) in this folder.
     pub splat: Option<std::path::PathBuf>,
+    /// The user's cuts (a rig file from the rig editor): their volume is taken out of the
+    /// solid before the surface is built.
+    pub cuts: Option<fframes_rig::RigFile>,
+    /// Also the solid itself, with its transform to model coordinates, in this file.
+    pub solid: Option<std::path::PathBuf>,
 }
 
 impl DepthParams {
@@ -96,6 +101,8 @@ impl Default for DepthParams {
             low: Some(5000),
             search: 3.0,
             splat: None,
+            cuts: None,
+            solid: None,
         }
     }
 }
@@ -130,6 +137,10 @@ pub struct DepthTurn {
     pub disagreement: Vec<f32>,
     /// Loose fragments removed.
     pub fragments: usize,
+    /// Voxels the user's cuts took out (before loose fragments were removed).
+    pub cut_voxels: usize,
+    /// Edge of a voxel, metres.
+    pub voxel_metres: f32,
     /// Fit of the model's shadow to the frames that shaped it, and to the held-out frames.
     pub fit_used: FrameFit,
     pub fit_held: FrameFit,
@@ -1120,6 +1131,24 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
     }
     drop(slices);
     let mut solid: Vec<bool> = kinds.iter().map(|&c| c == 0).collect();
+    // metres per voxel, and a voxel's centre in model coordinates (as the surface places
+    // grid points: x and z centred, y up from the grid's end)
+    let scale = p.height / ((bottom - top + 1) as f32 / v);
+    let model_point = |c: usize| -> [f32; 3] {
+        let (i, j, k) = (c % nx, (c / nx) % ny, c / (nx * ny));
+        [(i as f32 - nx as f32 / 2.0) * scale, (ny as f32 - 1.0 - j as f32) * scale, (k as f32 - nz as f32 / 2.0) * scale]
+    };
+    // the user's cuts: their volume is empty, outside for the surface's field too
+    let mut cut_voxels = 0;
+    if let Some(rig) = &p.cuts {
+        let removal = fframes_rig::Removal::new(rig);
+        let removed: Vec<usize> = (0..solid.len()).into_par_iter().filter(|&c| solid[c] && removal.removes(model_point(c))).collect();
+        for &c in &removed {
+            solid[c] = false;
+            field[c] = 1.0;
+        }
+        cut_voxels = removed.len();
+    }
     // loose fragments: connected pieces (6-neighbours) under a hundredth of the largest go
     let mut piece = vec![u32::MAX; solid.len()];
     let mut sizes: Vec<usize> = Vec::new();
@@ -1160,6 +1189,19 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
     }
     drop(piece);
     let voxels = solid.iter().filter(|&&s| s).count();
+    // the solid for editing: one line of JSON (grid size, metres per voxel, how a voxel maps
+    // to model coordinates), then one bit per voxel in index order, lowest bit first
+    if let Some(path) = &p.solid {
+        let head = serde_json::json!({
+            "dims": [nx, ny, nz],
+            "metres_per_voxel": scale,
+            "index": "(k * ny + j) * nx + i",
+            "model_point": "x = (i - nx / 2) * s, y = (ny - 1 - j) * s, z = (k - nz / 2) * s",
+        });
+        let mut bytes = format!("{head}\n").into_bytes();
+        bytes.extend(solid.chunks(8).map(|b| b.iter().enumerate().fold(0u8, |acc, (q, &s)| acc | (u8::from(s) << q))));
+        std::fs::write(path, bytes).map_err(|e| format!("{}: {e}", path.display()))?;
+    }
 
     // the model's shadow in a frame: its outer voxels (the inside casts no other shadow),
     // each covering its voxel's span of columns and rows
@@ -1352,7 +1394,6 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
         let (tx, ty) = ((f as u32 % cols * tw) as f32, (f as u32 / cols * th) as f32);
         [(tx + sx.clamp(0.0, tw as f32 - 1.0) + 0.5) / aw, (ty + sy.clamp(0.0, th as f32 - 1.0) + 0.5) / ah]
     };
-    let scale = p.height / ((bottom - top + 1) as f32 / v);
     // the surface: from the signed distances where depth measured them, else the voxels'
     // boundary; smoothed `p.smooth` times
     let mesh = surface_mesh_field(&solid, (!p.hull).then_some(field.as_slice()), [nx, ny, nz], scale, &uv, p.smooth);
@@ -1413,6 +1454,8 @@ pub fn depth_glb(frames: &[image::RgbaImage], p: &DepthParams) -> Result<(Vec<u8
             corrections,
             disagreement: band_disagreement,
             fragments,
+            cut_voxels,
+            voxel_metres: scale,
             fit_used,
             fit_held,
             fit_mesh_used,

@@ -27,6 +27,8 @@ earcutr = "0.4"
 # Cuts pieces along zone borders (MIT).
 i_overlay = "1.9"
 meshopt = "0.7"
+# The user's cuts from the rig editor (serde only).
+fframes_rig = { path = "../fframes-rig" }
 xatlas-rs-v2 = "0.1.4"
 
 [dev-dependencies]

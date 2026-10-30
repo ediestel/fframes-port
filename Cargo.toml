@@ -14,6 +14,8 @@ members = [
     "fframes-vector",
     "fframes-vector-editor",
     "fframes-walk",
+    "fframes-rig",
+    "fframes-rig-editor",
     "media-dir-macro",
     "render-bench",
     "render-bench/vs-remotion",
