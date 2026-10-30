@@ -318,7 +318,10 @@ const BORDER: u32 = 8;
 
 /// The screen colour and the video's spread of it: the most common colour in the border
 /// strips of all frames, and the largest distance of any border pixel from it. The screen is
-/// one colour; the video stores it as a scatter of neighbouring values.
+/// one colour; the video stores it as a scatter of neighbouring values. A figure reaching
+/// into the border (a club running out of the frame, feet at the bottom edge) would make that
+/// largest distance the figure's own colour, so the spread is held to three times the
+/// distance within which 99.5 % of the border pixels lie.
 #[must_use]
 pub fn screen_colour(frames: &[image::RgbaImage]) -> ([u8; 3], f32) {
     screen_colour_in(frames.iter())
@@ -340,7 +343,18 @@ fn screen_colour_in<'a>(frames: impl Iterator<Item = &'a image::RgbaImage>) -> (
     }
     let colour = count.iter().max_by_key(|e| e.1).map_or([0, 0, 0], |e| *e.0);
     let spread = count.keys().map(|c| distance(*c, colour)).fold(0.0, f32::max);
-    (colour, spread)
+    let mut by_distance: Vec<(f32, usize)> = count.iter().map(|(c, &n)| (distance(*c, colour), n)).collect();
+    by_distance.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let total: usize = by_distance.iter().map(|e| e.1).sum();
+    let mut seen = 0;
+    let most = by_distance
+        .iter()
+        .find(|e| {
+            seen += e.1;
+            seen * 1000 >= total * 995
+        })
+        .map_or(spread, |e| e.0);
+    (colour, spread.min(3.0 * most.max(1.0)))
 }
 
 fn distance(a: [u8; 3], b: [u8; 3]) -> f32 {
