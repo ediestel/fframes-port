@@ -917,15 +917,19 @@ fn main() -> ExitCode {
             }
         }
         Some("splat-clean") if args.len() >= 3 => {
-            // splat-clean splats.ply out.ply [--grid 768] [--min-piece 500]: the splats without
+            // splat-clean splats.ply out.ply [--grid N] [--min-piece 500]: the splats without
             // floaters (hardly any neighbours) and without pieces detached from the figure,
-            // copied unchanged; what the kept splats form around them
-            use fframes_vector::splatshape::{Local, NeighbourhoodParams, components, neighbourhoods, robust_voxel, write_subset};
+            // copied unchanged; what the kept splats form around them. Voxels are twice the
+            // median splat spacing, or N across the model with --grid
+            use fframes_vector::splatshape::{Local, NeighbourhoodParams, components, neighbourhoods, robust_voxel, spacing, write_subset};
             let (input, output) = (&args[1], &args[2]);
             let run = || -> Result<String, String> {
                 let splats = fframes_vector::splat::read_splats(std::path::Path::new(input))?;
                 let points: Vec<[f32; 3]> = splats.iter().map(|s| s.centre).collect();
-                let voxel = robust_voxel(&points, opt(&args, "--grid").unwrap_or(768));
+                let voxel = match opt(&args, "--grid") {
+                    Some(g) => robust_voxel(&points, g),
+                    None => 2.0 * spacing(&points),
+                };
                 let hood = neighbourhoods(&points, voxel, &NeighbourhoodParams::default());
                 let solid: Vec<usize> = (0..points.len()).filter(|&i| hood[i].local != Local::Floater).collect();
                 let solid_points: Vec<[f32; 3]> = solid.iter().map(|&i| points[i]).collect();
