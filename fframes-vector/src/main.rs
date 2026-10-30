@@ -687,6 +687,40 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some("rig-export") if args.len() >= 4 => {
+            // rig-export model.glb rig.json out.glb [--falloff 0.04]: the model with the rig's
+            // skeleton and soft skin weights (up to four joints per vertex), for Blender and
+            // Unreal; mesh, UVs and textures unchanged
+            let run = || -> Result<(), String> {
+                let data = std::fs::read(&args[1]).map_err(|e| format!("{}: {e}", args[1]))?;
+                let (positions, _) = fframes_vector::rig::read_glb_mesh(&data).map_err(|e| format!("{}: {e}", args[1]))?;
+                let rig = fframes_rig::RigFile::load(std::path::Path::new(&args[2]))?;
+                let falloff = opt(&args, "--falloff").unwrap_or(0.04);
+                let skinning = fframes_rig::skin_weights(&positions, &rig.joints, falloff).ok_or("the rig has no bones: place and accept joints first")?;
+                let out = fframes_vector::rig::export_skinned(&data, &skinning).map_err(|e| format!("{}: {e}", args[1]))?;
+                std::fs::write(&args[3], out).map_err(|e| format!("{}: {e}", args[3]))?;
+                let shared = skinning.influences.iter().filter(|inf| inf[1].1 > 0.0).count();
+                eprintln!(
+                    "{}: {} joints, {} vertices skinned ({shared} shared between joints, falloff {:.0} mm)",
+                    args[3],
+                    skinning.joints.len(),
+                    positions.len(),
+                    falloff * 1000.0
+                );
+                for (j, (name, parent, _)) in skinning.joints.iter().enumerate() {
+                    let main = skinning.influences.iter().filter(|inf| inf[0].0 as usize == j && inf[0].1 > 0.0).count();
+                    eprintln!("  {name:12} parent {:12} {main:5} vertices mainly", parent.map_or("-", |p| skinning.joints[p].0.as_str()));
+                }
+                Ok(())
+            };
+            match run() {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some("splat-scene") if args.len() >= 4 => {
             // splat-scene walk.mp4 cameras.json out.mp4 --splat file.ply:height:x:z [--splat ...]:
             // Gaussian splats drawn into a fframes-walk video, through the cameras it logged

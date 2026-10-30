@@ -91,6 +91,122 @@ pub fn read_glb_mesh(data: &[u8]) -> Result<(Vec<[f32; 3]>, Vec<u32>), String> {
     Ok((positions, indices))
 }
 
+/// Adds a skeleton and skin weights to a binary glTF with one mesh primitive (as `depth`
+/// exports it), its mesh, UVs and textures left as they are: a node per joint (placed
+/// relative to its parent, not turned), a skin with the inverse bind matrices, `JOINTS_0` and
+/// `WEIGHTS_0` on the primitive, the skin on every node of the mesh, the skeleton's roots in
+/// the scene. Blender imports it as an armature, Unreal as a skeletal mesh.
+pub fn export_skinned(data: &[u8], skinning: &fframes_rig::Skinning) -> Result<Vec<u8>, String> {
+    use serde_json::{Value, json};
+    let word = |o: usize| u32::from_le_bytes([data[o], data[o + 1], data[o + 2], data[o + 3]]) as usize;
+    if data.len() < 28 || &data[..4] != b"glTF" {
+        return Err("not a binary glTF".into());
+    }
+    let json_len = word(12);
+    let mut doc: Value = serde_json::from_slice(&data[20..20 + json_len]).map_err(|e| e.to_string())?;
+    let at = 20 + json_len;
+    if data.len() < at + 8 || &data[at + 4..at + 8] != b"BIN\0" {
+        return Err("no binary chunk".into());
+    }
+    let mut bin = data[at + 8..at + 8 + word(at)].to_vec();
+    let primitives: usize = doc["meshes"].as_array().map_or(0, |m| m.iter().map(|m| m["primitives"].as_array().map_or(0, Vec::len)).sum());
+    if primitives != 1 {
+        return Err(format!("{primitives} mesh primitives; one expected"));
+    }
+    let position = doc["meshes"][0]["primitives"][0]["attributes"]["POSITION"].as_u64().ok_or("no positions")? as usize;
+    let count = doc["accessors"][position]["count"].as_u64().unwrap_or(0) as usize;
+    if count != skinning.influences.len() {
+        return Err(format!("{count} vertices, {} weights", skinning.influences.len()));
+    }
+    // a buffer view (4-byte aligned) and an accessor over it
+    let mut add = |doc: &mut Value, bytes: Vec<u8>, target: Option<u32>, accessor: Value| -> Result<usize, String> {
+        while bin.len() % 4 != 0 {
+            bin.push(0);
+        }
+        let mut view = json!({"buffer": 0, "byteOffset": bin.len(), "byteLength": bytes.len()});
+        if let Some(t) = target {
+            view["target"] = json!(t);
+        }
+        bin.extend(bytes);
+        let views = doc["bufferViews"].as_array_mut().ok_or("no buffer views")?;
+        views.push(view);
+        let mut accessor = accessor;
+        accessor["bufferView"] = json!(views.len() - 1);
+        let accessors = doc["accessors"].as_array_mut().ok_or("no accessors")?;
+        accessors.push(accessor);
+        Ok(accessors.len() - 1)
+    };
+    let joints_bytes: Vec<u8> = skinning.influences.iter().flat_map(|inf| inf.iter().flat_map(|(j, _)| j.to_le_bytes())).collect();
+    let weight_bytes: Vec<u8> = skinning.influences.iter().flat_map(|inf| inf.iter().flat_map(|(_, w)| w.to_le_bytes())).collect();
+    // inverse bind matrices (column-major): the joints are not turned, so each takes its
+    // position away
+    let inverse_bind: Vec<u8> = skinning
+        .joints
+        .iter()
+        .flat_map(|(_, _, p)| [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -p[0], -p[1], -p[2], 1.0_f32])
+        .flat_map(f32::to_le_bytes)
+        .collect();
+    let n = skinning.joints.len();
+    let joints_at = add(&mut doc, joints_bytes, Some(34962), json!({"componentType": 5123, "count": count, "type": "VEC4"}))?;
+    let weights_at = add(&mut doc, weight_bytes, Some(34962), json!({"componentType": 5126, "count": count, "type": "VEC4"}))?;
+    let bind_at = add(&mut doc, inverse_bind, None, json!({"componentType": 5126, "count": n, "type": "MAT4"}))?;
+    // the mesh's nodes skinned, the joints as nodes, the skin, the skeleton in the scene
+    let skin_index = doc["skins"].as_array().map_or(0, Vec::len);
+    let nodes = doc["nodes"].as_array_mut().ok_or("no nodes")?;
+    let base = nodes.len();
+    for node in nodes.iter_mut() {
+        if node.get("mesh").is_some() {
+            node["skin"] = json!(skin_index);
+        }
+    }
+    for (i, (name, parent, p)) in skinning.joints.iter().enumerate() {
+        let from = parent.map_or([0.0; 3], |q| skinning.joints[q].2);
+        let children: Vec<usize> = (0..n).filter(|&c| skinning.joints[c].1 == Some(i)).map(|c| base + c).collect();
+        let mut node = json!({"name": name, "translation": [p[0] - from[0], p[1] - from[1], p[2] - from[2]]});
+        if !children.is_empty() {
+            node["children"] = json!(children);
+        }
+        nodes.push(node);
+    }
+    let roots: Vec<usize> = (0..n).filter(|&i| skinning.joints[i].1.is_none()).map(|i| base + i).collect();
+    let skin = json!({
+        "name": "rig",
+        "joints": (base..base + n).collect::<Vec<_>>(),
+        "inverseBindMatrices": bind_at,
+        "skeleton": roots.first().copied().unwrap_or(base),
+    });
+    match doc["skins"].as_array_mut() {
+        Some(skins) => skins.push(skin),
+        None => doc["skins"] = json!([skin]),
+    }
+    let attributes = &mut doc["meshes"][0]["primitives"][0]["attributes"];
+    attributes["JOINTS_0"] = json!(joints_at);
+    attributes["WEIGHTS_0"] = json!(weights_at);
+    let scene = doc["scene"].as_u64().unwrap_or(0) as usize;
+    doc["scenes"][scene]["nodes"].as_array_mut().ok_or("no scene")?.extend(roots.iter().map(|&r| json!(r)));
+    // the binary glTF: header, JSON (padded with spaces), binary (padded with zeros)
+    while bin.len() % 4 != 0 {
+        bin.push(0);
+    }
+    doc["buffers"][0]["byteLength"] = json!(bin.len());
+    let mut text = serde_json::to_vec(&doc).map_err(|e| e.to_string())?;
+    while text.len() % 4 != 0 {
+        text.push(b' ');
+    }
+    let total = 12 + 8 + text.len() + 8 + bin.len();
+    let mut out = Vec::with_capacity(total);
+    out.extend(b"glTF");
+    out.extend(2_u32.to_le_bytes());
+    out.extend((total as u32).to_le_bytes());
+    out.extend((text.len() as u32).to_le_bytes());
+    out.extend(b"JSON");
+    out.extend(text);
+    out.extend((bin.len() as u32).to_le_bytes());
+    out.extend(b"BIN\0");
+    out.extend(bin);
+    Ok(out)
+}
+
 /// The parts of a standing figure, from its surface sampled in voxels of `cell` metres.
 #[must_use]
 pub fn parts(positions: &[[f32; 3]], indices: &[u32], cell: f32) -> Parts {

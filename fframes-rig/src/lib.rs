@@ -927,7 +927,6 @@ pub struct Skin {
 /// tunic) drags the body along.
 #[must_use]
 pub fn skin(points: &[V3], joints: &[Joint], root: &str, blend: f32) -> Option<Skin> {
-    let at = |name: &str| joints.iter().find(|j| j.name == name).and_then(Joint::position).map(|p| p.0);
     // whether a joint is the root or below it
     let below = |name: &str| {
         let mut n = Some(name.to_string());
@@ -940,15 +939,9 @@ pub fn skin(points: &[V3], joints: &[Joint], root: &str, blend: f32) -> Option<S
         }
         false
     };
-    let mut bones = Vec::new();
-    for j in joints {
-        let (Some(parent), Some(to)) = (j.parent.as_deref(), at(&j.name)) else { continue };
-        let Some(from) = at(parent) else { continue };
-        bones.push(Bone { parent: parent.into(), child: j.name.clone(), from, to, limb: below(parent) });
-        if !joints.iter().any(|k| k.parent.as_deref() == Some(j.name.as_str())) {
-            let past = std::array::from_fn(|k| to[k] + (to[k] - from[k]) * 0.6);
-            bones.push(Bone { parent: j.name.clone(), child: format!("{}+", j.name), from: to, to: past, limb: below(&j.name) });
-        }
+    let mut bones = bone_list(joints);
+    for b in &mut bones {
+        b.limb = below(&b.parent);
     }
     if !bones.iter().any(|b| b.limb) {
         return None;
@@ -984,6 +977,104 @@ pub fn skin(points: &[V3], joints: &[Joint], root: &str, blend: f32) -> Option<S
         nearest.push(i);
     }
     Some(Skin { root: root.into(), bones, weights, nearest })
+}
+
+/// The bones of a rig's placed joints (see [`Bone`]), `limb` unset.
+#[must_use]
+pub fn bone_list(joints: &[Joint]) -> Vec<Bone> {
+    let at = |name: &str| joints.iter().find(|j| j.name == name).and_then(Joint::position).map(|p| p.0);
+    let mut bones = Vec::new();
+    for j in joints {
+        let (Some(parent), Some(to)) = (j.parent.as_deref(), at(&j.name)) else { continue };
+        let Some(from) = at(parent) else { continue };
+        bones.push(Bone { parent: parent.into(), child: j.name.clone(), from, to, limb: false });
+        if !joints.iter().any(|k| k.parent.as_deref() == Some(j.name.as_str())) {
+            let past = std::array::from_fn(|k| to[k] + (to[k] - from[k]) * 0.6);
+            bones.push(Bone { parent: j.name.clone(), child: format!("{}+", j.name), from: to, to: past, limb: false });
+        }
+    }
+    bones
+}
+
+/// A skeleton with every point's weights, as glTF skinning takes them: the placed joints,
+/// parents before children, each with its parent's index and its position; per point up to
+/// four (joint, weight) pairs summing to one (unused pairs: joint 0, weight 0).
+#[derive(Clone, Debug)]
+pub struct Skinning {
+    pub joints: Vec<(String, Option<usize>, V3)>,
+    pub influences: Vec<[(u16, f32); 4]>,
+}
+
+/// Soft skin weights. Every point follows its nearest bone and, near a joint, also the bones
+/// that lie at most `falloff` metres farther from it, each by `(1 - extra / falloff)²`, so the
+/// elbow is shared by upper arm and forearm while bones farther off never count. A bone moves
+/// with the joint it starts at (the upper arm with the shoulder; the hand past the wrist with
+/// the wrist). At most the four strongest joints per point, normalised. `None` without bones.
+#[must_use]
+pub fn skin_weights(points: &[V3], joints: &[Joint], falloff: f32) -> Option<Skinning> {
+    let placed: Vec<(&Joint, V3)> = joints.iter().filter_map(|j| j.position().map(|p| (j, p.0))).collect();
+    // parents before children; a joint whose parent is not placed is a root
+    let mut order: Vec<(String, Option<usize>, V3)> = Vec::new();
+    let mut left: Vec<(&Joint, V3)> = placed.clone();
+    while !left.is_empty() {
+        let before = left.len();
+        left.retain(|(j, p)| {
+            let parent = j.parent.as_deref();
+            let known = parent.and_then(|n| order.iter().position(|(m, _, _)| m == n));
+            let root = parent.is_none_or(|n| !placed.iter().any(|(q, _)| q.name == n));
+            if known.is_some() || root {
+                order.push((j.name.clone(), known, *p));
+                false
+            } else {
+                true
+            }
+        });
+        if left.len() == before {
+            return None;
+        }
+    }
+    let bones = bone_list(joints);
+    if bones.is_empty() {
+        return None;
+    }
+    let joint_of: Vec<u16> = bones.iter().map(|b| order.iter().position(|(n, _, _)| *n == b.parent).unwrap_or(0) as u16).collect();
+    let distance = |p: V3, b: &Bone| {
+        let ab = sub(b.to, b.from);
+        let t = (dot(sub(p, b.from), ab) / dot(ab, ab).max(1e-12)).clamp(0.0, 1.0);
+        let q: V3 = std::array::from_fn(|k| b.from[k] + ab[k] * t);
+        dot(sub(p, q), sub(p, q)).sqrt()
+    };
+    let influences = points
+        .iter()
+        .map(|&p| {
+            let d: Vec<f32> = bones.iter().map(|b| distance(p, b)).collect();
+            let first = (0..d.len()).min_by(|&a, &b| d[a].total_cmp(&d[b])).unwrap_or(0);
+            let near = d[first];
+            // only bones that meet the nearest one at a joint share it (upper arm and forearm
+            // at the elbow), never one that merely lies close (a forearm before the belly)
+            let n = &bones[first];
+            let meets = |b: &Bone| b.parent == n.child || b.child == n.parent || b.parent == n.parent;
+            let mut by_joint: Vec<(u16, f32)> = Vec::new();
+            for (i, &di) in d.iter().enumerate() {
+                if i != first && !meets(&bones[i]) {
+                    continue;
+                }
+                let extra = di - near;
+                let w = if falloff > 0.0 { (1.0 - extra / falloff).max(0.0).powi(2) } else if extra <= 0.0 { 1.0 } else { 0.0 };
+                if w > 0.0 {
+                    match by_joint.iter_mut().find(|(j, _)| *j == joint_of[i]) {
+                        Some(e) => e.1 += w,
+                        None => by_joint.push((joint_of[i], w)),
+                    }
+                }
+            }
+            by_joint.sort_by(|a, b| b.1.total_cmp(&a.1));
+            by_joint.truncate(4);
+            let total: f32 = by_joint.iter().map(|e| e.1).sum::<f32>().max(1e-12);
+            std::array::from_fn(|k| by_joint.get(k).map_or((0, 0.0), |&(j, w)| (j, w / total)))
+        })
+        .collect();
+    Some(Skinning { joints: order, influences })
 }
 
 /// A place where limb and body touch away from the limb's root: its extent, the contact points
@@ -1659,6 +1750,16 @@ mod tests {
         let found = bridges(&points, &s, [0.2, 1.4, 0.0], 0.02, 0.08);
         assert_eq!(found.len(), 1, "{found:?}");
         assert!((found[0].lo[1] - 1.0).abs() < 0.01 && found[0].bone == "pelvis->chest", "{found:?}");
+        // soft weights for export: parents first, sums of one, the elbow shared by the upper arm
+        // (the shoulder joint) and the forearm (the elbow joint), the body on the pelvis
+        let sw = skin_weights(&points, &joints, 0.04).expect("bones");
+        assert!(sw.joints.iter().enumerate().all(|(i, (_, parent, _))| parent.is_none_or(|p| p < i)));
+        assert!(sw.influences.iter().all(|inf| (inf.iter().map(|e| e.1).sum::<f32>() - 1.0).abs() < 1e-4));
+        let name = |j: u16| sw.joints[j as usize].0.as_str();
+        let elbow = skin_weights(&[[0.25, 1.1, 0.0]], &joints, 0.04).expect("bones").influences[0];
+        let strong: Vec<&str> = elbow.iter().filter(|e| e.1 > 0.2).map(|e| name(e.0)).collect();
+        assert!(strong.contains(&"shoulder") && strong.contains(&"elbow"), "{strong:?}");
+        assert_eq!(name(sw.influences[10][0].0), "pelvis");
     }
 
     /// A draft keeps unaccepted work through saving and loading; an empty one leaves no file.
