@@ -231,6 +231,178 @@ pub fn export_rigged(data: &[u8], skinning: Option<&fframes_rig::Skinning>, morp
     Ok(out)
 }
 
+/// A binary glTF's JSON and binary chunk.
+fn glb_open(data: &[u8]) -> Result<(serde_json::Value, Vec<u8>), String> {
+    let word = |o: usize| u32::from_le_bytes([data[o], data[o + 1], data[o + 2], data[o + 3]]) as usize;
+    if data.len() < 28 || &data[..4] != b"glTF" {
+        return Err("not a binary glTF".into());
+    }
+    let json_len = word(12);
+    let doc = serde_json::from_slice(&data[20..20 + json_len]).map_err(|e| e.to_string())?;
+    let at = 20 + json_len;
+    if data.len() < at + 8 || &data[at + 4..at + 8] != b"BIN\0" {
+        return Err("no binary chunk".into());
+    }
+    Ok((doc, data[at + 8..at + 8 + word(at)].to_vec()))
+}
+
+/// A binary glTF from its JSON and binary chunk.
+fn glb_close(mut doc: serde_json::Value, mut bin: Vec<u8>) -> Result<Vec<u8>, String> {
+    while bin.len() % 4 != 0 {
+        bin.push(0);
+    }
+    doc["buffers"][0]["byteLength"] = serde_json::json!(bin.len());
+    let mut text = serde_json::to_vec(&doc).map_err(|e| e.to_string())?;
+    while text.len() % 4 != 0 {
+        text.push(b' ');
+    }
+    let total = 12 + 8 + text.len() + 8 + bin.len();
+    let mut out = Vec::with_capacity(total);
+    out.extend(b"glTF");
+    out.extend(2_u32.to_le_bytes());
+    out.extend((total as u32).to_le_bytes());
+    out.extend((text.len() as u32).to_le_bytes());
+    out.extend(b"JSON");
+    out.extend(text);
+    out.extend((bin.len() as u32).to_le_bytes());
+    out.extend(b"BIN\0");
+    out.extend(bin);
+    Ok(out)
+}
+
+/// Appends `bytes` as a buffer view (4-byte aligned) with `accessor` over it; the accessor's
+/// index.
+fn glb_add(doc: &mut serde_json::Value, bin: &mut Vec<u8>, bytes: &[u8], target: Option<u32>, mut accessor: serde_json::Value) -> Result<usize, String> {
+    while bin.len() % 4 != 0 {
+        bin.push(0);
+    }
+    let mut view = serde_json::json!({"buffer": 0, "byteOffset": bin.len(), "byteLength": bytes.len()});
+    if let Some(t) = target {
+        view["target"] = serde_json::json!(t);
+    }
+    bin.extend_from_slice(bytes);
+    let views = doc["bufferViews"].as_array_mut().ok_or("no buffer views")?;
+    views.push(view);
+    accessor["bufferView"] = serde_json::json!(views.len() - 1);
+    let accessors = doc["accessors"].as_array_mut().ok_or("no accessors")?;
+    accessors.push(accessor);
+    Ok(accessors.len() - 1)
+}
+
+/// A float accessor's values, `n` per element.
+fn glb_floats(doc: &serde_json::Value, bin: &[u8], index: usize) -> Result<(Vec<f32>, usize), String> {
+    let a = &doc["accessors"][index];
+    if a["componentType"].as_u64() != Some(5126) {
+        return Err(format!("accessor {index} is not float"));
+    }
+    let n = match a["type"].as_str() {
+        Some("SCALAR") => 1,
+        Some("VEC2") => 2,
+        Some("VEC3") => 3,
+        Some("VEC4") => 4,
+        t => return Err(format!("accessor {index}: type {t:?}")),
+    };
+    let count = a["count"].as_u64().unwrap_or(0) as usize;
+    let view = &doc["bufferViews"][a["bufferView"].as_u64().ok_or("no buffer view")? as usize];
+    let start = view["byteOffset"].as_u64().unwrap_or(0) as usize + a["byteOffset"].as_u64().unwrap_or(0) as usize;
+    let stride = view["byteStride"].as_u64().map_or(4 * n, |s| s as usize);
+    if start + count.saturating_sub(1) * stride + 4 * n > bin.len() {
+        return Err(format!("accessor {index} beyond the buffer"));
+    }
+    let f = |o: usize| f32::from_le_bytes([bin[o], bin[o + 1], bin[o + 2], bin[o + 3]]);
+    Ok(((0..count).flat_map(|i| (0..n).map(move |c| (i, c))).map(|(i, c)| f(start + i * stride + 4 * c)).collect(), n))
+}
+
+/// The model with its mesh cut along the mouth slit: every float attribute (positions,
+/// normals, tangents, texture coordinates) follows each vertex's sources, normals and
+/// tangents kept unit length, so the texture stays whole across the cut; new triangles.
+pub fn apply_slit(data: &[u8], slit: &fframes_rig::face::Slit) -> Result<Vec<u8>, String> {
+    use serde_json::json;
+    let (mut doc, mut bin) = glb_open(data)?;
+    let attributes: Vec<(String, usize)> = doc["meshes"][0]["primitives"][0]["attributes"]
+        .as_object()
+        .ok_or("no attributes")?
+        .iter()
+        .filter_map(|(k, v)| v.as_u64().map(|i| (k.clone(), i as usize)))
+        .collect();
+    for (name, index) in attributes {
+        let (values, n) = glb_floats(&doc, &bin, index)?;
+        let mut out = Vec::with_capacity(slit.sources.len() * n);
+        for &(a, b, t) in &slit.sources {
+            let at = |i: u32, c: usize| values.get(i as usize * n + c).copied().unwrap_or(0.0);
+            let mut v: Vec<f32> = (0..n).map(|c| at(a, c) + (at(b, c) - at(a, c)) * t).collect();
+            if name == "NORMAL" || name == "TANGENT" {
+                let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt().max(1e-12);
+                v[..3].iter_mut().for_each(|c| *c /= l);
+                if name == "TANGENT" {
+                    v[3] = at(a, 3);
+                }
+            }
+            out.extend(v);
+        }
+        let kind = ["SCALAR", "VEC2", "VEC3", "VEC4"][n - 1];
+        let mut accessor = json!({"componentType": 5126, "count": slit.sources.len(), "type": kind});
+        if name == "POSITION" {
+            let bound = |pick: fn(f32, f32) -> f32, start: f32| -> Vec<f32> { (0..3).map(|c| out.iter().skip(c).step_by(3).copied().fold(start, pick)).collect() };
+            accessor["min"] = json!(bound(f32::min, f32::MAX));
+            accessor["max"] = json!(bound(f32::max, f32::MIN));
+        }
+        let bytes: Vec<u8> = out.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let at = glb_add(&mut doc, &mut bin, &bytes, Some(34962), accessor)?;
+        doc["meshes"][0]["primitives"][0]["attributes"][&name] = json!(at);
+    }
+    let bytes: Vec<u8> = slit.indices.iter().flat_map(|i| i.to_le_bytes()).collect();
+    let at = glb_add(&mut doc, &mut bin, &bytes, Some(34963), json!({"componentType": 5125, "count": slit.indices.len(), "type": "SCALAR"}))?;
+    doc["meshes"][0]["primitives"][0]["indices"] = json!(at);
+    glb_close(doc, bin)
+}
+
+/// Adds parts (the teeth, the mouth cavity) as one mesh of their own, a primitive each with a
+/// plain colour (linear RGB) and roughness, on a node in the scene; with `joint` (of the skin
+/// already in the model), wholly fixed to that joint.
+pub fn add_parts(data: &[u8], parts: &[(&str, &fframes_rig::face::Part, [f32; 3], f32)], joint: Option<u16>) -> Result<Vec<u8>, String> {
+    use serde_json::json;
+    let (mut doc, mut bin) = glb_open(data)?;
+    let mut primitives = Vec::new();
+    for (name, part, colour, roughness) in parts {
+        let count = part.positions.len();
+        let floats = |v: &[[f32; 3]]| -> Vec<u8> { v.iter().flat_map(|p| p.iter().flat_map(|c| c.to_le_bytes())).collect() };
+        let min: Vec<f32> = (0..3).map(|c| part.positions.iter().map(|p| p[c]).fold(f32::MAX, f32::min)).collect();
+        let max: Vec<f32> = (0..3).map(|c| part.positions.iter().map(|p| p[c]).fold(f32::MIN, f32::max)).collect();
+        let position = glb_add(&mut doc, &mut bin, &floats(&part.positions), Some(34962), json!({"componentType": 5126, "count": count, "type": "VEC3", "min": min, "max": max}))?;
+        let normal = glb_add(&mut doc, &mut bin, &floats(&part.normals), Some(34962), json!({"componentType": 5126, "count": count, "type": "VEC3"}))?;
+        let bytes: Vec<u8> = part.indices.iter().flat_map(|i| i.to_le_bytes()).collect();
+        let indices = glb_add(&mut doc, &mut bin, &bytes, Some(34963), json!({"componentType": 5125, "count": part.indices.len(), "type": "SCALAR"}))?;
+        let mut attributes = json!({"POSITION": position, "NORMAL": normal});
+        if let Some(j) = joint {
+            let joints: Vec<u8> = (0..count).flat_map(|_| [j, 0, 0, 0]).flat_map(u16::to_le_bytes).collect();
+            let weights: Vec<u8> = (0..count).flat_map(|_| [1.0_f32, 0.0, 0.0, 0.0]).flat_map(f32::to_le_bytes).collect();
+            attributes["JOINTS_0"] = json!(glb_add(&mut doc, &mut bin, &joints, Some(34962), json!({"componentType": 5123, "count": count, "type": "VEC4"}))?);
+            attributes["WEIGHTS_0"] = json!(glb_add(&mut doc, &mut bin, &weights, Some(34962), json!({"componentType": 5126, "count": count, "type": "VEC4"}))?);
+        }
+        let materials = doc["materials"].as_array_mut().ok_or("no materials")?;
+        materials.push(json!({
+            "name": name,
+            "doubleSided": true,
+            "pbrMetallicRoughness": {"baseColorFactor": [colour[0], colour[1], colour[2], 1.0], "metallicFactor": 0.0, "roughnessFactor": roughness}
+        }));
+        primitives.push(json!({"attributes": attributes, "indices": indices, "material": materials.len() - 1}));
+    }
+    let meshes = doc["meshes"].as_array_mut().ok_or("no meshes")?;
+    meshes.push(json!({"name": "mouth", "primitives": primitives}));
+    let mesh = meshes.len() - 1;
+    let mut node = json!({"name": "mouth", "mesh": mesh});
+    if joint.is_some() {
+        node["skin"] = json!(0);
+    }
+    let nodes = doc["nodes"].as_array_mut().ok_or("no nodes")?;
+    nodes.push(node);
+    let at = nodes.len() - 1;
+    let scene = doc["scene"].as_u64().unwrap_or(0) as usize;
+    doc["scenes"][scene]["nodes"].as_array_mut().ok_or("no scene")?.push(json!(at));
+    glb_close(doc, bin)
+}
+
 /// The parts of a standing figure, from its surface sampled in voxels of `cell` metres.
 #[must_use]
 pub fn parts(positions: &[[f32; 3]], indices: &[u32], cell: f32) -> Parts {
