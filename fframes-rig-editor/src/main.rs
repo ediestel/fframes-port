@@ -634,9 +634,19 @@ impl Editor {
     fn discard(&mut self) {
         self.draft.clear();
         self.steps.clear();
+        let had_changes = match (&self.pending, &self.editing) {
+            (Some(p), Some((_, original))) => p != original,
+            _ => false,
+        };
         let had = self.pending.take().is_some() | self.joint.take().is_some();
         self.message = match (self.editing.take(), had) {
             // a proposed cut that was opened is dismissed altogether
+            // a changed proposal goes back to how it was proposed; unchanged, it is dismissed
+            (Some((i, c)), true) if c.proposed && had_changes => {
+                self.pending = Some(c.clone());
+                self.editing = Some((i, c.clone()));
+                format!("{}: back to the proposal; D again dismisses it", c.name)
+            }
             (Some((i, c)), _) if c.proposed => {
                 self.remember();
                 if i < self.rig.cuts.len() {
@@ -1544,12 +1554,18 @@ impl ApplicationHandler for Editor {
                                 }
                             }
                             Grab::Section(vi, si, pi) => {
+                                // across the screen through the dot, then onto its own
+                                // section's plane: the dot stays under the pointer even where
+                                // that plane is seen edge-on
+                                let camera = self.camera();
+                                let screen = Plane { normal: camera.forward().to_array(), u: camera.right().to_array(), v: camera.up_vector().to_array() };
                                 let ray = self.ray(position);
                                 if let (Some((o, d)), Some(cut)) = (ray, &mut self.pending) {
                                     let v = &mut cut.views[vi];
-                                    let offset = v.sections[si].offset;
-                                    if let Some((p, _)) = v.plane.hit(offset, o, d) {
-                                        v.sections[si].contour[pi] = v.plane.to_2d(p);
+                                    let s = &mut v.sections[si];
+                                    let at = v.plane.to_3d(s.contour[pi], s.offset);
+                                    if let Some((p, _)) = screen.hit(screen.offset_of(at), o, d) {
+                                        s.contour[pi] = v.plane.to_2d(p);
                                     }
                                 }
                             }
