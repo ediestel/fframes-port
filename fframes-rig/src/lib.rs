@@ -79,10 +79,12 @@ impl Preset {
     pub fn plane(self, front_yaw: f32) -> Plane {
         let (side, up, front) = axes(front_yaw);
         match self {
-            // seen from above: side to the right, front down the picture
-            Preset::Transverse => Plane { normal: up, u: side, v: front },
+            // u × v = normal for each, so a plane is a turn of the axes, never a mirror
+            // seen from above: side to the right, back up the picture
+            Preset::Transverse => Plane { normal: up, u: side, v: front.map(|c| -c) },
             Preset::Coronal => Plane { normal: front, u: side, v: up },
-            Preset::Sagittal => Plane { normal: side, u: front, v: up },
+            // seen from the side: back to the right, up
+            Preset::Sagittal => Plane { normal: side, u: front.map(|c| -c), v: up },
         }
     }
 }
@@ -897,6 +899,22 @@ mod tests {
         // the hand end of the arm swings out sideways, above its old height
         let hand = pos.iter().zip(&raised).filter(|(p, _)| p[1] < 9.0 * size && p[0] >= 10.0 * size).map(|(_, q)| q[1]).fold(f32::MAX, f32::min);
         assert!(hand > 0.4, "the raised hand end is at {hand:.2} m");
+    }
+
+    /// Every preset, at any front, has unit axes square to each other with u × v = normal: a
+    /// turn of the figure's axes (what the editor draws the pane with), never a mirror.
+    #[test]
+    fn presets_are_turns() {
+        for yaw in [0.0_f32, 26.0, 135.0, 300.0] {
+            for p in Preset::ALL {
+                let pl = p.plane(yaw);
+                let n = cross(pl.u, pl.v);
+                for k in 0..3 {
+                    assert!((n[k] - pl.normal[k]).abs() < 1e-5, "{} at {yaw}°: u × v {n:?}, normal {:?}", p.name(), pl.normal);
+                }
+                assert!((dot(pl.u, pl.u) - 1.0).abs() < 1e-5 && dot(pl.u, pl.v).abs() < 1e-5);
+            }
+        }
     }
 
     /// A figure wide across the shoulders and shallow front to back, turned about y: its

@@ -139,6 +139,17 @@ struct Posed {
     scene: Option<Scene>,
 }
 
+/// A dot being dragged: of the open contour, or of a section of the cut being edited
+/// (view, section, point).
+#[derive(Clone, Copy)]
+enum Grab {
+    Draft(usize),
+    Section(usize, usize, usize),
+}
+
+/// Sections closer than this to the plane's position are on it, metres.
+const ON_PLANE: f32 = 0.0005;
+
 /// 3x3 matrix product.
 fn mul(a: &[[f32; 3]; 3], b: &[[f32; 3]; 3]) -> [[f32; 3]; 3] {
     std::array::from_fn(|r| std::array::from_fn(|c| (0..3).map(|k| a[r][k] * b[k][c]).sum()))
@@ -190,7 +201,12 @@ struct Editor {
     pending: Option<Cut>,
     /// The contour being drawn on the active plane, its dots in plane coordinates.
     draft: Vec<[f32; 2]>,
-    grabbed: Option<usize>,
+    grabbed: Option<Grab>,
+    /// An accepted cut taken out for editing: its place in the list and how it was.
+    editing: Option<(usize, Cut)>,
+    /// When the window last came to the front; the click that did it places nothing.
+    focused_at: Option<std::time::Instant>,
+    activation_click: bool,
     /// The joint being placed, not yet accepted.
     joint: Option<Joint>,
     /// A joint name being typed.
@@ -286,6 +302,9 @@ fn run() -> Result<(), String> {
         pending: None,
         draft: Vec::new(),
         grabbed: None,
+        editing: None,
+        focused_at: None,
+        activation_click: false,
         joint: None,
         typing: None,
         voxel,
@@ -366,7 +385,10 @@ impl Editor {
     fn with_pending(&self) -> RigFile {
         let mut rig = self.rig.clone();
         if let Some(c) = &self.pending {
-            rig.cuts.push(c.clone());
+            match self.editing {
+                Some((i, _)) if i < rig.cuts.len() => rig.cuts[i] = c.clone(),
+                _ => rig.cuts.push(c.clone()),
+            }
         }
         if let Some(j) = &self.joint {
             rig.joints.retain(|q| q.name != j.name);
@@ -474,7 +496,11 @@ impl Editor {
         self.remember();
         if let Some(c) = self.pending.take() {
             self.message = format!("{} accepted", c.name);
-            self.rig.cuts.push(c);
+            // an edited cut replaces the one it was opened from
+            match self.editing.take() {
+                Some((i, _)) if i < self.rig.cuts.len() => self.rig.cuts[i] = c,
+                _ => self.rig.cuts.push(c),
+            }
         }
         if let Some(j) = self.joint.take() {
             self.message = format!("joint {} accepted", j.name);
@@ -489,7 +515,108 @@ impl Editor {
     fn discard(&mut self) {
         self.draft.clear();
         let had = self.pending.take().is_some() | self.joint.take().is_some();
-        self.message = if had { "discarded".into() } else { "nothing to discard".into() };
+        self.message = match (self.editing.take(), had) {
+            (Some((_, c)), _) => format!("{} left as it was", c.name),
+            (None, true) => "discarded".into(),
+            (None, false) => "nothing to discard".into(),
+        };
+    }
+
+    /// Opens an accepted cut for editing (a copy; the accepted one stays until the edit is
+    /// accepted): the one before the cut being edited, else the last.
+    fn edit_cut(&mut self) {
+        if self.pending.is_some() && self.editing.is_none() {
+            self.message = "accept or discard the cut being drawn first".into();
+            return;
+        }
+        if self.rig.cuts.is_empty() {
+            self.message = "no accepted cut to edit".into();
+            return;
+        }
+        let i = match self.editing.take() {
+            Some((i, _)) => (i + self.rig.cuts.len() - 1) % self.rig.cuts.len(),
+            None => self.rig.cuts.len() - 1,
+        };
+        self.open_cut(i);
+    }
+
+    fn open_cut(&mut self, i: usize) {
+        let c = self.rig.cuts[i].clone();
+        self.message = format!("editing {}: drag its dots on the plane at a section (N jumps to the next), A keeps, D leaves it", c.name);
+        self.pending = Some(c.clone());
+        self.editing = Some((i, c));
+    }
+
+    /// Moves the plane to the next (or previous) section of the cut being edited or drawn
+    /// in the plane's direction.
+    fn jump_section(&mut self, back: bool) {
+        let (Some(a), Some(cut)) = (self.active, &self.pending) else {
+            self.message = "choose a plane and a cut (E edits the last accepted one)".into();
+            return;
+        };
+        let offsets: Vec<f32> = cut.views.iter().filter(|v| v.plane.parallel_to(&a.plane)).flat_map(|v| v.sections.iter().map(|s| s.offset)).collect();
+        let next = if back {
+            offsets.iter().copied().filter(|&o| o < a.offset - ON_PLANE).fold(None, |m: Option<f32>, o| Some(m.map_or(o, |m| m.max(o))))
+        } else {
+            offsets.iter().copied().filter(|&o| o > a.offset + ON_PLANE).fold(None, |m: Option<f32>, o| Some(m.map_or(o, |m| m.min(o))))
+        };
+        match next {
+            Some(o) => {
+                if let Some(a) = &mut self.active {
+                    a.offset = o;
+                }
+                self.message = format!("at the section at {o:.3} m: drag its dots, Delete removes it");
+            }
+            None => self.message = "no further section in this plane direction".into(),
+        }
+    }
+
+    /// Removes the section of the cut being edited or drawn that lies on the plane.
+    fn delete_section(&mut self) {
+        let (Some(a), Some(cut)) = (self.active, &mut self.pending) else { return };
+        let mut removed = false;
+        for v in cut.views.iter_mut().filter(|v| v.plane.parallel_to(&a.plane)) {
+            let before = v.sections.len();
+            v.sections.retain(|s| (s.offset - a.offset).abs() > ON_PLANE);
+            removed |= v.sections.len() != before;
+        }
+        cut.views.retain(|v| !v.sections.is_empty());
+        self.message = if removed { format!("section at {:.3} m removed", a.offset) } else { "no section on the plane here".into() };
+    }
+
+    /// The dot under a window position: of the open contour, else of a section on the plane
+    /// of the cut being edited or drawn, else of an accepted cut's section on the plane (which
+    /// opens that cut for editing).
+    fn grab_at(&mut self, at: Point) -> Option<Grab> {
+        let a = self.active?;
+        let ui = self.window.as_ref().map_or(1.0, |w| w.scale_factor() as f32);
+        let near = |p: V3, me: &Self| me.screen(p).is_some_and(|s| (s - at).length() < GRAB * ui);
+        if let Some(i) = self.draft.iter().position(|d| near(a.plane.to_3d(*d, a.offset), self)) {
+            return Some(Grab::Draft(i));
+        }
+        let find = |cut: &Cut, me: &Self| -> Option<(usize, usize, usize)> {
+            for (vi, v) in cut.views.iter().enumerate() {
+                for (si, s) in v.sections.iter().enumerate() {
+                    if !v.plane.parallel_to(&a.plane) || (s.offset - a.offset).abs() > ON_PLANE {
+                        continue;
+                    }
+                    if let Some(pi) = s.contour.iter().position(|q| near(v.plane.to_3d(*q, s.offset), me)) {
+                        return Some((vi, si, pi));
+                    }
+                }
+            }
+            None
+        };
+        if let Some(found) = self.pending.as_ref().and_then(|c| find(c, self)) {
+            return Some(Grab::Section(found.0, found.1, found.2));
+        }
+        if self.pending.is_some() {
+            return None;
+        }
+        let hit = (0..self.rig.cuts.len()).find_map(|i| find(&self.rig.cuts[i], self).map(|f| (i, f)));
+        let (i, (vi, si, pi)) = hit?;
+        self.open_cut(i);
+        Some(Grab::Section(vi, si, pi))
     }
 
     fn undo(&mut self, back: bool) {
@@ -819,7 +946,7 @@ impl Editor {
                 self.message
             )
         };
-        let keys = "click: dot / joint   drag dot: move   Enter: close contour   Up/Down: move plane   [ ]: ends   P: protect   A: accept   D: discard   J: joint   X: apply   T: original/rebuilt   , . ; ' 0: arm   F: confirm front   B: turn front   Cmd+Z: undo   Q: quit";
+        let keys = "click: dot / joint   drag any dot: move   Enter: close contour   Up/Down or ⌥+drag: move plane   E: edit cut   N: next section   Delete: remove section   [ ]: ends   P: protect   A: accept   D: discard   J: joint   X: apply   T: original/rebuilt   , . ; ' 0: arm   F: confirm front   B: turn front   Cmd+Z: undo   Q: quit";
         let labels: [(&str, Action); 11] = [
             ("Transverse", Action::Plane(Preset::Transverse)),
             ("Coronal", Action::Plane(Preset::Coronal)),
@@ -989,6 +1116,7 @@ impl Editor {
                 }
             }
             KeyCode::Enter | KeyCode::NumpadEnter => self.close_contour(),
+            KeyCode::Backspace if command => self.delete_section(),
             KeyCode::Backspace => {
                 if self.draft.pop().is_some() {
                     self.message = format!("{} dots", self.draft.len());
@@ -1057,6 +1185,12 @@ impl Editor {
                 self.azimuth = self.rig.front_yaw;
                 self.elevation = 8.0;
             }
+            KeyCode::KeyE => self.edit_cut(),
+            KeyCode::KeyN => {
+                let back = self.modifiers.shift_key();
+                self.jump_section(back);
+            }
+            KeyCode::Delete => self.delete_section(),
             KeyCode::Period => self.turn_arm(5.0, 0.0, false),
             KeyCode::Comma => self.turn_arm(-5.0, 0.0, false),
             KeyCode::Semicolon => self.turn_arm(0.0, 5.0, false),
@@ -1112,6 +1246,7 @@ impl ApplicationHandler for Editor {
                 }
             }
             WindowEvent::ModifiersChanged(m) => self.modifiers = m.state(),
+            WindowEvent::Focused(true) => self.focused_at = Some(std::time::Instant::now()),
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.state == ElementState::Pressed {
                     let code = match event.physical_key {
@@ -1123,13 +1258,41 @@ impl ApplicationHandler for Editor {
             }
             WindowEvent::CursorMoved { position, .. } => {
                 if let Some((down, last)) = self.pressed {
-                    if let Some(i) = self.grabbed {
-                        if let Some(q) = self.plane_point(position) {
-                            self.draft[i] = q;
+                    if let Some(g) = self.grabbed {
+                        match g {
+                            Grab::Draft(i) => {
+                                if let Some(q) = self.plane_point(position) {
+                                    self.draft[i] = q;
+                                }
+                            }
+                            Grab::Section(vi, si, pi) => {
+                                let ray = self.ray(position);
+                                if let (Some((o, d)), Some(cut)) = (ray, &mut self.pending) {
+                                    let v = &mut cut.views[vi];
+                                    let offset = v.sections[si].offset;
+                                    if let Some((p, _)) = v.plane.hit(offset, o, d) {
+                                        v.sections[si].contour[pi] = v.plane.to_2d(p);
+                                    }
+                                }
+                            }
                         }
                     } else {
                         let (dx, dy) = ((position.x - last.x) as f32, (position.y - last.y) as f32);
-                        if self.modifiers.shift_key() {
+                        if let (true, Some(a)) = (self.modifiers.alt_key(), self.active) {
+                            // Option+drag: the plane follows the pointer along its normal (the
+                            // normal's direction on the screen, 10 cm of it measured there)
+                            let at = a.plane.to_3d(a.plane.to_2d(self.centre.to_array()), a.offset);
+                            let ahead: V3 = std::array::from_fn(|k| at[k] + a.plane.normal[k] * 0.1);
+                            if let (Some(s), Some(t)) = (self.screen(at), self.screen(ahead)) {
+                                let (nx, ny) = (t.x - s.x, t.y - s.y);
+                                let len2 = nx * nx + ny * ny;
+                                if len2 > 4.0 {
+                                    self.move_plane((dx * nx + dy * ny) / len2 * 0.1);
+                                } else {
+                                    self.message = "the plane faces the camera: turn the camera to drag it, or use Up/Down".into();
+                                }
+                            }
+                        } else if self.modifiers.shift_key() {
                             self.target.y += dy * self.distance * 0.0015;
                         } else {
                             self.azimuth -= dx * 0.3;
@@ -1144,18 +1307,18 @@ impl ApplicationHandler for Editor {
             WindowEvent::MouseInput { state, button: MouseButton::Left, .. } => match state {
                 ElementState::Pressed => {
                     self.pressed = Some((self.cursor, self.cursor));
-                    // a press on a dot of the open contour grabs it
+                    // the click that brings the window to the front places nothing
+                    self.activation_click = self.focused_at.is_some_and(|t| t.elapsed() < std::time::Duration::from_millis(400));
+                    // a press on a dot (of the open contour, or of a cut's section on the
+                    // plane) grabs it
                     let at = Point::new(self.cursor.x as f32, self.cursor.y as f32);
-                    let ui = self.window.as_ref().map_or(1.0, |w| w.scale_factor() as f32);
-                    self.grabbed = self.active.and_then(|a| {
-                        self.draft.iter().position(|d| self.screen(a.plane.to_3d(*d, a.offset)).is_some_and(|s| (s - at).length() < GRAB * ui))
-                    });
+                    self.grabbed = if self.activation_click { None } else { self.grab_at(at) };
                 }
                 ElementState::Released => {
                     let grabbed = self.grabbed.take();
                     if let Some((down, _)) = self.pressed.take() {
                         let moved = ((self.cursor.x - down.x).powi(2) + (self.cursor.y - down.y).powi(2)).sqrt();
-                        if moved < CLICK && grabbed.is_none() {
+                        if moved < CLICK && grabbed.is_none() && !std::mem::take(&mut self.activation_click) {
                             self.click(self.cursor);
                         }
                         self.redraw();
