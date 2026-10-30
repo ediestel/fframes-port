@@ -435,7 +435,8 @@ impl RigFile {
             let views = c.views.iter().filter(|v| !v.sections.is_empty()).count();
             if views == 0 {
                 out.push(format!("{}: nothing drawn", c.name));
-            } else if views == 1 {
+            } else if views == 1 && !c.views.iter().any(|v| v.corresponding() && v.sections.len() >= 2) {
+                // (a box is whole in one view: its levels and corners give all three directions)
                 out.push(format!("{}: drawn in one plane only; its extent across that plane is set by the contour alone, check it in a second plane", c.name));
             }
         }

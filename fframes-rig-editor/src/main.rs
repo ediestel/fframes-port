@@ -458,7 +458,10 @@ impl Editor {
     fn alerts(&self) -> Vec<String> {
         let mut out = Vec::new();
         if !self.draft.is_empty() {
-            out.push(format!("contour with {} dots not closed (Enter)", self.draft.len()));
+            out.push(format!("contour with {} dots not closed: Enter closes it (3 or more), Esc drops it", self.draft.len()));
+        }
+        for (preset, offset, dots) in &self.parked {
+            out.push(format!("{} open dots left on the {} plane at {offset:.3} m: Esc drops them", dots.len(), preset.name()));
         }
         if let Some(c) = &self.pending {
             out.push(format!("{} not accepted (A keeps, D discards)", c.name));
@@ -1528,6 +1531,9 @@ impl Editor {
                 if !self.draft.is_empty() {
                     self.draft.clear();
                     self.message = "contour dropped".into();
+                } else if !self.parked.is_empty() {
+                    self.parked.clear();
+                    self.message = "open dots on other planes dropped".into();
                 } else if self.active.take().is_some() {
                     self.message = "plane put away".into();
                 }
