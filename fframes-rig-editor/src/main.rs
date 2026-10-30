@@ -147,6 +147,9 @@ enum Grab {
     Section(usize, usize, usize),
     /// A joint (index in the rig), moved across the screen at its depth.
     Joint(usize),
+    /// A section's outline (view, section), or with `whole` the entire cut, moved across the
+    /// screen; the last point under the pointer, on the screen plane through the grab.
+    Outline { view: usize, section: usize, whole: bool, last: [f32; 3] },
 }
 
 /// Sections closer than this to the plane's position are on it, metres.
@@ -208,6 +211,9 @@ struct Editor {
     editing: Option<(usize, Cut)>,
     /// The joint last clicked (the arm raise uses the selected shoulder).
     selected: Option<String>,
+    /// Steps of the unaccepted work (the cut being drawn or edited, the open contour, the joint
+    /// being placed), each saved before a change, for undo.
+    steps: Vec<(Option<Cut>, Vec<[f32; 2]>, Option<Joint>)>,
     /// Open contours left on other plane positions (direction, position, dots).
     parked: Vec<(Preset, f32, Vec<[f32; 2]>)>,
     /// Where unaccepted work is saved after every change.
@@ -315,6 +321,7 @@ fn run() -> Result<(), String> {
         grabbed: None,
         editing: None,
         selected: None,
+        steps: Vec::new(),
         parked: Vec::new(),
         draft_file,
         focused_at: None,
@@ -547,6 +554,7 @@ impl Editor {
             self.message = "a contour needs at least 3 dots".into();
             return;
         }
+        self.keep_step();
         let contour = std::mem::take(&mut self.draft);
         if let Some(v) = self.voxel {
             let w = narrowest(&contour);
@@ -603,6 +611,7 @@ impl Editor {
             return;
         }
         self.remember();
+        self.steps.clear();
         if let Some(mut c) = self.pending.take() {
             c.proposed = false;
             self.message = format!("{} accepted", c.name);
@@ -624,6 +633,7 @@ impl Editor {
 
     fn discard(&mut self) {
         self.draft.clear();
+        self.steps.clear();
         let had = self.pending.take().is_some() | self.joint.take().is_some();
         self.message = match (self.editing.take(), had) {
             // a proposed cut that was opened is dismissed altogether
@@ -704,6 +714,11 @@ impl Editor {
 
     /// Removes the section of the cut being edited or drawn that lies on the plane.
     fn delete_section(&mut self) {
+        if self.active.is_none() || self.pending.is_none() {
+            self.message = "Shift+Delete removes the section at the plane of the cut being edited".into();
+            return;
+        }
+        self.keep_step();
         let (Some(a), Some(cut)) = (self.active, &mut self.pending) else { return };
         let mut removed = false;
         for v in cut.views.iter_mut().filter(|v| v.plane.parallel_to(&a.plane)) {
@@ -746,19 +761,68 @@ impl Editor {
             }
             None
         };
+        // a section's outline: the region (or, with Shift, the whole cut) and where on it
+        let outline = |cut: &Cut, me: &Self| -> Option<(usize, usize, V3)> {
+            for (vi, v) in cut.views.iter().enumerate() {
+                for (si, s) in v.sections.iter().enumerate() {
+                    let n = s.contour.len();
+                    for k in 0..n {
+                        let (p, q) = (v.plane.to_3d(s.contour[k], s.offset), v.plane.to_3d(s.contour[(k + 1) % n], s.offset));
+                        let (Some(a), Some(b)) = (me.screen(p), me.screen(q)) else { continue };
+                        let ab = b - a;
+                        let t = (((at - a).x * ab.x + (at - a).y * ab.y) / (ab.x * ab.x + ab.y * ab.y).max(1e-6)).clamp(0.0, 1.0);
+                        if (a + ab * t - at).length() < GRAB * ui {
+                            return Some((vi, si, std::array::from_fn(|c| p[c] + (q[c] - p[c]) * t)));
+                        }
+                    }
+                }
+            }
+            None
+        };
+        let whole = self.modifiers.shift_key();
         if let Some(found) = self.pending.as_ref().and_then(|c| find(c, self)) {
+            self.keep_step();
             return Some(Grab::Section(found.0, found.1, found.2));
+        }
+        if let Some((vi, si, p)) = self.pending.as_ref().and_then(|c| outline(c, self)) {
+            self.keep_step();
+            self.message = if whole { "moving the whole cut".into() } else { "moving this region (Shift: the whole cut)".into() };
+            return Some(Grab::Outline { view: vi, section: si, whole, last: p });
         }
         if self.pending.is_some() {
             return None;
         }
-        let hit = (0..self.rig.cuts.len()).find_map(|i| find(&self.rig.cuts[i], self).map(|f| (i, f)));
-        let (i, (vi, si, pi)) = hit?;
+        if let Some((i, (vi, si, pi))) = (0..self.rig.cuts.len()).find_map(|i| find(&self.rig.cuts[i], self).map(|f| (i, f))) {
+            self.keep_step();
+            self.open_cut(i);
+            return Some(Grab::Section(vi, si, pi));
+        }
+        let (i, (vi, si, p)) = (0..self.rig.cuts.len()).find_map(|i| outline(&self.rig.cuts[i], self).map(|f| (i, f)))?;
+        self.keep_step();
         self.open_cut(i);
-        Some(Grab::Section(vi, si, pi))
+        self.message = if whole { "moving the whole cut".into() } else { "moving this region (Shift: the whole cut)".into() };
+        Some(Grab::Outline { view: vi, section: si, whole, last: p })
+    }
+
+    /// Saves the unaccepted work before a change, for undo.
+    fn keep_step(&mut self) {
+        self.steps.push((self.pending.clone(), self.draft.clone(), self.joint.clone()));
     }
 
     fn undo(&mut self, back: bool) {
+        // unaccepted work first, step by step (a dragged dot, a moved region, a placed dot)
+        if back {
+            if let Some((cut, draft, joint)) = self.steps.pop() {
+                if cut.is_none() {
+                    self.editing = None;
+                }
+                self.pending = cut;
+                self.draft = draft;
+                self.joint = joint;
+                self.message = "step undone".into();
+                return;
+            }
+        }
         let (from, to) = if back { (&mut self.history, &mut self.future) } else { (&mut self.future, &mut self.history) };
         match from.pop() {
             Some(state) => {
@@ -853,6 +917,7 @@ impl Editor {
             self.message = "the plane is edge-on here: turn the camera".into();
             return;
         };
+        self.keep_step();
         if let Some(j) = &mut self.joint {
             j.observations.push(Observation { plane: a.plane, offset: a.offset, point: q });
             self.message = format!("joint {}: placed on the {} plane ({} placements)", j.name, a.preset.name(), j.observations.len());
@@ -1119,7 +1184,7 @@ impl Editor {
                 self.message
             )
         };
-        let keys = "click: dot / joint   drag any dot: move   Enter: close contour   Up/Down or ⌥+drag: move plane   E: edit cut   N: next section   Delete: remove section   [ ]: ends   P: protect   A: accept   D: discard   J: joint   X: apply   T: original/rebuilt   , . ; ' 0: arm   F: confirm front   B: turn front   Cmd+Z: undo   Q: quit";
+        let keys = "click: dot / joint   drag any dot: move   Enter: close contour   Up/Down or ⌥+drag: move plane   drag outline: region (Shift: whole cut)   E: edit cut   N: next section   Delete or Cmd+Z: undo step   Shift+Delete: remove section   [ ]: ends   P: protect   A: accept   D: discard   J: joint   X: apply   T: original/rebuilt   , . ; ' 0: arm   F: confirm front   B: turn front   Cmd+Z: undo   Q: quit";
         let labels: [(&str, Action); 11] = [
             ("Transverse", Action::Plane(Preset::Transverse)),
             ("Coronal", Action::Plane(Preset::Coronal)),
@@ -1289,7 +1354,7 @@ impl Editor {
                 }
             }
             KeyCode::Enter | KeyCode::NumpadEnter => self.close_contour(),
-            KeyCode::Backspace if command => self.delete_section(),
+            KeyCode::Backspace if command => self.undo(true),
             KeyCode::Backspace => {
                 if self.draft.pop().is_some() {
                     self.message = format!("{} dots", self.draft.len());
@@ -1363,7 +1428,9 @@ impl Editor {
                 let back = self.modifiers.shift_key();
                 self.jump_section(back);
             }
-            KeyCode::Delete => self.delete_section(),
+            // Delete undoes the last step; Shift+Delete removes the section at the plane
+            KeyCode::Delete if self.modifiers.shift_key() => self.delete_section(),
+            KeyCode::Delete => self.undo(true),
             KeyCode::Period => self.turn_arm(5.0, 0.0, false),
             KeyCode::Comma => self.turn_arm(-5.0, 0.0, false),
             KeyCode::Semicolon => self.turn_arm(0.0, 5.0, false),
@@ -1437,6 +1504,28 @@ impl ApplicationHandler for Editor {
                             Grab::Draft(i) => {
                                 if let Some(q) = self.plane_point(position) {
                                     self.draft[i] = q;
+                                }
+                            }
+                            Grab::Outline { view, section, whole, last } => {
+                                // across the screen at the grabbed point's depth
+                                let camera = self.camera();
+                                let plane = Plane { normal: camera.forward().to_array(), u: camera.right().to_array(), v: camera.up_vector().to_array() };
+                                let hit = self.ray(position).and_then(|(o, d)| plane.hit(plane.offset_of(last), o, d));
+                                if let (Some((now, _)), Some(cut)) = (hit, &mut self.pending) {
+                                    let d = Vec3::from_array(now) - Vec3::from_array(last);
+                                    for (vi, v) in cut.views.iter_mut().enumerate() {
+                                        let (n, u, w) = (Vec3::from_array(v.plane.normal), Vec3::from_array(v.plane.u), Vec3::from_array(v.plane.v));
+                                        for (si, s) in v.sections.iter_mut().enumerate() {
+                                            if whole || (vi == view && si == section) {
+                                                s.offset += d.dot(n);
+                                                for q in &mut s.contour {
+                                                    q[0] += d.dot(u);
+                                                    q[1] += d.dot(w);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    self.grabbed = Some(Grab::Outline { view, section, whole, last: now });
                                 }
                             }
                             Grab::Joint(i) => {
@@ -1513,6 +1602,12 @@ impl ApplicationHandler for Editor {
                             Some(Grab::Draft(0)) if moved < CLICK && self.draft.len() >= 3 => self.close_contour(),
                             // a moved joint is kept at once (Cmd+Z takes it back)
                             Some(Grab::Joint(_)) if moved >= CLICK => self.save(),
+                            // a moved region may now lie past its neighbour: keep the order
+                            Some(Grab::Outline { .. }) => {
+                                if let Some(cut) = &mut self.pending {
+                                    cut.views.iter_mut().for_each(View::sort);
+                                }
+                            }
                             Some(Grab::Joint(_)) => {
                                 self.history.pop();
                             }
