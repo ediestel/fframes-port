@@ -193,12 +193,15 @@ impl View {
 }
 
 /// A removal (or, protected, a region no cut may remove): the intersection of its views.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Cut {
     pub name: String,
     #[serde(default)]
     pub protect: bool,
     pub views: Vec<View>,
+    /// Proposed by [`propose_cuts`] and not yet accepted: it removes nothing.
+    #[serde(default)]
+    pub proposed: bool,
 }
 
 impl Cut {
@@ -217,12 +220,15 @@ pub struct Observation {
 }
 
 /// A named joint; bones run from a joint to its parent.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Joint {
     pub name: String,
     #[serde(default)]
     pub parent: Option<String>,
     pub observations: Vec<Observation>,
+    /// Proposed by [`propose_skeleton`] and not yet checked by the user.
+    #[serde(default)]
+    pub proposed: bool,
 }
 
 /// A joint's placements that disagree by more than this are reported, metres.
@@ -295,7 +301,8 @@ impl RigFile {
     /// Whether a model point is removed: inside a cut and inside no protected one.
     #[must_use]
     pub fn removes(&self, p: V3) -> bool {
-        self.cuts.iter().any(|c| !c.protect && c.contains(p)) && !self.cuts.iter().any(|c| c.protect && c.contains(p))
+        let real = || self.cuts.iter().filter(|c| !c.proposed);
+        real().any(|c| !c.protect && c.contains(p)) && !real().any(|c| c.protect && c.contains(p))
     }
 
     /// What still needs work, one line each.
@@ -305,7 +312,10 @@ impl RigFile {
         if !self.front_confirmed {
             out.push(format!("front found from the shape at {:.0}°, not confirmed: F confirms, B turns it round", self.front_yaw));
         }
-        for c in &self.cuts {
+        for c in self.cuts.iter().filter(|c| c.proposed) {
+            out.push(format!("{}: proposed, not checked: drag its dots to fit, A accepts, D dismisses", c.name));
+        }
+        for c in self.cuts.iter().filter(|c| !c.proposed) {
             let views = c.views.iter().filter(|v| !v.sections.is_empty()).count();
             if views == 0 {
                 out.push(format!("{}: nothing drawn", c.name));
@@ -313,7 +323,11 @@ impl RigFile {
                 out.push(format!("{}: drawn in one plane only; its extent across that plane is set by the contour alone, check it in a second plane", c.name));
             }
         }
-        for j in &self.joints {
+        let proposed = self.joints.iter().filter(|j| j.proposed).count();
+        if proposed > 0 {
+            out.push(format!("{proposed} proposed joints not checked: drag them where they belong, A accepts the skeleton"));
+        }
+        for j in self.joints.iter().filter(|j| !j.proposed) {
             match j.position() {
                 None => out.push(format!("joint {}: not placed", j.name)),
                 Some(_) if !j.crossed() => out.push(format!("joint {}: placed in one plane direction only, place it in a second plane", j.name)),
@@ -395,6 +409,7 @@ impl Removal {
             cuts: rig
                 .cuts
                 .iter()
+                .filter(|c| !c.proposed)
                 .map(|c| (c.protect, c.views.iter().filter_map(PreparedView::new).collect::<Vec<_>>()))
                 .filter(|(_, v)| !v.is_empty())
                 .collect(),
@@ -554,6 +569,222 @@ pub fn shape_front(positions: &[V3], indices: &[u32]) -> f32 {
         yaw += 180.0;
     }
     yaw.rem_euclid(360.0)
+}
+
+impl Joint {
+    /// Places the joint at a model point, seen on a transverse and a coronal plane through
+    /// it (so it counts as placed in two plane directions).
+    pub fn set_at(&mut self, p: V3, front_yaw: f32) {
+        self.observations = [Preset::Transverse, Preset::Coronal]
+            .iter()
+            .map(|pr| {
+                let plane = pr.plane(front_yaw);
+                Observation { plane, offset: plane.offset_of(p), point: plane.to_2d(p) }
+            })
+            .collect();
+    }
+}
+
+/// The skeleton of a standing figure, proposed for the user to check: each joint at its
+/// height in the human proportions (fractions of the stature, as in the standard tables:
+/// ankle 0.04, knee 0.285, hip 0.53, chest 0.72, shoulder 0.818, neck 0.87, head 0.93,
+/// elbow 0.63, wrist 0.485), then moved into the figure's cross-section at that height:
+/// the middle of the body for the trunk and head, of the leg on its side for hip, knee and
+/// ankle, one limb radius in from the outermost surface on its side for shoulder, elbow and
+/// wrist. `_l` is the figure's own left (its side axis points there).
+#[must_use]
+pub fn propose_skeleton(positions: &[V3], indices: &[u32], front_yaw: f32) -> Vec<Joint> {
+    let (lo, hi) = positions.iter().fold((f32::MAX, f32::MIN), |(l, h), p| (l.min(p[1]), h.max(p[1])));
+    let height = hi - lo;
+    if height <= 0.0 {
+        return Vec::new();
+    }
+    let (side, _, front) = axes(front_yaw);
+    let transverse = Preset::Transverse.plane(front_yaw);
+    // the cross-section at a height: (side, front) of its segments' middles
+    let section = |f: f32| -> Vec<(f32, f32)> {
+        section_segments(positions, indices, &transverse, lo + f * height)
+            .iter()
+            .map(|(a, b)| {
+                let m: V3 = std::array::from_fn(|k| f32::midpoint(a[k], b[k]));
+                (dot(m, side), dot(m, front))
+            })
+            .collect()
+    };
+    let mean = |pts: &[(f32, f32)]| -> Option<(f32, f32)> {
+        (!pts.is_empty()).then(|| {
+            let n = pts.len() as f32;
+            (pts.iter().map(|p| p.0).sum::<f32>() / n, pts.iter().map(|p| p.1).sum::<f32>() / n)
+        })
+    };
+    let all = section(0.5);
+    let middle = mean(&all).map_or(0.0, |m| m.0);
+    // trunk and head: the middle of the section near the figure's middle
+    let centre = |f: f32| {
+        let pts: Vec<(f32, f32)> = section(f).into_iter().filter(|p| (p.0 - middle).abs() < 0.15 * height).collect();
+        mean(&pts).unwrap_or((middle, 0.0))
+    };
+    // a leg: the middle of the section on its side
+    let leg = |f: f32, sign: f32| {
+        let pts: Vec<(f32, f32)> = section(f).into_iter().filter(|p| (p.0 - middle) * sign > 0.0).collect();
+        mean(&pts).unwrap_or((middle + sign * 0.05 * height, 0.0))
+    };
+    // an arm: a limb radius in from the outermost surface on its side
+    let arm = |f: f32, sign: f32| {
+        let pts: Vec<(f32, f32)> = section(f).into_iter().filter(|p| (p.0 - middle) * sign > 0.0).collect();
+        let reach = pts.iter().map(|p| (p.0 - middle) * sign).fold(0.0, f32::max);
+        let outer: Vec<(f32, f32)> = pts.into_iter().filter(|p| (p.0 - middle) * sign > reach - 0.06 * height).collect();
+        let front_of = mean(&outer).map_or(0.0, |m| m.1);
+        (middle + sign * (reach - 0.03 * height).max(0.0), front_of)
+    };
+    let point = |f: f32, (s, fr): (f32, f32)| -> V3 { std::array::from_fn(|k| side[k] * s + front[k] * fr + if k == 1 { lo + f * height } else { 0.0 }) };
+    let mut out = Vec::new();
+    let mut add = |name: &str, parent: Option<&str>, p: V3| {
+        let mut j = Joint { name: name.into(), parent: parent.map(String::from), observations: Vec::new(), proposed: true };
+        j.set_at(p, front_yaw);
+        out.push(j);
+    };
+    add("pelvis", None, point(0.53, centre(0.53)));
+    add("chest", Some("pelvis"), point(0.72, centre(0.72)));
+    add("neck", Some("chest"), point(0.87, centre(0.87)));
+    add("head", Some("neck"), point(0.93, centre(0.93)));
+    for (sign, s) in [(1.0_f32, "l"), (-1.0, "r")] {
+        add(&format!("shoulder_{s}"), Some("chest"), point(0.818, arm(0.818, sign)));
+        add(&format!("elbow_{s}"), Some(&format!("shoulder_{s}")), point(0.63, arm(0.63, sign)));
+        add(&format!("wrist_{s}"), Some(&format!("elbow_{s}")), point(0.485, arm(0.485, sign)));
+        add(&format!("hip_{s}"), Some("pelvis"), point(0.53, leg(0.40, sign)));
+        add(&format!("knee_{s}"), Some(&format!("hip_{s}")), point(0.285, leg(0.285, sign)));
+        add(&format!("ankle_{s}"), Some(&format!("knee_{s}")), point(0.04, leg(0.06, sign)));
+    }
+    out
+}
+
+/// The connected pieces of a cross-section: segments joined where they share an end
+/// (to a tenth of a millimetre), as lists of segment indices.
+#[must_use]
+pub fn section_pieces(segments: &[(V3, V3)]) -> Vec<Vec<usize>> {
+    let key = |p: V3| p.map(|c| (c * 1e4).round() as i64);
+    let mut ends: std::collections::HashMap<[i64; 3], usize> = std::collections::HashMap::new();
+    let mut parent: Vec<usize> = (0..segments.len()).collect();
+    fn root(parent: &mut [usize], mut i: usize) -> usize {
+        while parent[i] != i {
+            parent[i] = parent[parent[i]];
+            i = parent[i];
+        }
+        i
+    }
+    for (i, (a, b)) in segments.iter().enumerate() {
+        for p in [a, b] {
+            match ends.get(&key(*p)) {
+                Some(&j) => {
+                    let (ri, rj) = (root(&mut parent, i), root(&mut parent, j));
+                    parent[ri] = rj;
+                }
+                None => {
+                    ends.insert(key(*p), i);
+                }
+            }
+        }
+    }
+    let mut groups: std::collections::HashMap<usize, Vec<usize>> = std::collections::HashMap::new();
+    for i in 0..segments.len() {
+        let r = root(&mut parent, i);
+        groups.entry(r).or_default().push(i);
+    }
+    groups.into_values().collect()
+}
+
+/// Cuts proposed for the user to check: for each arm, where it stops being free of the
+/// body. Going up from the wrist (0.485 of the height), the outermost piece of each
+/// transverse section on that side is the arm while it is not the piece in the figure's
+/// middle; the height where they first become one is where the reconstruction joined them.
+/// The gap seen just below (between the body's outer edge and the arm's inner edge, over the
+/// arm's depth) is proposed as removed from there up to 0.74 of the height (under the
+/// armpit), drawn in all three planes.
+#[must_use]
+pub fn propose_cuts(positions: &[V3], indices: &[u32], front_yaw: f32) -> Vec<Cut> {
+    let (lo, hi) = positions.iter().fold((f32::MAX, f32::MIN), |(l, h), p| (l.min(p[1]), h.max(p[1])));
+    let height = hi - lo;
+    if height <= 0.0 {
+        return Vec::new();
+    }
+    let (side, _, front) = axes(front_yaw);
+    let planes = (Preset::Transverse.plane(front_yaw), Preset::Coronal.plane(front_yaw), Preset::Sagittal.plane(front_yaw));
+    let mid_section = section_segments(positions, indices, &planes.0, lo + 0.5 * height);
+    let middle = if mid_section.is_empty() { 0.0 } else { mid_section.iter().map(|(a, _)| dot(*a, side)).sum::<f32>() / mid_section.len() as f32 };
+    // per piece: lowest and highest side coordinate, lowest and highest front coordinate
+    let pieces_at = |f: f32| -> Vec<[f32; 4]> {
+        let segs = section_segments(positions, indices, &planes.0, lo + f * height);
+        section_pieces(&segs)
+            .iter()
+            .map(|piece| {
+                piece.iter().fold([f32::MAX, f32::MIN, f32::MAX, f32::MIN], |b, &i| {
+                    let (s0, s1) = (dot(segs[i].0, side), dot(segs[i].1, side));
+                    let (f0, f1) = (dot(segs[i].0, front), dot(segs[i].1, front));
+                    [b[0].min(s0.min(s1)), b[1].max(s0.max(s1)), b[2].min(f0.min(f1)), b[3].max(f0.max(f1))]
+                })
+            })
+            .collect()
+    };
+    let mut out = Vec::new();
+    for (sign, name) in [(1.0_f32, "left arm"), (-1.0, "right arm")] {
+        // in the side's own direction: inner and outer edge
+        let span = |b: &[f32; 4]| if sign > 0.0 { (b[0] - middle, b[1] - middle) } else { (middle - b[1], middle - b[0]) };
+        let mut free: Option<(f32, f32, f32, f32)> = None; // body's outer edge, arm's inner edge, arm's depth range
+        let mut joined_at = None;
+        let mut f = 0.485;
+        while f < 0.74 {
+            let pieces = pieces_at(f);
+            let body = pieces.iter().min_by(|a, b| {
+                let d = |x: &[f32; 4]| if x[0] <= middle && x[1] >= middle { 0.0 } else { (x[0] - middle).abs().min((x[1] - middle).abs()) };
+                d(a).total_cmp(&d(b))
+            });
+            let arm = pieces.iter().max_by(|a, b| span(a).1.total_cmp(&span(b).1));
+            if let (Some(body), Some(arm)) = (body, arm) {
+                if std::ptr::eq(body, arm) {
+                    if free.is_some() {
+                        joined_at = Some(f);
+                        break;
+                    }
+                } else if span(arm).0 > span(body).1 {
+                    free = Some((span(body).1, span(arm).0, arm[2], arm[3]));
+                }
+            }
+            f += 0.005;
+        }
+        let (Some(at), Some((body_edge, arm_edge, f0, f1))) = (joined_at, free) else { continue };
+        let (y0, y1) = (lo + (at - 0.01) * height, lo + 0.74 * height);
+        let (s0, s1) = (middle + sign * body_edge, middle + sign * arm_edge);
+        let (s0, s1) = (s0.min(s1), s0.max(s1));
+        let (f0, f1) = (f0 - 0.01, f1 + 0.01);
+        // the box as three views, each a rectangle in its plane
+        let corner = |pl: &Plane, s: f32, fr: f32, y: f32| -> [f32; 2] {
+            let p: V3 = std::array::from_fn(|k| side[k] * s + front[k] * fr + if k == 1 { y } else { 0.0 });
+            pl.to_2d(p)
+        };
+        let rect = |pl: &Plane, pts: [(f32, f32, f32); 4]| -> Vec<[f32; 2]> { pts.iter().map(|&(s, fr, y)| corner(pl, s, fr, y)).collect() };
+        let (t, c, g) = &planes;
+        let across = |y: f32| Section { offset: y, contour: rect(t, [(s0, f0, y), (s1, f0, y), (s1, f1, y), (s0, f1, y)]) };
+        let fm = f32::midpoint(f0, f1);
+        let sm = f32::midpoint(s0, s1);
+        let views = vec![
+            View { plane: *t, sections: vec![across(y0), across(y1)], before: 0.0, after: 0.0 },
+            View {
+                plane: *c,
+                sections: vec![Section { offset: fm, contour: rect(c, [(s0, fm, y0), (s1, fm, y0), (s1, fm, y1), (s0, fm, y1)]) }],
+                before: (f1 - f0) / 2.0,
+                after: (f1 - f0) / 2.0,
+            },
+            View {
+                plane: *g,
+                sections: vec![Section { offset: sm, contour: rect(g, [(sm, f0, y0), (sm, f1, y0), (sm, f1, y1), (sm, f0, y1)]) }],
+                before: (s1 - s0) / 2.0,
+                after: (s1 - s0) / 2.0,
+            },
+        ];
+        out.push(Cut { name: format!("{name} bridge"), protect: false, views, proposed: true });
+    }
+    out
 }
 
 /// A rotation of `angle` radians about a unit `axis`, as a matrix.
@@ -815,14 +1046,14 @@ mod tests {
         front.sections.push(Section { offset: 0.0, contour: square(0.3, 0.95, 0.05) });
         front.before = 0.5;
         front.after = 0.5;
-        let cut = Cut { name: "bridge".into(), protect: false, views: vec![across, front] };
+        let cut = Cut { name: "bridge".into(), views: vec![across, front], ..Cut::default() };
         assert!(cut.contains([0.3, 0.95, 0.0]));
         assert!(!cut.contains([0.3, 1.05, 0.0]), "outside the coronal view");
         let mut rig = RigFile { cuts: vec![cut], ..RigFile::default() };
         assert!(rig.removes([0.3, 0.92, 0.0]));
         let mut shoulder = View::new(Preset::Transverse.plane(0.0));
         shoulder.sections.push(Section { offset: 0.92, contour: square(0.3, 0.0, 0.05) });
-        rig.cuts.push(Cut { name: "shoulder".into(), protect: true, views: vec![shoulder] });
+        rig.cuts.push(Cut { name: "shoulder".into(), protect: true, views: vec![shoulder], ..Cut::default() });
         assert!(!rig.removes([0.3, 0.92, 0.0]), "protected");
         assert!(rig.removes([0.3, 0.97, 0.0]), "outside the protection");
         // the prepared form gives the same answers on a grid of points
@@ -843,7 +1074,7 @@ mod tests {
     fn joints_need_two_plane_directions() {
         let t = Preset::Transverse.plane(0.0);
         let c = Preset::Coronal.plane(0.0);
-        let mut j = Joint { name: "shoulder".into(), parent: None, observations: vec![Observation { plane: t, offset: 1.3, point: [0.2, 0.0] }] };
+        let mut j = Joint { name: "shoulder".into(), observations: vec![Observation { plane: t, offset: 1.3, point: [0.2, 0.0] }], ..Joint::default() };
         let mut rig = RigFile { front_confirmed: true, joints: vec![j.clone()], ..RigFile::default() };
         assert_eq!(rig.open_tasks().len(), 1, "{:?}", rig.open_tasks());
         j.observations.push(Observation { plane: c, offset: 0.0, point: [0.2, 1.31] });
@@ -985,6 +1216,65 @@ mod tests {
         }
     }
 
+    /// The proposed skeleton of a body with two legs and two arms: sixteen joints, the
+    /// limbs on their own sides, heights in order, every joint placed in two directions.
+    #[test]
+    fn proposed_skeleton_is_ordered() {
+        let size = 0.02;
+        // 1.7 m: legs x 6..10 and 14..18 up to 0.8 m, body x 6..18, arms x 2..5 and 19..22
+        let solid = |x: i32, y: i32, z: i32| {
+            (0..6).contains(&z)
+                && (0..85).contains(&y)
+                && (((6..10).contains(&x) || (14..18).contains(&x)) && y < 40
+                    || (6..18).contains(&x) && (40..72).contains(&y)
+                    || (9..15).contains(&x) && y >= 72
+                    || ((2..5).contains(&x) || (19..22).contains(&x)) && (36..70).contains(&y))
+        };
+        let (pos, ind) = voxel_surface(&solid, 90, size);
+        let joints = propose_skeleton(&pos, &ind, 0.0);
+        assert_eq!(joints.len(), 16);
+        let at = |n: &str| joints.iter().find(|j| j.name == n).and_then(Joint::position).expect(n).0;
+        for (s, sign) in [("l", 1.0_f32), ("r", -1.0)] {
+            for limb in ["shoulder", "elbow", "wrist", "hip", "knee", "ankle"] {
+                let p = at(&format!("{limb}_{s}"));
+                assert!((p[0] - 12.0 * size) * sign > 0.0, "{limb}_{s} on the wrong side: {p:?}");
+            }
+            assert!(at(&format!("ankle_{s}"))[1] < at(&format!("knee_{s}"))[1] && at(&format!("knee_{s}"))[1] < at(&format!("hip_{s}"))[1]);
+            assert!(at(&format!("wrist_{s}"))[1] < at(&format!("elbow_{s}"))[1] && at(&format!("elbow_{s}"))[1] < at(&format!("shoulder_{s}"))[1]);
+        }
+        let rig = RigFile { front_confirmed: true, joints: joints.clone(), ..RigFile::default() };
+        assert_eq!(rig.open_tasks().len(), 1, "only the check of the proposal: {:?}", rig.open_tasks());
+        assert!(joints.iter().all(Joint::crossed));
+    }
+
+    /// A body with one arm free and one joined to it by a bridge at mid height: a cut is
+    /// proposed for the joined arm only, covering the bridge, not the arm or the body, and it
+    /// removes nothing until accepted.
+    #[test]
+    fn a_bridge_is_proposed_as_a_cut() {
+        let size = 0.02;
+        let solid = |x: i32, y: i32, z: i32| {
+            (0..6).contains(&z)
+                && (0..85).contains(&y)
+                && (((6..10).contains(&x) || (14..18).contains(&x)) && y < 40
+                    || (6..18).contains(&x) && (40..72).contains(&y)
+                    || (9..15).contains(&x) && y >= 72
+                    || ((2..5).contains(&x) || (19..22).contains(&x)) && (36..70).contains(&y)
+                    // the bridge: the arm on +x joined to the body from 0.92 m to 1.2 m
+                    || x == 18 && (46..60).contains(&y))
+        };
+        let (pos, ind) = voxel_surface(&solid, 90, size);
+        let cuts = propose_cuts(&pos, &ind, 0.0);
+        assert_eq!(cuts.len(), 1, "{:?}", cuts.iter().map(|c| &c.name).collect::<Vec<_>>());
+        let cut = &cuts[0];
+        assert!(cut.proposed && cut.name.starts_with("left"), "{}", cut.name);
+        assert!(cut.contains([18.5 * size, 52.0 * size, 3.0 * size]), "the bridge");
+        assert!(!cut.contains([20.5 * size, 52.0 * size, 3.0 * size]), "the arm");
+        assert!(!cut.contains([16.0 * size, 52.0 * size, 3.0 * size]), "the body");
+        let rig = RigFile { cuts: cuts.clone(), ..RigFile::default() };
+        assert!(!rig.removes([18.5 * size, 52.0 * size, 3.0 * size]) && Removal::new(&rig).is_empty());
+    }
+
     /// A draft keeps unaccepted work through saving and loading; an empty one leaves no file.
     #[test]
     fn draft_round_trip() {
@@ -1008,7 +1298,7 @@ mod tests {
             source: Some(Source { video: "turntable_farmer.mp4".into(), options: vec!["--hull".into()] }),
             front_yaw: 10.0,
             front_confirmed: true,
-            cuts: vec![Cut { name: "right arm".into(), protect: false, views: vec![view] }],
+            cuts: vec![Cut { name: "right arm".into(), views: vec![view], ..Cut::default() }],
             joints: Vec::new(),
         };
         let path = std::env::temp_dir().join(format!("fframes-rig-test-{}.rig.json", std::process::id()));

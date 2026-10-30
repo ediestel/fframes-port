@@ -43,7 +43,7 @@ use fframes_native_player::winit;
 use fframes_native_player::{PlayerBackend, Surface};
 use fframes_rig::{
     Cut, Joint, Observation, Plane, Preset, RigFile, Section, Source, V3, View, axes, limb_weights, pose, rig_path, rotation,
-    Draft, draft_path, section_segments, shape_front,
+    Draft, draft_path, propose_cuts, propose_skeleton, section_segments, shape_front,
 };
 use fframes_three_d::{
     Background, Camera, Environment, Geometry, Light, Mat3, Material, Model, Node, Quat, Renderer, Rgb, Scene, Vec3,
@@ -145,6 +145,8 @@ struct Posed {
 enum Grab {
     Draft(usize),
     Section(usize, usize, usize),
+    /// A joint (index in the rig), moved across the screen at its depth.
+    Joint(usize),
 }
 
 /// Sections closer than this to the plane's position are on it, metres.
@@ -204,6 +206,8 @@ struct Editor {
     grabbed: Option<Grab>,
     /// An accepted cut taken out for editing: its place in the list and how it was.
     editing: Option<(usize, Cut)>,
+    /// The joint last clicked (the arm raise uses the selected shoulder).
+    selected: Option<String>,
     /// Open contours left on other plane positions (direction, position, dots).
     parked: Vec<(Preset, f32, Vec<[f32; 2]>)>,
     /// Where unaccepted work is saved after every change.
@@ -310,6 +314,7 @@ fn run() -> Result<(), String> {
         draft: Vec::new(),
         grabbed: None,
         editing: None,
+        selected: None,
         parked: Vec::new(),
         draft_file,
         focused_at: None,
@@ -331,6 +336,18 @@ fn run() -> Result<(), String> {
         modifiers: ModifiersState::empty(),
         error: None,
     };
+    // proposals, until the rig has its own: a skeleton, and cuts where an arm joins the body
+    if editor.rig.joints.is_empty() {
+        editor.rig.joints = propose_skeleton(&editor.figure.positions, &editor.figure.indices, editor.rig.front_yaw);
+        eprintln!("proposed: a skeleton of {} joints", editor.rig.joints.len());
+    }
+    if editor.rig.cuts.is_empty() {
+        editor.rig.cuts = propose_cuts(&editor.figure.positions, &editor.figure.indices, editor.rig.front_yaw);
+        for c in &editor.rig.cuts {
+            let range = c.views.first().and_then(View::range).unwrap_or_default();
+            eprintln!("proposed: {} from {:.3} to {:.3} m", c.name, range.0, range.1);
+        }
+    }
     if !draft.is_empty() {
         editor.editing = draft.editing.and_then(|i| editor.rig.cuts.get(i).cloned().map(|c| (i, c)));
         editor.pending = draft.cut;
@@ -542,7 +559,7 @@ impl Editor {
             }
         }
         let n = self.rig.cuts.len() + 1;
-        let cut = self.pending.get_or_insert_with(|| Cut { name: format!("cut {n}"), protect: false, views: Vec::new() });
+        let cut = self.pending.get_or_insert_with(|| Cut { name: format!("cut {n}"), ..Cut::default() });
         let view = match cut.views.iter().position(|v| v.plane.parallel_to(&a.plane)) {
             Some(i) => &mut cut.views[i],
             None => {
@@ -560,16 +577,34 @@ impl Editor {
     }
 
     fn accept(&mut self) {
-        if !self.draft.is_empty() {
-            self.message = "close the contour first (Enter), or Esc to drop it".into();
+        // an open contour is closed by accepting, as by Enter
+        if self.draft.len() >= 3 {
+            self.close_contour();
+        } else if !self.draft.is_empty() {
+            self.message = "a contour needs at least 3 dots (Esc drops them)".into();
             return;
         }
         if self.pending.is_none() && self.joint.is_none() {
-            self.message = "nothing to accept".into();
+            // nothing being drawn: accept the proposed skeleton as it stands
+            let proposed = self.rig.joints.iter().filter(|j| j.proposed).count();
+            if proposed > 0 {
+                self.remember();
+                for j in &mut self.rig.joints {
+                    j.proposed = false;
+                }
+                self.posed = None;
+                self.save();
+                self.message = format!("skeleton accepted ({proposed} joints)");
+            } else if self.rig.cuts.iter().any(|c| c.proposed) {
+                self.message = "drag a dot of a proposed cut (magenta) to open it, or E, then A".into();
+            } else {
+                self.message = "nothing to accept".into();
+            }
             return;
         }
         self.remember();
-        if let Some(c) = self.pending.take() {
+        if let Some(mut c) = self.pending.take() {
+            c.proposed = false;
             self.message = format!("{} accepted", c.name);
             // an edited cut replaces the one it was opened from
             match self.editing.take() {
@@ -591,9 +626,30 @@ impl Editor {
         self.draft.clear();
         let had = self.pending.take().is_some() | self.joint.take().is_some();
         self.message = match (self.editing.take(), had) {
+            // a proposed cut that was opened is dismissed altogether
+            (Some((i, c)), _) if c.proposed => {
+                self.remember();
+                if i < self.rig.cuts.len() {
+                    self.rig.cuts.remove(i);
+                }
+                self.save();
+                format!("{} dismissed", c.name)
+            }
             (Some((_, c)), _) => format!("{} left as it was", c.name),
             (None, true) => "discarded".into(),
-            (None, false) => "nothing to discard".into(),
+            (None, false) => {
+                // nothing open: the selected proposed joint is dismissed
+                match self.selected.clone().and_then(|n| self.rig.joints.iter().position(|j| j.name == n && j.proposed)) {
+                    Some(i) => {
+                        self.remember();
+                        let j = self.rig.joints.remove(i);
+                        self.selected = None;
+                        self.save();
+                        format!("joint {} dismissed", j.name)
+                    }
+                    None => "nothing to discard".into(),
+                }
+            }
         };
     }
 
@@ -663,12 +719,23 @@ impl Editor {
     /// of the cut being edited or drawn, else of an accepted cut's section on the plane (which
     /// opens that cut for editing).
     fn grab_at(&mut self, at: Point) -> Option<Grab> {
-        let a = self.active?;
         let ui = self.window.as_ref().map_or(1.0, |w| w.scale_factor() as f32);
         let near = |p: V3, me: &Self| me.screen(p).is_some_and(|s| (s - at).length() < GRAB * ui);
-        if let Some(i) = self.draft.iter().position(|d| near(a.plane.to_3d(*d, a.offset), self)) {
-            return Some(Grab::Draft(i));
+        if let Some(a) = self.active {
+            if let Some(i) = self.draft.iter().position(|d| near(a.plane.to_3d(*d, a.offset), self)) {
+                return Some(Grab::Draft(i));
+            }
         }
+        // a joint: selected, and moved when dragged
+        if self.joint.is_none() {
+            if let Some(i) = self.rig.joints.iter().position(|j| j.position().is_some_and(|(p, _)| near(p, self))) {
+                self.selected = Some(self.rig.joints[i].name.clone());
+                self.message = format!("joint {} selected: drag to move it{}", self.rig.joints[i].name, if self.rig.joints[i].proposed { ", D dismisses it" } else { "" });
+                self.remember();
+                return Some(Grab::Joint(i));
+            }
+        }
+        let a = self.active?;
         let find = |cut: &Cut, me: &Self| -> Option<(usize, usize, usize)> {
             for (vi, v) in cut.views.iter().enumerate() {
                 for (si, s) in v.sections.iter().enumerate() {
@@ -803,7 +870,7 @@ impl Editor {
             Action::Plane(p) => self.choose_plane(p),
             Action::Protect => {
                 let n = self.rig.cuts.len() + 1;
-                let cut = self.pending.get_or_insert_with(|| Cut { name: format!("cut {n}"), protect: false, views: Vec::new() });
+                let cut = self.pending.get_or_insert_with(|| Cut { name: format!("cut {n}"), ..Cut::default() });
                 cut.protect = !cut.protect;
                 if cut.protect && !cut.name.starts_with("protected") {
                     cut.name = format!("protected {n}");
@@ -837,8 +904,14 @@ impl Editor {
     /// is (`elbow:shoulder`), the weights found on the figure shown.
     fn turn_arm(&mut self, side: f32, forward: f32, reset: bool) {
         if self.posed.is_none() {
-            let shoulder = self.rig.joints.iter().find(|j| j.name == "shoulder");
-            let elbow = self.rig.joints.iter().find(|j| j.parent.as_deref() == Some("shoulder"));
+            // the selected shoulder, else the first one; its elbow is the joint it is parent of
+            let is_shoulder = |j: &&Joint| j.name.starts_with("shoulder");
+            let shoulder = self
+                .selected
+                .as_ref()
+                .and_then(|n| self.rig.joints.iter().filter(is_shoulder).find(|j| &j.name == n))
+                .or_else(|| self.rig.joints.iter().find(is_shoulder));
+            let elbow = shoulder.and_then(|s| self.rig.joints.iter().find(|j| j.parent.as_deref() == Some(s.name.as_str())));
             let (Some((s, _)), Some((e, _))) = (shoulder.and_then(Joint::position), elbow.and_then(Joint::position)) else {
                 self.message = "place and accept the joints shoulder and elbow (named elbow:shoulder) first".into();
                 return;
@@ -970,13 +1043,25 @@ impl Editor {
         // cuts: their sections, and outlines through the volume between them
         let pending_name = self.pending.as_ref().map(|c| c.name.clone());
         for cut in &rig.cuts {
-            let colour = match (cut.protect, Some(&cut.name) == pending_name.as_ref()) {
-                (true, _) => Color::from_rgb(80, 210, 130),
-                (false, true) => Color::from_rgb(255, 150, 50),
-                (false, false) => Color::from_rgb(90, 170, 255),
+            // proposed magenta, being edited orange, protected green, accepted blue
+            let colour = match (cut.protect, Some(&cut.name) == pending_name.as_ref(), cut.proposed) {
+                (_, true, _) => Color::from_rgb(255, 150, 50),
+                (_, false, true) => Color::from_rgb(235, 80, 225),
+                (true, false, false) => Color::from_rgb(80, 210, 130),
+                (false, false, false) => Color::from_rgb(90, 170, 255),
             };
             for view in &cut.views {
                 let Some((lo, hi)) = view.range() else { continue };
+                // the dots of a section on the plane, to drag
+                if let Some(a) = self.active.filter(|a| view.plane.parallel_to(&a.plane)) {
+                    for s in view.sections.iter().filter(|s| (s.offset - a.offset).abs() <= ON_PLANE) {
+                        for q in &s.contour {
+                            if let Some(p) = self.screen(view.plane.to_3d(*q, s.offset)) {
+                                dots.push((p, colour, 4.5));
+                            }
+                        }
+                    }
+                }
                 let mut offsets: Vec<f32> = view.sections.iter().map(|s| s.offset).collect();
                 offsets.extend((0..=6).map(|k| lo + (hi - lo) * k as f32 / 6.0));
                 for (n, t) in offsets.iter().enumerate() {
@@ -992,14 +1077,25 @@ impl Editor {
             }
         }
         // joints and the bones between them
+        // proposed magenta, being placed yellow, accepted cyan; the selected one ringed white
         for j in &rig.joints {
             let pending = self.joint.as_ref().is_some_and(|p| p.name == j.name);
             let Some((p, _)) = j.position() else { continue };
+            let colour = if pending {
+                Color::from_rgb(255, 210, 60)
+            } else if j.proposed {
+                Color::from_rgb(235, 80, 225)
+            } else {
+                Color::from_rgb(80, 230, 230)
+            };
             if let Some(s) = self.screen(p) {
-                dots.push((s, if pending { Color::from_rgb(255, 210, 60) } else { Color::from_rgb(80, 230, 230) }, 6.0));
+                if self.selected.as_ref() == Some(&j.name) {
+                    dots.push((s, Color::WHITE, 9.0));
+                }
+                dots.push((s, colour, 6.0));
                 if let Some(parent) = j.parent.as_ref().and_then(|n| rig.joints.iter().find(|q| &q.name == n)).and_then(Joint::position) {
                     if let Some(t) = self.screen(parent.0) {
-                        lines.push((s, t, Color::from_rgb(80, 230, 230), 2.5));
+                        lines.push((s, t, colour, 2.5));
                     }
                 }
             }
@@ -1146,7 +1242,7 @@ impl Editor {
                     } else {
                         // an existing joint is continued with its placements
                         let existing = self.rig.joints.iter().find(|j| j.name == name).cloned();
-                        let joint = existing.unwrap_or(Joint { name: name.clone(), parent: None, observations: Vec::new() });
+                        let joint = existing.unwrap_or(Joint { name: name.clone(), ..Joint::default() });
                         self.joint = Some(Joint { parent: parent.or(joint.parent.clone()), ..joint });
                         self.message = format!("joint {name}: click it on a plane, then on a second plane across it");
                     }
@@ -1341,6 +1437,21 @@ impl ApplicationHandler for Editor {
                                     self.draft[i] = q;
                                 }
                             }
+                            Grab::Joint(i) => {
+                                // across the screen, at the joint's depth
+                                let camera = self.camera();
+                                let ray = self.ray(position);
+                                if let (Some((o, d)), Some((p, _))) = (ray, self.rig.joints.get(i).and_then(Joint::position)) {
+                                    let n = camera.forward().to_array();
+                                    let plane = Plane { normal: n, u: camera.right().to_array(), v: camera.up_vector().to_array() };
+                                    if let Some((q, _)) = plane.hit(plane.offset_of(p), o, d) {
+                                        let yaw = self.rig.front_yaw;
+                                        self.rig.joints[i].set_at(q, yaw);
+                                        self.posed = None;
+                                        self.message = format!("joint {} at x {:.3} y {:.3} z {:.3}", self.rig.joints[i].name, q[0], q[1], q[2]);
+                                    }
+                                }
+                            }
                             Grab::Section(vi, si, pi) => {
                                 let ray = self.ray(position);
                                 if let (Some((o, d)), Some(cut)) = (ray, &mut self.pending) {
@@ -1398,6 +1509,11 @@ impl ApplicationHandler for Editor {
                         match grabbed {
                             // a click on the first dot of an open contour closes it
                             Some(Grab::Draft(0)) if moved < CLICK && self.draft.len() >= 3 => self.close_contour(),
+                            // a moved joint is kept at once (Cmd+Z takes it back)
+                            Some(Grab::Joint(_)) if moved >= CLICK => self.save(),
+                            Some(Grab::Joint(_)) => {
+                                self.history.pop();
+                            }
                             None if moved < CLICK && !activation => self.click(self.cursor),
                             _ => {}
                         }
