@@ -26,8 +26,10 @@
 //!    what can be reached from the elbow without the body; the shoulder blends.
 //!
 //! The box at the top right lists what is not finished: a cut drawn in one plane only, a
-//! joint placed in one plane only, anything not accepted. `F` confirms the figure's front
-//! (turn the camera to face it first). `Cmd+Z` / `Cmd+Shift+Z` undo and redo accepted
+//! joint placed in one plane only, anything not accepted. The room's walls are square to
+//! the figure: its front is found from its shape (widest across the shoulders, the way nearer
+//! the turntable's first frame); `F` confirms it, `B` turns it round, Shift+`B` a quarter
+//! turn. `Cmd+Z` / `Cmd+Shift+Z` undo and redo accepted
 //! changes. Turn: drag. Zoom: scroll. Up and down: Shift+drag. `R` front view, `Q` quit.
 
 use std::rc::Rc;
@@ -41,7 +43,7 @@ use fframes_native_player::winit;
 use fframes_native_player::{PlayerBackend, Surface};
 use fframes_rig::{
     Cut, Joint, Observation, Plane, Preset, RigFile, Section, Source, V3, View, axes, limb_weights, pose, rig_path, rotation,
-    section_segments,
+    section_segments, shape_front,
 };
 use fframes_three_d::{
     Background, Camera, Environment, Geometry, Light, Mat3, Material, Model, Node, Quat, Renderer, Rgb, Scene, Vec3,
@@ -99,8 +101,9 @@ fn load_figure(path: &str) -> Result<Figure, String> {
     Ok(Figure { model, positions, indices })
 }
 
-/// The figure in a plain room: a box around it, lit evenly.
-fn room_scene(figure: &Figure, lo: Vec3, size: f32) -> Scene {
+/// The figure in a plain room: a box around it, its walls square to the figure's front
+/// (`front_yaw`, degrees) and centred on it, lit evenly.
+fn room_scene(figure: &Figure, lo: Vec3, centre: Vec3, size: f32, front_yaw: f32) -> Scene {
     let mut scene = Scene::new()
         .environment(Environment::studio().intensity(0.7))
         .background(Background::Color(Rgb::hex(0x20_22_28)));
@@ -108,11 +111,17 @@ fn room_scene(figure: &Figure, lo: Vec3, size: f32) -> Scene {
     let wall = Material::standard(0x6e_70_76).roughness(0.95);
     let floor = Material::standard(0x55_57_5c).roughness(0.9);
     let (h, t) = (size * 0.7, 0.05);
-    scene.add(Node::mesh(Geometry::floor(size, size).translate(0.0, lo.y, 0.0), floor).shadows(false, true));
+    let turn = front_yaw.to_radians();
+    let (side, _, front) = axes(front_yaw);
+    // a point of the room's own plan (x along the figure's side, z along its front)
+    let place_x = |x: f32, z: f32| centre.x + x * side[0] + z * front[0];
+    let place_z = |x: f32, z: f32| centre.z + x * side[2] + z * front[2];
+    scene.add(Node::mesh(Geometry::floor(size, size).rotate_y(turn).translate(centre.x, lo.y, centre.z), floor).shadows(false, true));
     for (x, z, w, d) in [(0.0, -size / 2.0, size, t), (0.0, size / 2.0, size, t), (-size / 2.0, 0.0, t, size), (size / 2.0, 0.0, t, size)] {
-        scene.add(Node::mesh(Geometry::cuboid(w, h, d).translate(x, lo.y + h / 2.0, z), wall.clone()).shadows(false, true));
+        let g = Geometry::cuboid(w, h, d).rotate_y(turn).translate(place_x(x, z), lo.y + h / 2.0, place_z(x, z));
+        scene.add(Node::mesh(g, wall.clone()).shadows(false, true));
     }
-    scene.add(Node::mesh(Geometry::cuboid(size, t, size).translate(0.0, lo.y + h, 0.0), wall).shadows(false, false));
+    scene.add(Node::mesh(Geometry::cuboid(size, t, size).rotate_y(turn).translate(centre.x, lo.y + h, centre.z), wall).shadows(false, false));
     scene.add(Node::light(Light::hemisphere(Rgb::hex(0xd8_dc_e4), Rgb::hex(0x40_3c_38), 0.5)));
     scene.add(Node::light(Light::sun(Rgb::WHITE, 1.8, vec3(1.5, 3.0, 2.5))));
     scene.add(Node::light(Light::sun(Rgb::hex(0xdd_e4_ff), 0.6, vec3(-2.0, 1.5, -2.5))));
@@ -249,7 +258,11 @@ fn run() -> Result<(), String> {
         .find_map(|f| font_mgr.match_family_style(f, FontStyle::normal()))
         .or_else(|| font_mgr.legacy_make_typeface(None, FontStyle::normal()))
         .ok_or("no system font available")?;
-    let base = room_scene(&figure, lo, room);
+    // the room square to the figure: its front from its shape until the user confirms one
+    if !rig.front_confirmed {
+        rig.front_yaw = shape_front(&figure.positions, &figure.indices);
+    }
+    let base = room_scene(&figure, lo, centre, room, rig.front_yaw);
     let mut editor = Editor {
         model_path,
         figure,
@@ -544,7 +557,7 @@ impl Editor {
                 let removed = lines.next().unwrap_or_default().to_string();
                 match load_figure(&shown) {
                     Ok(f) => {
-                        self.scenes.1 = Some(room_scene(&f, self.lo, self.room));
+                        self.scenes.1 = Some(room_scene(&f, self.lo, self.centre, self.room, self.rig.front_yaw));
                         self.rebuilt = Some(f);
                         self.showing_rebuilt = true;
                         self.posed = None;
@@ -681,7 +694,7 @@ impl Editor {
             }
         }
         let posed = Figure { model: Model { scene: tree, animations: Vec::new() }, positions: Vec::new(), indices: Vec::new() };
-        let scene = room_scene(&posed, self.lo, self.room);
+        let scene = room_scene(&posed, self.lo, self.centre, self.room, self.rig.front_yaw);
         if let Some(p) = &mut self.posed {
             p.scene = Some(scene);
         }
@@ -806,7 +819,7 @@ impl Editor {
                 self.message
             )
         };
-        let keys = "click: dot / joint   drag dot: move   Enter: close contour   Up/Down: move plane   [ ]: ends   P: protect   A: accept   D: discard   J: joint   X: apply   T: original/rebuilt   , . ; ' 0: arm   F: front   Cmd+Z: undo   Q: quit";
+        let keys = "click: dot / joint   drag dot: move   Enter: close contour   Up/Down: move plane   [ ]: ends   P: protect   A: accept   D: discard   J: joint   X: apply   T: original/rebuilt   , . ; ' 0: arm   F: confirm front   B: turn front   Cmd+Z: undo   Q: quit";
         let labels: [(&str, Action); 11] = [
             ("Transverse", Action::Plane(Preset::Transverse)),
             ("Coronal", Action::Plane(Preset::Coronal)),
@@ -1018,13 +1031,25 @@ impl Editor {
             }
             KeyCode::KeyF => {
                 self.remember();
-                self.rig.front_yaw = self.azimuth.rem_euclid(360.0);
                 self.rig.front_confirmed = true;
+                self.save();
+                self.message = format!("front confirmed at {:.0}°", self.rig.front_yaw);
+            }
+            KeyCode::KeyB => {
+                // the other way round, or (Shift) a quarter turn when the width was misread
+                let by = if self.modifiers.shift_key() { 90.0 } else { 180.0 };
+                self.rig.front_yaw = (self.rig.front_yaw + by).rem_euclid(360.0);
+                self.rig.front_confirmed = false;
+                self.scenes.0 = room_scene(&self.figure, self.lo, self.centre, self.room, self.rig.front_yaw);
+                if let Some(r) = &self.rebuilt {
+                    self.scenes.1 = Some(room_scene(r, self.lo, self.centre, self.room, self.rig.front_yaw));
+                }
+                self.posed = None;
                 if let Some(a) = &mut self.active {
                     a.plane = a.preset.plane(self.rig.front_yaw);
                 }
-                self.save();
-                self.message = format!("front confirmed at {:.0}° (the side facing the camera)", self.rig.front_yaw);
+                self.azimuth = self.rig.front_yaw;
+                self.message = format!("front turned to {:.0}°: F confirms", self.rig.front_yaw);
             }
             KeyCode::KeyR => {
                 self.target = self.centre;

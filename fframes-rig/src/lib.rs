@@ -301,7 +301,7 @@ impl RigFile {
     pub fn open_tasks(&self) -> Vec<String> {
         let mut out = Vec::new();
         if !self.front_confirmed {
-            out.push("the figure's front is not confirmed (turn to the front and press F)".into());
+            out.push(format!("front found from the shape at {:.0}°, not confirmed: F confirms, B turns it round", self.front_yaw));
         }
         for c in &self.cuts {
             let views = c.views.iter().filter(|v| !v.sections.is_empty()).count();
@@ -517,6 +517,41 @@ pub fn limb_weights(positions: &[V3], indices: &[u32], root: V3, tip: V3, blend:
         })
         .collect();
     Some((weights, level))
+}
+
+/// The figure's front from its shape (degrees about y, as [`axes`] takes it): seen from
+/// above, a standing figure is widest across the shoulders, so its side axis is the long axis
+/// of its surface (area-weighted), and its front is square to that. Of the two ways round,
+/// the one nearer +z (the camera of the turntable's first frame) is taken.
+#[must_use]
+pub fn shape_front(positions: &[V3], indices: &[u32]) -> f32 {
+    let (mut sum, mut sx, mut sz, mut sxx, mut sxz, mut szz) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
+    for t in indices.chunks_exact(3) {
+        let [a, b, c] = [t[0], t[1], t[2]].map(|i| positions[i as usize]);
+        let n = cross(sub(b, a), sub(c, a));
+        let area = f64::from(dot(n, n).sqrt() * 0.5);
+        let (x, z) = (f64::from(a[0] + b[0] + c[0]) / 3.0, f64::from(a[2] + b[2] + c[2]) / 3.0);
+        sum += area;
+        sx += area * x;
+        sz += area * z;
+        sxx += area * x * x;
+        sxz += area * x * z;
+        szz += area * z * z;
+    }
+    if sum <= 0.0 {
+        return 0.0;
+    }
+    let (mx, mz) = (sx / sum, sz / sum);
+    let (cxx, cxz, czz) = (sxx / sum - mx * mx, sxz / sum - mx * mz, szz / sum - mz * mz);
+    // the long axis of the 2x2 covariance
+    let angle = 0.5 * (2.0 * cxz).atan2(cxx - czz);
+    let (ax, az) = (angle.cos() as f32, angle.sin() as f32);
+    // side = (cos y, -sin y) along the long axis; the front (sin y, cos y) towards +z
+    let mut yaw = (-az).atan2(ax).to_degrees();
+    if yaw.to_radians().cos() < 0.0 {
+        yaw += 180.0;
+    }
+    yaw.rem_euclid(360.0)
 }
 
 /// A rotation of `angle` radians about a unit `axis`, as a matrix.
@@ -862,6 +897,28 @@ mod tests {
         // the hand end of the arm swings out sideways, above its old height
         let hand = pos.iter().zip(&raised).filter(|(p, _)| p[1] < 9.0 * size && p[0] >= 10.0 * size).map(|(_, q)| q[1]).fold(f32::MAX, f32::min);
         assert!(hand > 0.4, "the raised hand end is at {hand:.2} m");
+    }
+
+    /// A figure wide across the shoulders and shallow front to back, turned about y: its
+    /// front is found square to its width, the way nearer +z.
+    #[test]
+    fn front_from_the_shape() {
+        for (turn, expected) in [(30.0_f32, 30.0_f32), (200.0, 20.0), (-60.0, 300.0)] {
+            let (side, _, front) = axes(turn);
+            let mut pos = Vec::new();
+            for k in 0..8 {
+                let (x, y, z) = (if k & 1 == 0 { -0.3 } else { 0.3 }, if k & 2 == 0 { 0.0 } else { 1.7 }, if k & 4 == 0 { -0.1 } else { 0.1 });
+                pos.push([x * side[0] + z * front[0], y, x * side[2] + z * front[2]]);
+            }
+            let mut ind = Vec::new();
+            for f in [[0u32, 1, 3, 2], [4, 6, 7, 5], [0, 4, 5, 1], [2, 3, 7, 6], [0, 2, 6, 4], [1, 5, 7, 3]] {
+                ind.extend([f[0], f[1], f[2], f[0], f[2], f[3]]);
+            }
+            let got = shape_front(&pos, &ind);
+            let diff = (got - expected).rem_euclid(360.0);
+            // a box's two triangles per face, split along one diagonal, lean the estimate a little
+            assert!(diff.min(360.0 - diff) < 1.5, "turned {turn}°: front {got:.1}°, expected {expected}°");
+        }
     }
 
     /// The rig file keeps everything through saving and loading.
