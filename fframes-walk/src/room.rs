@@ -33,11 +33,10 @@ impl Wall {
     /// Rotation about y that turns a model facing +z to face into the room from this wall.
     fn yaw(self) -> f32 {
         match self {
-            Wall::Back => 0.0,
+            Wall::Back | Wall::Floor => 0.0,
             Wall::Front => std::f32::consts::PI,
             Wall::Left => std::f32::consts::FRAC_PI_2,
             Wall::Right => -std::f32::consts::FRAC_PI_2,
-            Wall::Floor => 0.0,
         }
     }
 }
@@ -55,6 +54,9 @@ pub struct Placement {
     pub offset: f32,
     /// Glow of its colours, as if lit from behind (a window); 0 = an ordinary object.
     pub glow: f32,
+    /// Placed (its lamps, the tour around it) but not drawn: a stand-in for something drawn
+    /// over the frames afterwards, such as Gaussian splats.
+    pub hidden: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -91,7 +93,7 @@ pub struct Room {
 pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
     let mut scene = Scene::new()
         .environment(Environment::studio().intensity(0.3))
-        .background(Background::Color(Rgb::hex(0x0b0c10)));
+        .background(Background::Color(Rgb::hex(0x0b_0c_10)));
     scene.reflector = Some(Reflector::floor());
     let (w, d, h) = (size.width, size.depth, size.height);
 
@@ -122,7 +124,8 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
         }
         let s = p.height / mh;
         let width = mw * s;
-        let inst = model.add_to(&mut scene, None);
+        // a hidden model is placed (lamps, tour) but not added to the scene
+        let inst = (!p.hidden).then(|| model.add_to(&mut scene, None));
         // the model's centre goes to the wall point; its front faces into the room
         let centre = (b.min + b.max) * 0.5;
         let yaw = p.wall.yaw();
@@ -140,13 +143,14 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
             vec3(p.offset, p.sill + p.height / 2.0, -half_wall + inset)
         };
         let at = rot * local;
-        let root = &mut scene[inst.root];
-        root.rotation = rot;
-        root.scale = Vec3::splat(s);
-        root.position = at - rot * (centre * s);
+        if let Some(inst) = &inst {
+            let root = &mut scene[inst.root];
+            root.rotation = rot;
+            root.scale = Vec3::splat(s);
+            root.position = at - rot * (centre * s);
+        }
         if p.glow > 0.0 {
-            for k in 0..inst.len {
-                let id = inst.node(NodeId(k));
+            for id in inst.iter().flat_map(|inst| (0..inst.len).map(|k| inst.node(NodeId(k)))) {
                 if let Some(mesh) = scene[id].mesh_mut() {
                     mesh.cast_shadow = false;
                     mesh.receive_shadow = false;
@@ -178,7 +182,7 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
             let lamp = rot * (local + vec3(0.0, p.height * 0.35, 1.2 + p.height * 0.4));
             scene.add(
                 fframes_three_d::Node::light(Light::point(
-                    Rgb::hex(0xfff0dc),
+                    Rgb::hex(0xff_f0_dc),
                     1.6 * p.height,
                     // reaches the figure, not the room
                     2.0 + p.height * 1.2,
@@ -190,7 +194,7 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
                 let rear = rot * (local + vec3(0.0, p.height * 0.35, -(1.2 + p.height * 0.4)));
                 scene.add(
                     fframes_three_d::Node::light(Light::point(
-                        Rgb::hex(0xe8ecff),
+                        Rgb::hex(0xe8_ec_ff),
                         1.0 * p.height,
                         2.0 + p.height * 1.2,
                     ))
@@ -205,16 +209,16 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
     }
 
     // floor and ceiling
-    let floor = Material::standard(0x8a8378).roughness(0.35).reflection(0.35);
+    let floor = Material::standard(0x8a_83_78).roughness(0.35).reflection(0.35);
     scene.add(fframes_three_d::Node::mesh(Geometry::floor(w, d), floor).shadows(false, true));
-    let ceiling = Material::standard(0x5a5550).roughness(0.9);
+    let ceiling = Material::standard(0x5a_55_50).roughness(0.9);
     scene.add(
         fframes_three_d::Node::mesh(Geometry::cuboid(w + 2.0 * WALL, WALL, d + 2.0 * WALL).translate(0.0, h + WALL / 2.0, 0.0), ceiling)
             .shadows(true, true),
     );
 
     // walls, with openings cut as rectangles
-    let stone = Material::standard(0xb3aa9a).roughness(0.85);
+    let stone = Material::standard(0xb3_aa_9a).roughness(0.85);
     for wall in [Wall::Back, Wall::Front, Wall::Left, Wall::Right] {
         let (len, half) = match wall {
             Wall::Back | Wall::Front => (w + 2.0 * WALL, d / 2.0),
@@ -227,7 +231,7 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
             if bw <= 0.001 || bh <= 0.001 {
                 continue;
             }
-            let c = rot * vec3((x0 + x1) / 2.0, (y0 + y1) / 2.0, -half - WALL / 2.0);
+            let c = rot * vec3(f32::midpoint(x0, x1), f32::midpoint(y0, y1), -half - WALL / 2.0);
             let g = Geometry::cuboid(bw, bh, WALL)
                 .rotate_y(wall.yaw())
                 .translate(c.x, c.y, c.z);
@@ -237,14 +241,14 @@ pub fn build(size: RoomSize, placements: &[Placement]) -> Room {
 
     // light: a dim interior, the sun through the window, a soft fill
     scene.add(fframes_three_d::Node::light(Light::hemisphere(
-        Rgb::hex(0xbfc8d6),
-        Rgb::hex(0x3a332b),
+        Rgb::hex(0xbf_c8_d6),
+        Rgb::hex(0x3a_33_2b),
         0.15,
     )));
     let sun = sun_from.unwrap_or(vec3(0.5, 1.0, 0.6));
-    scene.add(fframes_three_d::Node::light(Light::sun(Rgb::hex(0xfff2dc), 3.0, sun)));
+    scene.add(fframes_three_d::Node::light(Light::sun(Rgb::hex(0xff_f2_dc), 3.0, sun)));
     scene.add(fframes_three_d::Node::light(
-        Light::point(Rgb::hex(0xffe2b8), 2.0, 0.0),
+        Light::point(Rgb::hex(0xff_e2_b8), 2.0, 0.0),
     ).with_position(vec3(0.0, h * 0.8, d * 0.25)));
 
     Room {

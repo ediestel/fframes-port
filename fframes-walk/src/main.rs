@@ -25,6 +25,7 @@
 mod room;
 
 use std::collections::HashSet;
+use std::io::Write;
 use std::rc::Rc;
 use std::time::Instant;
 
@@ -49,8 +50,10 @@ fn usage() -> &'static str {
     "fframes-walk --window window.glb[:wall[:height[:sill[:offset]]]] [--model m.glb[:...]] [--room W,D,H] [--glow 2] [--quality 0.5]"
 }
 
-/// `path[:wall[:height[:sill[:offset]]]]`
+/// `path[:wall[:height[:sill[:offset]]]][:hidden]`
 fn placement(spec: &str, glow: f32) -> Result<Placement, String> {
+    let hidden = spec.ends_with(":hidden");
+    let spec = spec.strip_suffix(":hidden").unwrap_or(spec);
     let mut parts = spec.split(':');
     let path = parts.next().unwrap_or_default().to_string();
     let wall = parts.next().map_or(Ok(Wall::Back), |w| {
@@ -69,6 +72,7 @@ fn placement(spec: &str, glow: f32) -> Result<Placement, String> {
         sill,
         offset,
         glow,
+        hidden,
     })
 }
 
@@ -104,27 +108,24 @@ fn run() -> Result<(), String> {
     if placements.is_empty() {
         return Err(usage().into());
     }
-    let size = match value("--room") {
-        Some(r) => {
-            let v: Vec<f32> = r.split(',').filter_map(|x| x.trim().parse().ok()).collect();
-            if v.len() != 3 {
-                return Err("--room is width,depth,height in metres".into());
-            }
-            RoomSize {
-                width: v[0],
-                depth: v[1],
-                height: v[2],
-            }
+    let size = if let Some(r) = value("--room") {
+        let v: Vec<f32> = r.split(',').filter_map(|x| x.trim().parse().ok()).collect();
+        if v.len() != 3 {
+            return Err("--room is width,depth,height in metres".into());
         }
-        None => {
-            // wide and high enough for the largest model, a nave twice as deep as wide
-            let tallest = placements.iter().map(|p| p.sill + p.height).fold(0.0, f32::max);
-            let height = (tallest + 2.5).max(5.0);
-            RoomSize {
-                width: (height * 1.4).max(8.0),
-                depth: (height * 2.8).max(16.0),
-                height,
-            }
+        RoomSize {
+            width: v[0],
+            depth: v[1],
+            height: v[2],
+        }
+    } else {
+        // wide and high enough for the largest model, a nave twice as deep as wide
+        let tallest = placements.iter().map(|p| p.sill + p.height).fold(0.0, f32::max);
+        let height = (tallest + 2.5).max(5.0);
+        RoomSize {
+            width: (height * 1.4).max(8.0),
+            depth: (height * 2.8).max(16.0),
+            height,
         }
     };
     let quality: f32 = value("--quality")
@@ -162,13 +163,13 @@ fn run() -> Result<(), String> {
             None => Vec::new(),
         };
         let mode = if args.iter().any(|a| a == "--tour") {
-            Mode::Tour
+            Mode::Tour { to_window: args.iter().any(|a| a == "--to-window") }
         } else if args.iter().any(|a| a == "--demo") {
             Mode::Demo
         } else {
             Mode::Walk
         };
-        return video(&room, &path, seconds, w, h, &captions, mode);
+        return video(&room, &path, seconds, (w, h), &captions, mode, value("--camera-log").as_deref());
     }
 
     if let Some(path) = value("--snapshot") {
@@ -267,8 +268,9 @@ enum Mode {
     Walk,
     /// The scripted controls demo.
     Demo,
-    /// Around every model in turn, then back to see them before the window.
-    Tour,
+    /// Around every model in turn, then back to see them before the window; with
+    /// `to_window`, on to the window to end looking up at it.
+    Tour { to_window: bool },
 }
 
 /// One stop of a tour: where the eye is, what it looks at, what is held on the way there,
@@ -285,8 +287,9 @@ const NONE: Held = Held { w: false, a: false, s: false, d: false, shift: false, 
 
 /// The tour: walk in (W), circle every model once while looking at it (A and the mouse:
 /// stepping sideways while turning), move on to the next (D), step back (S) to see them all
-/// before the window. Circles stay inside the walls.
-fn tour_stops(room: &room::Room) -> Vec<Stop> {
+/// before the window, and with `to_window` on to the window (W), ending looking up at it.
+/// Circles stay inside the walls.
+fn tour_stops(room: &room::Room, to_window: bool) -> Vec<Stop> {
     let eye_y = room.start.y;
     let s = room.size;
     let inside = |p: Vec3| {
@@ -322,7 +325,7 @@ fn tour_stops(room: &room::Room) -> Vec<Stop> {
             });
         }
     }
-    let (centre, _, height) = room.windows.first().copied().unwrap_or((
+    let (centre, into_room, height) = room.windows.first().copied().unwrap_or((
         vec3(0.0, s.height / 2.0, -s.depth / 2.0),
         vec3(0.0, 0.0, 1.0),
         s.height / 2.0,
@@ -337,12 +340,24 @@ fn tour_stops(room: &room::Room) -> Vec<Stop> {
     };
     stops.push(view);
     stops.push(Stop { held: NONE, span: 1.2, ..view });
+    if to_window {
+        // as the plain walk ends: a few metres before the window, looking up at its upper part
+        let end = centre + into_room * (height * 0.65).max(2.5);
+        let at_window = Stop {
+            eye: vec3(end.x, eye_y, end.z),
+            look: centre + vec3(0.0, height * 0.18, 0.0),
+            held: Held { w: true, ..NONE },
+            span: 3.5,
+        };
+        stops.push(at_window);
+        stops.push(Stop { held: NONE, span: 1.5, ..at_window });
+    }
     stops
 }
 
 /// The tour at `u` in `0..1`: eased between stops, with the keys of the way being walked.
-fn tour_state(room: &room::Room, u: f32) -> (Camera, Held) {
-    let stops = tour_stops(room);
+fn tour_state(room: &room::Room, u: f32, to_window: bool) -> (Camera, Held) {
+    let stops = tour_stops(room, to_window);
     let total: f32 = stops.iter().map(|s| s.span).sum();
     let mut t = u.clamp(0.0, 1.0) * total;
     let mut camera = (stops[0].eye, stops[0].look);
@@ -616,14 +631,17 @@ fn zoom_end(room: &room::Room, position: Vec3, look: Vec3, u: f32) -> Camera {
 }
 
 /// Renders the walk and pipes the frames into `ffmpeg`.
+/// With `camera_log`, every frame's camera is written there as JSON (an array, one object per
+/// frame: position and target in metres, vertical field of view in degrees, image size), so
+/// other renderers can draw into the same views.
 fn video(
     room: &room::Room,
     path: &str,
     seconds: f32,
-    w: u32,
-    h: u32,
+    (w, h): (u32, u32),
     captions: &[Caption],
     mode: Mode,
+    camera_log: Option<&str>,
 ) -> Result<(), String> {
     let font_mgr = FontMgr::new();
     let typeface = SYSTEM_FONTS
@@ -631,7 +649,6 @@ fn video(
         .find_map(|f| font_mgr.match_family_style(f, FontStyle::normal()))
         .or_else(|| font_mgr.legacy_make_typeface(None, FontStyle::normal()))
         .ok_or("no system font available")?;
-    use std::io::Write;
     let fps = 30;
     let frames = (seconds * fps as f32).round().max(1.0) as u32;
     let mut ffmpeg = std::process::Command::new("ffmpeg")
@@ -650,6 +667,7 @@ fn video(
         threshold: 1.0,
     });
     let t = Instant::now();
+    let mut log = Vec::new();
     for f in 0..frames {
         let u = f as f32 / (frames - 1).max(1) as f32;
         let time = f as f32 / fps as f32;
@@ -658,12 +676,17 @@ fn video(
                 let (camera, held) = demo_state(room, time, seconds);
                 (camera, Some(held))
             }
-            Mode::Tour => {
-                let (camera, held) = tour_state(room, u);
+            Mode::Tour { to_window } => {
+                let (camera, held) = tour_state(room, u, to_window);
                 (camera, Some(held))
             }
             Mode::Walk => (tour_camera(room, u), None),
         };
+        let (p, q) = (camera.position, camera.target);
+        log.push(format!(
+            "{{\"position\":[{},{},{}],\"target\":[{},{},{}],\"fov\":{},\"width\":{w},\"height\":{h}}}",
+            p.x, p.y, p.z, q.x, q.y, q.z, camera.fov
+        ));
         let mut pixels = renderer.render_pixels(&room.scene, &camera);
         draw_captions(&mut pixels.rgba, w, h, captions, time, &typeface);
         if let Some(held) = held {
@@ -684,6 +707,10 @@ fn video(
         t.elapsed().as_secs_f32(),
         if renderer.uses_gpu() { "GPU" } else { "CPU" }
     );
+    if let Some(log_path) = camera_log {
+        std::fs::write(log_path, format!("[\n{}\n]\n", log.join(",\n"))).map_err(|e| format!("{log_path}: {e}"))?;
+        eprintln!("{log_path}: {} cameras", log.len());
+    }
     Ok(())
 }
 

@@ -381,6 +381,59 @@ pub fn render_layers(splats: &[Splat], cam: &Camera, scale: f32, background: [u8
     Rendered { image: img, alpha, expected, median, spread }
 }
 
+/// Stands splats free in a scene as `fframes-walk` stands a model on its floor: their box
+/// (the centres of splats more than half opaque, the outer half percent left out so stray
+/// splats do not count) scaled to `height` metres, its centre at `(x, height / 2, z)`. The
+/// turn is kept, so view-dependent colour stays right.
+pub fn stand(splats: &mut [Splat], height: f32, x: f32, z: f32) -> Result<(), String> {
+    let range = |c: usize| {
+        let q = percentiles(splats.iter().filter(|s| s.opacity > 0.5).map(|s| s.centre[c]).collect(), &[0.005, 0.995]);
+        (q[0], q[1])
+    };
+    let (rx, ry, rz) = (range(0), range(1), range(2));
+    if !(ry.1 - ry.0).is_finite() || ry.1 <= ry.0 {
+        return Err("no opaque splats to measure".into());
+    }
+    let scale = height / (ry.1 - ry.0);
+    let from = [f32::midpoint(rx.0, rx.1), f32::midpoint(ry.0, ry.1), f32::midpoint(rz.0, rz.1)];
+    let to = [x, height / 2.0, z];
+    for s in splats.iter_mut() {
+        s.centre = std::array::from_fn(|c| (s.centre[c] - from[c]) * scale + to[c]);
+        s.cov = s.cov.map(|row| row.map(|v| v * scale * scale));
+    }
+    Ok(())
+}
+
+/// A camera as `fframes-walk` logs it (position, target, vertical field of view in degrees,
+/// image size; up is +y) as a splat camera.
+#[must_use]
+pub fn walk_camera(position: [f32; 3], target: [f32; 3], fov: f32, width: u32, height: u32) -> Camera {
+    let norm = |a: [f32; 3]| {
+        let l = (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt().max(1e-12);
+        a.map(|c| c / l)
+    };
+    let cross = |a: [f32; 3], b: [f32; 3]| [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    let forward = norm([target[0] - position[0], target[1] - position[1], target[2] - position[2]]);
+    let right = norm(cross(forward, [0.0, 1.0, 0.0]));
+    let up = cross(right, forward);
+    let back = forward.map(|c| -c);
+    let focal = height as f32 / 2.0 / (fov.to_radians() / 2.0).tan();
+    Camera {
+        to_world: [
+            [right[0], up[0], back[0], position[0]],
+            [right[1], up[1], back[1], position[1]],
+            [right[2], up[2], back[2], position[2]],
+            [0.0, 0.0, 0.0, 1.0],
+        ],
+        fx: focal,
+        fy: focal,
+        cx: width as f32 / 2.0,
+        cy: height as f32 / 2.0,
+        width,
+        height,
+    }
+}
+
 /// Percentiles (0..1) of a list, NaN when empty.
 fn percentiles(mut v: Vec<f32>, at: &[f32]) -> Vec<f32> {
     v.retain(|x| x.is_finite());

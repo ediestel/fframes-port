@@ -640,6 +640,102 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some("splat-scene") if args.len() >= 4 => {
+            // splat-scene walk.mp4 cameras.json out.mp4 --splat file.ply:height:x:z [--splat ...]:
+            // Gaussian splats drawn into a fframes-walk video, through the cameras it logged
+            // (--camera-log); all splats are rendered together, so they hide each other, and
+            // laid over the frames (the walk stays inside its room: nothing of it is in front)
+            use fframes_vector::splat::{read_splats, render_layers, stand, walk_camera};
+            let (walk, log, output) = (&args[1], &args[2], &args[3]);
+            let run = || -> Result<String, String> {
+                let mut splats = Vec::new();
+                for (i, a) in args.iter().enumerate() {
+                    if a != "--splat" {
+                        continue;
+                    }
+                    let spec = args.get(i + 1).ok_or("--splat needs file.ply:height:x:z")?;
+                    let parts: Vec<&str> = spec.rsplitn(4, ':').collect();
+                    let [z, x, height, path] = parts[..] else {
+                        return Err(format!("{spec}: --splat is file.ply:height:x:z"));
+                    };
+                    let num = |v: &str| v.parse::<f32>().map_err(|_| format!("{spec}: {v} is no number"));
+                    let mut s = read_splats(std::path::Path::new(path))?;
+                    stand(&mut s, num(height)?, num(x)?, num(z)?)?;
+                    eprintln!("{path}: {} splats, {height} m high at x {x}, z {z}", s.len());
+                    splats.extend(s);
+                }
+                if splats.is_empty() {
+                    return Err("no --splat given".into());
+                }
+                let text = std::fs::read_to_string(log).map_err(|e| format!("{log}: {e}"))?;
+                let doc: Vec<serde_json::Value> = serde_json::from_str(&text).map_err(|e| format!("{log}: {e}"))?;
+                let v3 = |v: &serde_json::Value| -> [f32; 3] { std::array::from_fn(|c| v[c].as_f64().unwrap_or(0.0) as f32) };
+                let cams: Vec<_> = doc
+                    .iter()
+                    .map(|c| {
+                        let size = |k: &str| c[k].as_u64().unwrap_or(0) as u32;
+                        walk_camera(v3(&c["position"]), v3(&c["target"]), c["fov"].as_f64().unwrap_or(60.0) as f32, size("width"), size("height"))
+                    })
+                    .collect();
+                let first = cams.first().ok_or_else(|| format!("{log}: no cameras"))?;
+                let (w, h) = (first.width, first.height);
+                let mut decode = std::process::Command::new("ffmpeg")
+                    .args(["-loglevel", "error", "-i", walk, "-f", "rawvideo", "-pix_fmt", "rgba", "-"])
+                    .stdout(std::process::Stdio::piped())
+                    .spawn()
+                    .map_err(|e| format!("ffmpeg: {e}"))?;
+                let mut encode = std::process::Command::new("ffmpeg")
+                    .args(["-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgba", "-s"])
+                    .arg(format!("{w}x{h}"))
+                    .args(["-r", "30", "-i", "-", "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-pix_fmt", "yuv420p", "-movflags", "+faststart", output])
+                    .stdin(std::process::Stdio::piped())
+                    .spawn()
+                    .map_err(|e| format!("ffmpeg: {e}"))?;
+                let (mut frames_in, mut frames_out) = (
+                    decode.stdout.take().ok_or("ffmpeg: no output")?,
+                    encode.stdin.take().ok_or("ffmpeg: no input")?,
+                );
+                let mut frame = vec![0u8; (w * h * 4) as usize];
+                let mut done = 0;
+                for cam in &cams {
+                    if std::io::Read::read_exact(&mut frames_in, &mut frame).is_err() {
+                        break;
+                    }
+                    let r = render_layers(&splats, cam, 1.0, [0, 0, 0]);
+                    // the splats' colour is over black: add the walk where they let it through
+                    for ((out, px), alpha) in frame.as_chunks_mut::<4>().0.iter_mut().zip(r.image.pixels()).zip(&r.alpha) {
+                        let keep = 1.0 - alpha;
+                        for (o, splat) in out.iter_mut().zip(px.0).take(3) {
+                            *o = (f32::from(splat) + keep * f32::from(*o)).round().clamp(0.0, 255.0) as u8;
+                        }
+                    }
+                    std::io::Write::write_all(&mut frames_out, &frame).map_err(|e| format!("ffmpeg: {e}"))?;
+                    done += 1;
+                    if done % 30 == 0 {
+                        eprint!("\r{done}/{} frames", cams.len());
+                    }
+                }
+                drop(frames_out);
+                let _ = decode.wait();
+                if !encode.wait().map_err(|e| format!("ffmpeg: {e}"))?.success() {
+                    return Err(format!("ffmpeg failed on {output}"));
+                }
+                if done != cams.len() {
+                    return Err(format!("{walk} has {done} frames, the log {} cameras", cams.len()));
+                }
+                Ok(format!("\r{output}: {done} frames, {} splats", splats.len()))
+            };
+            match run() {
+                Ok(report) => {
+                    eprintln!("{report} ({:.1} s)", start.elapsed().as_secs_f32());
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some("splat-video") if args.len() >= 4 => {
             // splat-video splats.ply dataset_dir out.mp4 [--scale 2] [--fps 24]: the splats seen
             // by every camera of the dataset's transforms.json, encoded with ffmpeg; every 8th
