@@ -587,6 +587,52 @@ pub fn pose(points: &[V3], weights: &[f32], pivot: V3, rot: &[[f32; 3]; 3]) -> V
         .collect()
 }
 
+/// Work not yet accepted, saved after every change so nothing drawn is lost (beside the rig
+/// file: `figure.rig.draft.json`): the cut being drawn or edited (and which accepted cut it
+/// was opened from), the joint being placed, and open contours kept per plane position.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+pub struct Draft {
+    #[serde(default)]
+    pub cut: Option<Cut>,
+    #[serde(default)]
+    pub editing: Option<usize>,
+    #[serde(default)]
+    pub joint: Option<Joint>,
+    /// Open contours: plane direction, position, dots.
+    #[serde(default)]
+    pub contours: Vec<(Preset, f32, Vec<[f32; 2]>)>,
+}
+
+impl Draft {
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.cut.is_none() && self.joint.is_none() && self.contours.iter().all(|c| c.2.is_empty())
+    }
+
+    pub fn load(path: &std::path::Path) -> Result<Self, String> {
+        let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))
+    }
+
+    /// Writes the draft, or removes the file when nothing is left unaccepted.
+    pub fn save(&self, path: &std::path::Path) -> Result<(), String> {
+        if self.is_empty() {
+            return match std::fs::remove_file(path) {
+                Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(format!("{}: {e}", path.display())),
+                _ => Ok(()),
+            };
+        }
+        let text = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
+        std::fs::write(path, text + "\n").map_err(|e| format!("{}: {e}", path.display()))
+    }
+}
+
+/// The draft file beside a rig file.
+#[must_use]
+pub fn draft_path(rig: &std::path::Path) -> std::path::PathBuf {
+    rig.with_extension("draft.json")
+}
+
 /// The rig file of a model: `figure.glb` gives `figure.rig.json` beside it.
 #[must_use]
 pub fn rig_path(model: &std::path::Path) -> std::path::PathBuf {
@@ -937,6 +983,19 @@ mod tests {
             // a box's two triangles per face, split along one diagonal, lean the estimate a little
             assert!(diff.min(360.0 - diff) < 1.5, "turned {turn}°: front {got:.1}°, expected {expected}°");
         }
+    }
+
+    /// A draft keeps unaccepted work through saving and loading; an empty one leaves no file.
+    #[test]
+    fn draft_round_trip() {
+        let rig = std::env::temp_dir().join(format!("fframes-draft-test-{}.rig.json", std::process::id()));
+        let path = draft_path(&rig);
+        assert!(path.to_string_lossy().ends_with(".rig.draft.json"));
+        let draft = Draft { contours: vec![(Preset::Coronal, 0.02, vec![[0.1, 1.0], [0.2, 1.0]])], ..Draft::default() };
+        draft.save(&path).expect("save");
+        assert_eq!(Draft::load(&path).expect("load"), draft);
+        Draft::default().save(&path).expect("empty");
+        assert!(!path.exists());
     }
 
     /// The rig file keeps everything through saving and loading.

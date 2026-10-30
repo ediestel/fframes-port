@@ -43,7 +43,7 @@ use fframes_native_player::winit;
 use fframes_native_player::{PlayerBackend, Surface};
 use fframes_rig::{
     Cut, Joint, Observation, Plane, Preset, RigFile, Section, Source, V3, View, axes, limb_weights, pose, rig_path, rotation,
-    section_segments, shape_front,
+    Draft, draft_path, section_segments, shape_front,
 };
 use fframes_three_d::{
     Background, Camera, Environment, Geometry, Light, Mat3, Material, Model, Node, Quat, Renderer, Rgb, Scene, Vec3,
@@ -204,6 +204,10 @@ struct Editor {
     grabbed: Option<Grab>,
     /// An accepted cut taken out for editing: its place in the list and how it was.
     editing: Option<(usize, Cut)>,
+    /// Open contours left on other plane positions (direction, position, dots).
+    parked: Vec<(Preset, f32, Vec<[f32; 2]>)>,
+    /// Where unaccepted work is saved after every change.
+    draft_file: std::path::PathBuf,
     /// When the window last came to the front; the click that did it places nothing.
     focused_at: Option<std::time::Instant>,
     activation_click: bool,
@@ -279,6 +283,9 @@ fn run() -> Result<(), String> {
         rig.front_yaw = shape_front(&figure.positions, &figure.indices);
     }
     let base = room_scene(&figure, lo, centre, room, rig.front_yaw);
+    // unaccepted work from last time
+    let draft_file = draft_path(&rig_file);
+    let draft = if draft_file.exists() { Draft::load(&draft_file)? } else { Draft::default() };
     let mut editor = Editor {
         model_path,
         figure,
@@ -303,6 +310,8 @@ fn run() -> Result<(), String> {
         draft: Vec::new(),
         grabbed: None,
         editing: None,
+        parked: Vec::new(),
+        draft_file,
         focused_at: None,
         activation_click: false,
         joint: None,
@@ -322,6 +331,13 @@ fn run() -> Result<(), String> {
         modifiers: ModifiersState::empty(),
         error: None,
     };
+    if !draft.is_empty() {
+        editor.editing = draft.editing.and_then(|i| editor.rig.cuts.get(i).cloned().map(|c| (i, c)));
+        editor.pending = draft.cut;
+        editor.joint = draft.joint;
+        editor.parked = draft.contours;
+        editor.message = format!("unaccepted work from last time restored ({})", editor.draft_file.display());
+    }
     for task in editor.rig.open_tasks() {
         eprintln!("open: {task}");
     }
@@ -427,6 +443,29 @@ impl Editor {
         }
     }
 
+    /// Before the plane moves or changes: an open contour of three or more dots becomes a
+    /// section (closed), a shorter one is kept for this plane position and comes back there.
+    fn leave_plane(&mut self) {
+        let Some(a) = self.active else { return };
+        if self.draft.len() >= 3 {
+            self.close_contour();
+            self.message = format!("the open contour was closed and kept as a section at {:.3} m", a.offset);
+        } else if !self.draft.is_empty() {
+            let dots = std::mem::take(&mut self.draft);
+            self.parked.push((a.preset, a.offset, dots));
+            self.message = format!("{} open dots kept on the {} plane at {:.3} m", self.parked.last().map_or(0, |p| p.2.len()), a.preset.name(), a.offset);
+        }
+    }
+
+    /// After the plane moved or changed: open dots kept at this position come back.
+    fn arrive_plane(&mut self) {
+        let Some(a) = self.active else { return };
+        if let Some(i) = self.parked.iter().position(|(p, o, _)| *p == a.preset && (o - a.offset).abs() <= ON_PLANE) {
+            self.draft = self.parked.remove(i).2;
+            self.message = format!("{} open dots back; Enter or a click on the first dot closes", self.draft.len());
+        }
+    }
+
     fn choose_plane(&mut self, preset: Preset) {
         let plane = preset.plane(self.rig.front_yaw);
         // keep the position when the same direction is chosen again
@@ -434,18 +473,54 @@ impl Editor {
             Some(a) if a.preset == preset => a.offset,
             _ => plane.offset_of(self.centre.to_array()),
         };
-        if !self.draft.is_empty() {
-            self.message = "the open contour was dropped: close it with Enter before changing the plane".into();
-            self.draft.clear();
-        }
+        self.leave_plane();
+        let kept = std::mem::take(&mut self.message);
         self.active = Some(Active { preset, plane, offset });
-        self.message = format!("{} plane at {:.3} m; click dots around the area, Enter closes", preset.name(), offset);
+        self.message = format!("{} plane at {:.3} m; click dots around the area, Enter closes   {kept}", preset.name(), offset);
+        self.arrive_plane();
     }
 
     fn move_plane(&mut self, by: f32) {
+        if self.active.is_none() {
+            return;
+        }
+        self.leave_plane();
         if let Some(a) = &mut self.active {
             a.offset += by;
-            self.message = format!("{} plane at {:.3} m", a.preset.name(), a.offset);
+            if self.draft.is_empty() && !self.message.contains("kept") {
+                self.message = format!("{} plane at {:.3} m", a.preset.name(), a.offset);
+            }
+        }
+        self.arrive_plane();
+    }
+
+    /// Zooms by `factor` (under 1 closer) towards the point of the figure under the pointer,
+    /// or the middle of the view where there is none.
+    fn zoom(&mut self, factor: f32) {
+        let factor = factor.clamp(0.5, 2.0);
+        let wanted = (self.distance * factor).clamp(self.height * 0.05, self.height * 3.0);
+        let factor = wanted / self.distance;
+        if let Some((o, d)) = self.ray(self.cursor) {
+            let f = self.shown();
+            if let Some((hit, _)) = fframes_rig::pick(&f.positions, &f.indices, o, d) {
+                // keep the point under the pointer where it is: the view's middle moves
+                // towards it as much as the camera comes closer
+                let hit = Vec3::from_array(hit);
+                self.target += (hit - self.target) * (1.0 - factor);
+            }
+        }
+        self.distance = wanted;
+    }
+
+    /// Writes everything not yet accepted to the draft file (removed when nothing is left).
+    fn autosave(&mut self) {
+        let mut contours = self.parked.clone();
+        if let (Some(a), false) = (self.active, self.draft.is_empty()) {
+            contours.push((a.preset, a.offset, self.draft.clone()));
+        }
+        let draft = Draft { cut: self.pending.clone(), editing: self.editing.as_ref().map(|e| e.0), joint: self.joint.clone(), contours };
+        if let Err(e) = draft.save(&self.draft_file) {
+            self.message = format!("could not save the draft: {e}");
         }
     }
 
@@ -1254,6 +1329,7 @@ impl ApplicationHandler for Editor {
                         PhysicalKey::Unidentified(_) => None,
                     };
                     self.key(event_loop, &event.logical_key, code);
+                    self.autosave();
                 }
             }
             WindowEvent::CursorMoved { position, .. } => {
@@ -1318,9 +1394,14 @@ impl ApplicationHandler for Editor {
                     let grabbed = self.grabbed.take();
                     if let Some((down, _)) = self.pressed.take() {
                         let moved = ((self.cursor.x - down.x).powi(2) + (self.cursor.y - down.y).powi(2)).sqrt();
-                        if moved < CLICK && grabbed.is_none() && !std::mem::take(&mut self.activation_click) {
-                            self.click(self.cursor);
+                        let activation = std::mem::take(&mut self.activation_click);
+                        match grabbed {
+                            // a click on the first dot of an open contour closes it
+                            Some(Grab::Draft(0)) if moved < CLICK && self.draft.len() >= 3 => self.close_contour(),
+                            None if moved < CLICK && !activation => self.click(self.cursor),
+                            _ => {}
                         }
+                        self.autosave();
                         self.redraw();
                     }
                 }
@@ -1332,9 +1413,14 @@ impl ApplicationHandler for Editor {
                 };
                 if self.modifiers.alt_key() && self.active.is_some() {
                     self.move_plane(dy * 0.0005);
+                    self.autosave();
                 } else {
-                    self.distance = (self.distance * (1.0 - dy * 0.002)).clamp(self.height * 0.15, self.height * 3.0);
+                    self.zoom(1.0 - dy * 0.002);
                 }
+                self.redraw();
+            }
+            WindowEvent::PinchGesture { delta, .. } => {
+                self.zoom(1.0 - delta as f32);
                 self.redraw();
             }
             _ => {}
