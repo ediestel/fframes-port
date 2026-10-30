@@ -962,52 +962,6 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Some("splat-surface") if args.len() >= 4 => {
-            // splat-surface splats.ply dataset_dir out.glb [--voxel 1.5] [--opacity 0.3]
-            // [--tolerance 3] [--every 2] [--smooth 1] [--texels 4]: the textured mesh of the
-            // splats the dataset's cameras see (voxel and tolerance in millimetres)
-            use fframes_vector::splatsurface::{SurfaceParams, splat_surface};
-            let (ply, dir, output) = (&args[1], std::path::Path::new(&args[2]), &args[3]);
-            let mut p = SurfaceParams::default();
-            if let Some(v) = opt::<f32>(&args, "--voxel") {
-                p.voxel = v / 1000.0;
-            }
-            if let Some(v) = opt::<f32>(&args, "--tolerance") {
-                p.tolerance = v / 1000.0;
-            }
-            p.opacity = opt(&args, "--opacity").unwrap_or(p.opacity);
-            p.every = opt(&args, "--every").unwrap_or(p.every);
-            p.smooth = opt(&args, "--smooth").unwrap_or(p.smooth);
-            p.texels = opt(&args, "--texels").unwrap_or(p.texels);
-            let run = || -> Result<String, String> {
-                let splats = fframes_vector::splat::read_splats(std::path::Path::new(ply))?;
-                let cams = fframes_vector::splat::read_cameras(&dir.join("transforms.json"))?;
-                let (glb, info) = splat_surface(&splats, &cams, dir, &p)?;
-                std::fs::write(output, &glb).map_err(|e| format!("{output}: {e}"))?;
-                Ok(format!(
-                    "{output}: {:.1} MB; {} of {} opaque splats seen and oriented; {}x{}x{} voxels of {:.1} mm; {} quads, atlas {} px",
-                    glb.len() as f32 / 1e6,
-                    info.seen,
-                    info.opaque,
-                    info.dims[0],
-                    info.dims[1],
-                    info.dims[2],
-                    p.voxel * 1000.0,
-                    info.quads,
-                    info.atlas
-                ))
-            };
-            match run() {
-                Ok(report) => {
-                    eprintln!("{report} ({:.1} s)", start.elapsed().as_secs_f32());
-                    ExitCode::SUCCESS
-                }
-                Err(e) => {
-                    eprintln!("{e}");
-                    ExitCode::FAILURE
-                }
-            }
-        }
         Some("splat-video") if args.len() >= 4 => {
             // splat-video splats.ply dataset_dir out.mp4 [--scale 2] [--fps 24]: the splats seen
             // by every camera of the dataset's transforms.json, encoded with ffmpeg; every 8th
