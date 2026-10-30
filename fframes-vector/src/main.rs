@@ -456,10 +456,6 @@ fn main() -> ExitCode {
             if let Some(v) = opt(&args, "--search") {
                 p.search = v;
             }
-            // --half-turn 88: frames per half turn, when the clip is too short for it to be found
-            if let Some(v) = opt(&args, "--half-turn") {
-                p.half = Some(v);
-            }
             // --splat dir: a Gaussian splatting dataset (Nerfstudio format) from the measured turn
             p.splat = opt::<String>(&args, "--splat").map(std::path::PathBuf::from);
             // --cuts figure.rig.json: the rig editor's cuts taken out of the solid
