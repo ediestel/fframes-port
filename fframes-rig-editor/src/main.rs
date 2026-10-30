@@ -1682,18 +1682,27 @@ impl ApplicationHandler for Editor {
                                 }
                             }
                             Grab::Section(vi, si, pi) => {
-                                // across the screen through the dot, then onto its own
-                                // section's plane: the dot stays under the pointer even where
-                                // that plane is seen edge-on
+                                // within the active plane through the dot (else across the
+                                // screen); the dot's place in its level follows, and where the
+                                // plane crosses the levels (sagittal, coronal) its height moves
+                                // the whole level of a box
                                 let camera = self.camera();
                                 let screen = Plane { normal: camera.forward().to_array(), u: camera.right().to_array(), v: camera.up_vector().to_array() };
+                                // a plane seen nearly edge-on gives no hold: then across the screen
+                                let facing = |pl: &Plane| Vec3::from_array(pl.normal).dot(camera.forward()).abs() > 0.25;
+                                let drag = self.active.map(|a| a.plane).filter(|pl| facing(pl)).unwrap_or(screen);
                                 let ray = self.ray(position);
                                 if let (Some((o, d)), Some(cut)) = (ray, &mut self.pending) {
                                     let v = &mut cut.views[vi];
+                                    let boxed = v.corresponding();
+                                    let crosses = self.active.is_some_and(|a| !a.plane.parallel_to(&v.plane));
                                     let s = &mut v.sections[si];
                                     let at = v.plane.to_3d(s.contour[pi], s.offset);
-                                    if let Some((p, _)) = screen.hit(screen.offset_of(at), o, d) {
+                                    if let Some((p, _)) = drag.hit(drag.offset_of(at), o, d) {
                                         s.contour[pi] = v.plane.to_2d(p);
+                                        if boxed && crosses {
+                                            s.offset = v.plane.offset_of(p);
+                                        }
                                     }
                                 }
                             }
@@ -1748,7 +1757,7 @@ impl ApplicationHandler for Editor {
                             // a moved joint is kept at once (Cmd+Z takes it back)
                             Some(Grab::Joint(_)) if moved >= CLICK => self.save(),
                             // a moved region may now lie past its neighbour: keep the order
-                            Some(Grab::Outline { .. }) => {
+                            Some(Grab::Outline { .. } | Grab::Section(..)) => {
                                 if let Some(cut) = &mut self.pending {
                                     cut.views.iter_mut().for_each(View::sort);
                                 }
