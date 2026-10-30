@@ -91,14 +91,12 @@ pub fn read_glb_mesh(data: &[u8]) -> Result<(Vec<[f32; 3]>, Vec<u32>), String> {
     Ok((positions, indices))
 }
 
-/// Adds a skeleton with skin weights and morph targets to a binary glTF with one mesh
-/// primitive (as `depth` exports it), its mesh, UVs and textures left as they are. The
-/// skeleton: a node per joint (placed relative to its parent, not turned), a skin with the
-/// inverse bind matrices, `JOINTS_0` and `WEIGHTS_0` on the primitive, the skin on every node
-/// of the mesh, the skeleton's roots in the scene. Each morph target (an expression's offsets
-/// per vertex) is named in the mesh's `extras.targetNames` and rests at weight 0. Blender
-/// imports it as an armature with shape keys, Unreal as a skeletal mesh with morph targets.
-pub fn export_rigged(data: &[u8], skinning: Option<&fframes_rig::Skinning>, morphs: &[(String, Vec<[f32; 3]>)]) -> Result<Vec<u8>, String> {
+/// Adds a skeleton and skin weights to a binary glTF with one mesh primitive (as `depth`
+/// exports it), its mesh, UVs and textures left as they are: a node per joint (placed
+/// relative to its parent, not turned), a skin with the inverse bind matrices, `JOINTS_0` and
+/// `WEIGHTS_0` on the primitive, the skin on every node of the mesh, the skeleton's roots in
+/// the scene. Blender imports it as an armature, Unreal as a skeletal mesh.
+pub fn export_skinned(data: &[u8], skinning: &fframes_rig::Skinning) -> Result<Vec<u8>, String> {
     use serde_json::{Value, json};
     let word = |o: usize| u32::from_le_bytes([data[o], data[o + 1], data[o + 2], data[o + 3]]) as usize;
     if data.len() < 28 || &data[..4] != b"glTF" {
@@ -117,13 +115,8 @@ pub fn export_rigged(data: &[u8], skinning: Option<&fframes_rig::Skinning>, morp
     }
     let position = doc["meshes"][0]["primitives"][0]["attributes"]["POSITION"].as_u64().ok_or("no positions")? as usize;
     let count = doc["accessors"][position]["count"].as_u64().unwrap_or(0) as usize;
-    if let Some(s) = skinning {
-        if count != s.influences.len() {
-            return Err(format!("{count} vertices, {} weights", s.influences.len()));
-        }
-    }
-    if let Some((name, offsets)) = morphs.iter().find(|(_, o)| o.len() != count) {
-        return Err(format!("{count} vertices, {} offsets in {name}", offsets.len()));
+    if count != skinning.influences.len() {
+        return Err(format!("{count} vertices, {} weights", skinning.influences.len()));
     }
     // a buffer view (4-byte aligned) and an accessor over it
     let mut add = |doc: &mut Value, bytes: Vec<u8>, target: Option<u32>, accessor: Value| -> Result<usize, String> {
@@ -143,71 +136,54 @@ pub fn export_rigged(data: &[u8], skinning: Option<&fframes_rig::Skinning>, morp
         accessors.push(accessor);
         Ok(accessors.len() - 1)
     };
-    if let Some(skinning) = skinning {
-        let joints_bytes: Vec<u8> = skinning.influences.iter().flat_map(|inf| inf.iter().flat_map(|(j, _)| j.to_le_bytes())).collect();
-        let weight_bytes: Vec<u8> = skinning.influences.iter().flat_map(|inf| inf.iter().flat_map(|(_, w)| w.to_le_bytes())).collect();
-        // inverse bind matrices (column-major): the joints are not turned, so each takes its
-        // position away
-        let inverse_bind: Vec<u8> = skinning
-            .joints
-            .iter()
-            .flat_map(|(_, _, p)| [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -p[0], -p[1], -p[2], 1.0_f32])
-            .flat_map(f32::to_le_bytes)
-            .collect();
-        let n = skinning.joints.len();
-        let joints_at = add(&mut doc, joints_bytes, Some(34962), json!({"componentType": 5123, "count": count, "type": "VEC4"}))?;
-        let weights_at = add(&mut doc, weight_bytes, Some(34962), json!({"componentType": 5126, "count": count, "type": "VEC4"}))?;
-        let bind_at = add(&mut doc, inverse_bind, None, json!({"componentType": 5126, "count": n, "type": "MAT4"}))?;
-        // the mesh's nodes skinned, the joints as nodes, the skin, the skeleton in the scene
-        let skin_index = doc["skins"].as_array().map_or(0, Vec::len);
-        let nodes = doc["nodes"].as_array_mut().ok_or("no nodes")?;
-        let base = nodes.len();
-        for node in nodes.iter_mut() {
-            if node.get("mesh").is_some() {
-                node["skin"] = json!(skin_index);
-            }
+    let joints_bytes: Vec<u8> = skinning.influences.iter().flat_map(|inf| inf.iter().flat_map(|(j, _)| j.to_le_bytes())).collect();
+    let weight_bytes: Vec<u8> = skinning.influences.iter().flat_map(|inf| inf.iter().flat_map(|(_, w)| w.to_le_bytes())).collect();
+    // inverse bind matrices (column-major): the joints are not turned, so each takes its
+    // position away
+    let inverse_bind: Vec<u8> = skinning
+        .joints
+        .iter()
+        .flat_map(|(_, _, p)| [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -p[0], -p[1], -p[2], 1.0_f32])
+        .flat_map(f32::to_le_bytes)
+        .collect();
+    let n = skinning.joints.len();
+    let joints_at = add(&mut doc, joints_bytes, Some(34962), json!({"componentType": 5123, "count": count, "type": "VEC4"}))?;
+    let weights_at = add(&mut doc, weight_bytes, Some(34962), json!({"componentType": 5126, "count": count, "type": "VEC4"}))?;
+    let bind_at = add(&mut doc, inverse_bind, None, json!({"componentType": 5126, "count": n, "type": "MAT4"}))?;
+    // the mesh's nodes skinned, the joints as nodes, the skin, the skeleton in the scene
+    let skin_index = doc["skins"].as_array().map_or(0, Vec::len);
+    let nodes = doc["nodes"].as_array_mut().ok_or("no nodes")?;
+    let base = nodes.len();
+    for node in nodes.iter_mut() {
+        if node.get("mesh").is_some() {
+            node["skin"] = json!(skin_index);
         }
-        for (i, (name, parent, p)) in skinning.joints.iter().enumerate() {
-            let from = parent.map_or([0.0; 3], |q| skinning.joints[q].2);
-            let children: Vec<usize> = (0..n).filter(|&c| skinning.joints[c].1 == Some(i)).map(|c| base + c).collect();
-            let mut node = json!({"name": name, "translation": [p[0] - from[0], p[1] - from[1], p[2] - from[2]]});
-            if !children.is_empty() {
-                node["children"] = json!(children);
-            }
-            nodes.push(node);
-        }
-        let roots: Vec<usize> = (0..n).filter(|&i| skinning.joints[i].1.is_none()).map(|i| base + i).collect();
-        let skin = json!({
-            "name": "rig",
-            "joints": (base..base + n).collect::<Vec<_>>(),
-            "inverseBindMatrices": bind_at,
-            "skeleton": roots.first().copied().unwrap_or(base),
-        });
-        match doc["skins"].as_array_mut() {
-            Some(skins) => skins.push(skin),
-            None => doc["skins"] = json!([skin]),
-        }
-        let attributes = &mut doc["meshes"][0]["primitives"][0]["attributes"];
-        attributes["JOINTS_0"] = json!(joints_at);
-        attributes["WEIGHTS_0"] = json!(weights_at);
-        let scene = doc["scene"].as_u64().unwrap_or(0) as usize;
-        doc["scenes"][scene]["nodes"].as_array_mut().ok_or("no scene")?.extend(roots.iter().map(|&r| json!(r)));
     }
-    // the morph targets: position offsets (with their bounds, as glTF requires), at rest
-    if !morphs.is_empty() {
-        let mut targets = Vec::new();
-        for (_, offsets) in morphs {
-            let bytes: Vec<u8> = offsets.iter().flat_map(|o| o.iter().flat_map(|v| v.to_le_bytes())).collect();
-            let min: Vec<f32> = (0..3).map(|k| offsets.iter().map(|o| o[k]).fold(f32::MAX, f32::min)).collect();
-            let max: Vec<f32> = (0..3).map(|k| offsets.iter().map(|o| o[k]).fold(f32::MIN, f32::max)).collect();
-            let at = add(&mut doc, bytes, Some(34962), json!({"componentType": 5126, "count": count, "type": "VEC3", "min": min, "max": max}))?;
-            targets.push(json!({"POSITION": at}));
+    for (i, (name, parent, p)) in skinning.joints.iter().enumerate() {
+        let from = parent.map_or([0.0; 3], |q| skinning.joints[q].2);
+        let children: Vec<usize> = (0..n).filter(|&c| skinning.joints[c].1 == Some(i)).map(|c| base + c).collect();
+        let mut node = json!({"name": name, "translation": [p[0] - from[0], p[1] - from[1], p[2] - from[2]]});
+        if !children.is_empty() {
+            node["children"] = json!(children);
         }
-        let mesh = &mut doc["meshes"][0];
-        mesh["primitives"][0]["targets"] = json!(targets);
-        mesh["weights"] = json!(vec![0.0; morphs.len()]);
-        mesh["extras"]["targetNames"] = json!(morphs.iter().map(|(name, _)| name).collect::<Vec<_>>());
+        nodes.push(node);
     }
+    let roots: Vec<usize> = (0..n).filter(|&i| skinning.joints[i].1.is_none()).map(|i| base + i).collect();
+    let skin = json!({
+        "name": "rig",
+        "joints": (base..base + n).collect::<Vec<_>>(),
+        "inverseBindMatrices": bind_at,
+        "skeleton": roots.first().copied().unwrap_or(base),
+    });
+    match doc["skins"].as_array_mut() {
+        Some(skins) => skins.push(skin),
+        None => doc["skins"] = json!([skin]),
+    }
+    let attributes = &mut doc["meshes"][0]["primitives"][0]["attributes"];
+    attributes["JOINTS_0"] = json!(joints_at);
+    attributes["WEIGHTS_0"] = json!(weights_at);
+    let scene = doc["scene"].as_u64().unwrap_or(0) as usize;
+    doc["scenes"][scene]["nodes"].as_array_mut().ok_or("no scene")?.extend(roots.iter().map(|&r| json!(r)));
     // the binary glTF: header, JSON (padded with spaces), binary (padded with zeros)
     while bin.len() % 4 != 0 {
         bin.push(0);
