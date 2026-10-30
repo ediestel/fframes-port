@@ -33,6 +33,7 @@ pub mod raster;
 pub mod report;
 pub mod rig;
 pub mod splat;
+pub mod splatshape;
 pub mod trace;
 pub mod tree;
 

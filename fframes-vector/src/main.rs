@@ -916,6 +916,48 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some("splat-clean") if args.len() >= 3 => {
+            // splat-clean splats.ply out.ply [--grid 768] [--min-piece 500]: the splats without
+            // floaters (hardly any neighbours) and without pieces detached from the figure,
+            // copied unchanged; what the kept splats form around them
+            use fframes_vector::splatshape::{Local, NeighbourhoodParams, components, neighbourhoods, robust_voxel, write_subset};
+            let (input, output) = (&args[1], &args[2]);
+            let run = || -> Result<String, String> {
+                let splats = fframes_vector::splat::read_splats(std::path::Path::new(input))?;
+                let points: Vec<[f32; 3]> = splats.iter().map(|s| s.centre).collect();
+                let voxel = robust_voxel(&points, opt(&args, "--grid").unwrap_or(768));
+                let hood = neighbourhoods(&points, voxel, &NeighbourhoodParams::default());
+                let solid: Vec<usize> = (0..points.len()).filter(|&i| hood[i].local != Local::Floater).collect();
+                let solid_points: Vec<[f32; 3]> = solid.iter().map(|&i| points[i]).collect();
+                let (piece, sizes) = components(&solid_points, voxel * 4.0);
+                let min_piece: usize = opt(&args, "--min-piece").unwrap_or(500);
+                let keep: Vec<usize> = solid.iter().zip(&piece).filter(|&(_, &p)| sizes[p] >= min_piece).map(|(&i, _)| i).collect();
+                let dropped_pieces = sizes.iter().filter(|&&s| s < min_piece).count();
+                write_subset(std::path::Path::new(input), &keep, std::path::Path::new(output))?;
+                let share = |l: Local| keep.iter().filter(|&&i| hood[i].local == l).count() as f32 / keep.len().max(1) as f32 * 100.0;
+                Ok(format!(
+                    "{output}: {} of {} splats kept (voxel {:.2} mm); dropped {} floaters and {} splats in {dropped_pieces} detached pieces; kept splats form surface {:.1} %, thin {:.1} %, volume {:.1} %",
+                    keep.len(),
+                    points.len(),
+                    voxel * 1000.0,
+                    points.len() - solid.len(),
+                    solid.len() - keep.len(),
+                    share(Local::Surface),
+                    share(Local::Thin),
+                    share(Local::Volume)
+                ))
+            };
+            match run() {
+                Ok(report) => {
+                    eprintln!("{report} ({:.1} s)", start.elapsed().as_secs_f32());
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some("splat-video") if args.len() >= 4 => {
             // splat-video splats.ply dataset_dir out.mp4 [--scale 2] [--fps 24]: the splats seen
             // by every camera of the dataset's transforms.json, encoded with ffmpeg; every 8th
