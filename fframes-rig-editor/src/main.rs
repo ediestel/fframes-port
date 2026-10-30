@@ -1,4 +1,9 @@
-//! `fframes-rig-editor figure.glb [--rig figure.rig.json] [--source video.mp4 --options "--height 1.7 --hull"] [--solid figure.solid]`
+//! `fframes-rig-editor figure.glb [--rig figure.rig.json] [--source video.mp4 --options "--height 1.7 --hull"] [--solid figure.solid] [--splat figure.ply]`
+//!
+//! With `--splat` (the figure's Gaussian splats, as Brush trains them from the turntable) the
+//! figure is shown as its Gaussians, laid onto the mesh (`G` switches to the mesh); the arm
+//! raise turns them, each following its nearest bone, and red dots mark where the arm's
+//! Gaussians touch the body's away from the shoulder (bridges, listed in the box).
 //!
 //! The rig editor. The figure stands in a plain room; the camera turns around it. Cuts take
 //! away what the reconstruction joined (an arm to the body), joints mark where the figure
@@ -42,9 +47,10 @@ use fframes_native_player::fframes_skia_renderer::skia_safe::{
 use fframes_native_player::winit;
 use fframes_native_player::{PlayerBackend, Surface};
 use fframes_rig::{
-    Cut, Joint, Observation, Plane, Preset, RigFile, Section, Source, V3, View, axes, limb_weights, pose, rig_path, rotation,
-    Draft, draft_path, propose_cuts, propose_skeleton, section_segments, shape_front,
+    Bridge, Cut, Joint, Observation, Plane, Preset, RigFile, Section, Source, V3, View, axes, bridges, pose, rig_path, rotation,
+    skin, Draft, draft_path, propose_cuts, propose_skeleton, section_segments, shape_front,
 };
+use fframes_vector::splat::{Splat, read_splats, render as render_splats, walk_camera};
 use fframes_three_d::{
     Background, Camera, Environment, Geometry, Light, Mat3, Material, Model, Node, Quat, Renderer, Rgb, Scene, Vec3,
     Vec4, vec3,
@@ -128,15 +134,58 @@ fn room_scene(figure: &Figure, lo: Vec3, centre: Vec3, size: f32, front_yaw: f32
     scene
 }
 
-/// The arm turned about the shoulder: each vertex's weight, the joints, the angles
-/// (degrees: out to the side, forward) and the scene drawn with it.
+/// The arm turned about the shoulder: each vertex's and each Gaussian's weight (by nearest
+/// bone), the joints, the angles (degrees: out to the side, forward), the scene and the
+/// Gaussians drawn with it, and where the arm touches the body.
 struct Posed {
     weights: Vec<f32>,
+    splat_weights: Vec<f32>,
     shoulder: V3,
     elbow: V3,
     side: f32,
     forward: f32,
     scene: Option<Scene>,
+    splats: Option<Vec<Splat>>,
+    bridges: Vec<Bridge>,
+}
+
+/// Lays the splats onto the mesh. Brush trains them in the turntable's own frame, the same
+/// way round as the mesh but centred and at its own scale: their box (the centres of splats
+/// more than half opaque, the outer half percent left out) is scaled to the mesh's height and
+/// centred on the mesh's box (the same percentiles of its vertices).
+fn align_splats(splats: &mut [Splat], mesh: &[V3]) {
+    let range = |mut v: Vec<f32>| {
+        v.sort_by(f32::total_cmp);
+        let at = |q: f32| v.get(((v.len().max(1) - 1) as f32 * q).round() as usize).copied().unwrap_or(0.0);
+        (at(0.005), at(0.995))
+    };
+    let opaque: Vec<V3> = splats.iter().filter(|s| s.opacity > 0.5).map(|s| s.centre).collect();
+    let from = [0, 1, 2].map(|k| range(opaque.iter().map(|p| p[k]).collect()));
+    let to = [0, 1, 2].map(|k| range(mesh.iter().map(|p| p[k]).collect()));
+    let scale = (to[1].1 - to[1].0) / (from[1].1 - from[1].0).max(1e-6);
+    for s in splats {
+        s.centre = std::array::from_fn(|k| (s.centre[k] - f32::midpoint(from[k].0, from[k].1)) * scale + f32::midpoint(to[k].0, to[k].1));
+        s.cov = s.cov.map(|row| row.map(|v| v * scale * scale));
+    }
+}
+
+/// Splats turned like [`pose`] turns points; a splat that follows the arm (weight one half or
+/// more) turns its shape with it.
+fn pose_splats(splats: &[Splat], weights: &[f32], pivot: V3, rot: &[[f32; 3]; 3]) -> Vec<Splat> {
+    let centres: Vec<V3> = splats.iter().map(|s| s.centre).collect();
+    let back: [[f32; 3]; 3] = std::array::from_fn(|r| std::array::from_fn(|c| rot[c][r]));
+    pose(&centres, weights, pivot, rot)
+        .into_iter()
+        .zip(splats.iter().zip(weights))
+        .map(|(centre, (s, &w))| {
+            let mut s = s.clone();
+            s.centre = centre;
+            if w >= 0.5 {
+                s.cov = mul(&mul(rot, &s.cov), &back);
+            }
+            s
+        })
+        .collect()
 }
 
 /// A dot being dragged: of the open contour, or of a section of the cut being edited
@@ -178,6 +227,8 @@ enum Action {
     Undo,
     Apply,
     Show,
+    /// The figure as its Gaussians or as the mesh.
+    Splats,
 }
 
 struct Editor {
@@ -229,6 +280,10 @@ struct Editor {
     voxel: Option<f32>,
     applying: Option<mpsc::Receiver<Result<String, String>>>,
     posed: Option<Posed>,
+    /// The figure's Gaussian splats laid onto the mesh (`--splat`), at rest.
+    splats: Option<Vec<Splat>>,
+    /// Whether the figure is shown as its Gaussians (else as the mesh).
+    showing_splats: bool,
     message: String,
     quit_armed: bool,
     buttons: Vec<(Rect, Action)>,
@@ -244,7 +299,7 @@ struct Editor {
 
 fn run() -> Result<(), String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let usage = "fframes-rig-editor figure.glb [--rig figure.rig.json] [--source video.mp4 --options \"--height 1.7 --hull\"] [--solid figure.solid]";
+    let usage = "fframes-rig-editor figure.glb [--rig figure.rig.json] [--source video.mp4 --options \"--height 1.7 --hull\"] [--solid figure.solid] [--splat figure.ply]";
     let model_path = args.first().filter(|a| !a.starts_with("--")).ok_or(usage)?.clone();
     let value = |name: &str| args.iter().position(|a| a == name).and_then(|i| args.get(i + 1)).cloned();
     let rig_file = value("--rig").map_or_else(|| rig_path(std::path::Path::new(&model_path)), std::path::PathBuf::from);
@@ -273,6 +328,15 @@ fn run() -> Result<(), String> {
     let height = (hi.y - lo.y).max(0.1);
     let centre = (lo + hi) * 0.5;
     let room = height * 7.0;
+    let splats = match value("--splat") {
+        Some(path) => {
+            let mut s = read_splats(std::path::Path::new(&path))?;
+            align_splats(&mut s, &figure.positions);
+            eprintln!("{path}: {} Gaussians, laid onto the mesh", s.len());
+            Some(s)
+        }
+        None => None,
+    };
     eprintln!(
         "{model_path}: {} vertices, {} triangles, {height:.2} m high; rig {} ({} cuts, {} joints){}",
         figure.positions.len(),
@@ -331,6 +395,8 @@ fn run() -> Result<(), String> {
         voxel,
         applying: None,
         posed: None,
+        showing_splats: splats.is_some(),
+        splats,
         message: String::new(),
         quit_armed: false,
         buttons: Vec::new(),
@@ -462,6 +528,14 @@ impl Editor {
         }
         for (preset, offset, dots) in &self.parked {
             out.push(format!("{} open dots left on the {} plane at {offset:.3} m: Esc drops them", dots.len(), preset.name()));
+        }
+        if let Some(p) = &self.posed {
+            for b in p.bridges.iter().take(6) {
+                out.push(format!(
+                    "bridge (red): {} contacts at x {:+.2}..{:+.2} y {:.2}..{:.2} z {:+.2}..{:+.2} m, next to {}",
+                    b.contacts.len(), b.lo[0], b.hi[0], b.lo[1], b.hi[1], b.lo[2], b.hi[2], b.bone
+                ));
+            }
         }
         if let Some(c) = &self.pending {
             out.push(format!("{} not accepted (A keeps, D discards)", c.name));
@@ -1080,6 +1154,14 @@ impl Editor {
             Action::Discard => self.discard(),
             Action::Undo => self.undo(true),
             Action::Apply => self.apply(),
+            Action::Splats => {
+                if self.splats.is_some() {
+                    self.showing_splats = !self.showing_splats;
+                    self.message = if self.showing_splats { "the figure as its Gaussians".into() } else { "the figure as the mesh".into() };
+                } else {
+                    self.message = "no Gaussians loaded (start with --splat figure.ply)".into();
+                }
+            }
             Action::Show => {
                 if self.rebuilt.is_some() {
                     self.showing_rebuilt = !self.showing_rebuilt;
@@ -1109,18 +1191,42 @@ impl Editor {
                 self.message = "place and accept the joints shoulder and elbow (named elbow:shoulder) first".into();
                 return;
             };
-            let figure = self.shown();
-            match limb_weights(&figure.positions, &figure.indices, s, e, 0.04) {
-                Some((weights, level)) => {
-                    let moving = weights.iter().filter(|&&w| w > 0.0).count();
-                    self.message = format!("arm free from {:.0} mm below the shoulder; {moving} of {} vertices follow", level * 1000.0, weights.len());
-                    self.posed = Some(Posed { weights, shoulder: s, elbow: e, side: 0.0, forward: 0.0, scene: None });
-                }
-                None => {
-                    self.message = "the arm is not free of the body anywhere below the shoulder: cut the bridge first (and Apply)".into();
-                    return;
-                }
+            // each vertex and each Gaussian follows its nearest bone
+            let root = shoulder.map(|j| j.name.clone()).unwrap_or_default();
+            let Some(mesh) = skin(&self.shown().positions, &self.rig.joints, &root, 0.04) else {
+                self.message = format!("no placed bone below {root}");
+                return;
+            };
+            let centres: Vec<V3> = self.splats.iter().flatten().map(|g| g.centre).collect();
+            let gauss = skin(&centres, &self.rig.joints, &root, 0.04);
+            // where the arm touches the body: on the Gaussians when there are any, else the mesh
+            let found = match &gauss {
+                Some(g) if !centres.is_empty() => bridges(&centres, g, s, 0.02, 0.08),
+                _ => bridges(&self.shown().positions, &mesh, s, 0.02, 0.08),
+            };
+            for b in &found {
+                eprintln!(
+                    "bridge: {} contacts at x {:+.3}..{:+.3} y {:.3}..{:.3} z {:+.3}..{:+.3}, next to {}",
+                    b.contacts.len(), b.lo[0], b.hi[0], b.lo[1], b.hi[1], b.lo[2], b.hi[2], b.bone
+                );
             }
+            let follow = |w: &[f32]| w.iter().filter(|&&x| x > 0.0).count();
+            let what = match &gauss {
+                Some(g) if !centres.is_empty() => format!("{} of {} Gaussians", follow(&g.weights), g.weights.len()),
+                _ => format!("{} of {} vertices", follow(&mesh.weights), mesh.weights.len()),
+            };
+            self.message = format!("{root}: {what} follow the arm; {} bridges (red dots, listed in the box)", found.len());
+            self.posed = Some(Posed {
+                weights: mesh.weights,
+                splat_weights: gauss.map(|g| g.weights).unwrap_or_default(),
+                shoulder: s,
+                elbow: e,
+                side: 0.0,
+                forward: 0.0,
+                scene: None,
+                splats: None,
+                bridges: found,
+            });
         }
         if let Some(p) = &mut self.posed {
             if reset {
@@ -1163,8 +1269,10 @@ impl Editor {
         }
         let posed = Figure { model: Model { scene: tree, animations: Vec::new() }, positions: Vec::new(), indices: Vec::new() };
         let scene = room_scene(&posed, self.lo, self.centre, self.room, self.rig.front_yaw);
+        let splats = self.splats.as_ref().map(|g| pose_splats(g, &p.splat_weights, p.shoulder, &rot));
         if let Some(p) = &mut self.posed {
             p.scene = Some(scene);
+            p.splats = splats;
         }
         if !reset {
             self.message = format!("arm {side_deg:.0}° out to the side, {forward_deg:.0}° forward (, . side   ; ' forward   0 rest)");
@@ -1204,9 +1312,22 @@ impl Editor {
         }
         let camera = self.camera();
         let Some((_, _, renderer)) = self.renderer.as_ref() else { return };
-        let pixels = renderer.render_pixels(&scene, &camera);
-        let info = ImageInfo::new((pixels.width as i32, pixels.height as i32), ColorType::RGBA8888, AlphaType::Premul, None);
-        let image = skia_safe::images::raster_from_data(&info, Data::new_copy(&pixels.rgba), pixels.width as usize * 4);
+        // the figure as its Gaussians (posed with the arm), else as the mesh in its room
+        let (rgba, pw, ph) = match self.splats.as_ref().filter(|_| self.showing_splats) {
+            Some(rest) => {
+                let splats = self.posed.as_ref().and_then(|p| p.splats.as_ref()).unwrap_or(rest);
+                let eye = self.target - camera.forward() * self.distance;
+                let cam = walk_camera(eye.to_array(), self.target.to_array(), FOV, rw, rh);
+                let (img, _) = render_splats(splats, &cam, 1.0, [38, 40, 46]);
+                (img.into_raw(), rw, rh)
+            }
+            None => {
+                let pixels = renderer.render_pixels(&scene, &camera);
+                (pixels.rgba.to_vec(), pixels.width, pixels.height)
+            }
+        };
+        let info = ImageInfo::new((pw as i32, ph as i32), ColorType::RGBA8888, AlphaType::Premul, None);
+        let image = skia_safe::images::raster_from_data(&info, Data::new_copy(&rgba), pw as usize * 4);
 
         // overlay: everything as screen lines and dots
         let rig = self.with_pending();
@@ -1309,6 +1430,16 @@ impl Editor {
                 }
             }
         }
+        // bridges: where the arm touches the body away from the shoulder (at rest)
+        if let Some(p) = &self.posed {
+            for b in &p.bridges {
+                for c in b.contacts.iter().step_by((b.contacts.len() / 400).max(1)) {
+                    if let Some(s) = self.screen(*c) {
+                        dots.push((s, Color::from_rgb(255, 30, 30), 2.5));
+                    }
+                }
+            }
+        }
         // joints and the bones between them
         // by side: the figure's left blue, its right orange, the middle yellow; a proposed joint
         // is a ring, an accepted one filled, the one being placed white; the selected one
@@ -1358,7 +1489,7 @@ impl Editor {
                 self.message
             )
         };
-        let keys = "click: dot / joint   drag any dot: move   Enter: close contour   Up/Down or ⌥+drag: move plane   drag outline: region (Shift: whole cut)   ⌥+click box dot: remove, edge: add   E: edit cut   N: next section   Delete or Cmd+Z: undo step   Shift+Delete: remove section   [ ]: ends   P: protect   A: accept   D: discard   J: joint   X: apply   T: original/rebuilt   , . ; ' 0: arm   F: confirm front   B: turn front   Cmd+Z: undo   Q: quit";
+        let keys = "click: dot / joint   drag any dot: move   Enter: close contour   Up/Down or ⌥+drag: move plane   drag outline: region (Shift: whole cut)   ⌥+click box dot: remove, edge: add   E: edit cut   N: next section   Delete or Cmd+Z: undo step   Shift+Delete: remove section   [ ]: ends   P: protect   A: accept   D: discard   J: joint   X: apply   T: original/rebuilt   G: Gaussians/mesh   , . ; ' 0: arm   F: confirm front   B: turn front   Cmd+Z: undo   Q: quit";
         let labels: [(&str, Action); 11] = [
             ("Transverse", Action::Plane(Preset::Transverse)),
             ("Coronal", Action::Plane(Preset::Coronal)),
@@ -1370,7 +1501,7 @@ impl Editor {
             ("Undo", Action::Undo),
             ("Apply", Action::Apply),
             ("Original/rebuilt", Action::Show),
-            ("", Action::Show),
+            ("Gaussians/mesh", Action::Splats),
         ];
         let active_preset = self.active.map(|a| a.preset);
         let protect = self.pending.as_ref().is_some_and(|c| c.protect);
@@ -1576,6 +1707,7 @@ impl Editor {
             KeyCode::KeyJ => self.act(Action::Joint),
             KeyCode::KeyX => self.apply(),
             KeyCode::KeyT => self.act(Action::Show),
+            KeyCode::KeyG => self.act(Action::Splats),
             KeyCode::KeyZ if command => {
                 let redo = self.modifiers.shift_key();
                 self.undo(!redo);

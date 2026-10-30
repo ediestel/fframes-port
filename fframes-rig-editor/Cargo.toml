@@ -13,6 +13,8 @@ path = "src/main.rs"
 [dependencies]
 fframes_rig = { path = "../fframes-rig" }
 fframes_three_d = { path = "../fframes-three-d", features = ["gpu"] }
+# The figure's Gaussian splats (read, drawn, posed with the rig).
+fframes_vector = { path = "../fframes-vector" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 fframes_native_player = { workspace = true, features = ["metal"] }

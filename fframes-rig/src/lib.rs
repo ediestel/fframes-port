@@ -896,6 +896,171 @@ pub fn propose_cuts(positions: &[V3], indices: &[u32], front_yaw: f32) -> Vec<Cu
     out
 }
 
+/// A bone: from a joint's parent to the joint. An end joint (wrist, ankle, head) also gets a
+/// bone past it (its child named `joint+`), 60 % as long as the one before: the hand, the
+/// foot, the crown. `limb`: the bone lies below the limb's root joint.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Bone {
+    pub parent: String,
+    pub child: String,
+    pub from: V3,
+    pub to: V3,
+    pub limb: bool,
+}
+
+/// Points skinned by nearest bone for turning one limb: the bones, per point its weight on the
+/// limb and its nearest bone.
+#[derive(Clone, Debug)]
+pub struct Skin {
+    /// The limb's root joint (the shoulder).
+    pub root: String,
+    pub bones: Vec<Bone>,
+    /// 1 on the limb, 0 off it, a smooth blend over the first `blend` metres of the limb's
+    /// first bone, so the shoulder bends instead of tearing.
+    pub weights: Vec<f32>,
+    pub nearest: Vec<usize>,
+}
+
+/// Skins points (mesh vertices or splat centres) by nearest bone for turning the limb below
+/// joint `root`; `None` when no placed bone lies below it. Each point follows the bone it lies
+/// nearest to, so nothing that joins the limb to the body (a filled gap, a hand touching the
+/// tunic) drags the body along.
+#[must_use]
+pub fn skin(points: &[V3], joints: &[Joint], root: &str, blend: f32) -> Option<Skin> {
+    let at = |name: &str| joints.iter().find(|j| j.name == name).and_then(Joint::position).map(|p| p.0);
+    // whether a joint is the root or below it
+    let below = |name: &str| {
+        let mut n = Some(name.to_string());
+        for _ in 0..=joints.len() {
+            match n {
+                Some(x) if x == root => return true,
+                Some(x) => n = joints.iter().find(|j| j.name == x).and_then(|j| j.parent.clone()),
+                None => return false,
+            }
+        }
+        false
+    };
+    let mut bones = Vec::new();
+    for j in joints {
+        let (Some(parent), Some(to)) = (j.parent.as_deref(), at(&j.name)) else { continue };
+        let Some(from) = at(parent) else { continue };
+        bones.push(Bone { parent: parent.into(), child: j.name.clone(), from, to, limb: below(parent) });
+        if !joints.iter().any(|k| k.parent.as_deref() == Some(j.name.as_str())) {
+            let past = std::array::from_fn(|k| to[k] + (to[k] - from[k]) * 0.6);
+            bones.push(Bone { parent: j.name.clone(), child: format!("{}+", j.name), from: to, to: past, limb: below(&j.name) });
+        }
+    }
+    if !bones.iter().any(|b| b.limb) {
+        return None;
+    }
+    // distance to a bone, and how far along it (metres from its start)
+    let measure = |p: V3, b: &Bone| {
+        let ab = sub(b.to, b.from);
+        let len2 = dot(ab, ab).max(1e-12);
+        let t = (dot(sub(p, b.from), ab) / len2).clamp(0.0, 1.0);
+        let q: V3 = std::array::from_fn(|k| b.from[k] + ab[k] * t);
+        (dot(sub(p, q), sub(p, q)), t * len2.sqrt())
+    };
+    let mut weights = Vec::with_capacity(points.len());
+    let mut nearest = Vec::with_capacity(points.len());
+    for &p in points {
+        let (i, along) = bones
+            .iter()
+            .enumerate()
+            .map(|(i, b)| (i, measure(p, b)))
+            .min_by(|a, b| a.1.0.total_cmp(&b.1.0))
+            .map(|(i, (_, along))| (i, along))
+            .unwrap_or((0, 0.0));
+        let b = &bones[i];
+        let w = if !b.limb {
+            0.0
+        } else if b.parent == root && blend > 0.0 {
+            let x = (along / blend).clamp(0.0, 1.0);
+            x * x * (3.0 - 2.0 * x)
+        } else {
+            1.0
+        };
+        weights.push(w);
+        nearest.push(i);
+    }
+    Some(Skin { root: root.into(), bones, weights, nearest })
+}
+
+/// A place where limb and body touch away from the limb's root: its extent, the contact points
+/// and the body bone touched (`parent->child`).
+#[derive(Clone, Debug)]
+pub struct Bridge {
+    pub lo: V3,
+    pub hi: V3,
+    pub contacts: Vec<V3>,
+    pub bone: String,
+}
+
+/// Where the limb of a [`Skin`] touches the body: limb points (weight one half or more) within
+/// `contact` metres of body points, farther than `clear` from the root joint at `root`; the
+/// body points of the bone into the root (the shoulder's own) do not count. Grouped into places
+/// (contacts in neighbouring 3 cm cells), the most contacts first.
+#[must_use]
+pub fn bridges(points: &[V3], skin: &Skin, root: V3, contact: f32, clear: f32) -> Vec<Bridge> {
+    use std::collections::HashMap;
+    let cell = |p: V3, size: f32| p.map(|c| (c / size).floor() as i32);
+    let mut grid: HashMap<[i32; 3], Vec<usize>> = HashMap::new();
+    for (i, p) in points.iter().enumerate() {
+        grid.entry(cell(*p, contact)).or_default().push(i);
+    }
+    let own = |i: usize| skin.bones[skin.nearest[i]].child == skin.root;
+    let mut contacts: Vec<(V3, usize)> = Vec::new();
+    for (i, &p) in points.iter().enumerate() {
+        if skin.weights[i] < 0.5 {
+            continue;
+        }
+        let c = cell(p, contact);
+        let found = (0..27).find_map(|n| {
+            let key = [c[0] + n % 3 - 1, c[1] + n / 3 % 3 - 1, c[2] + n / 9 - 1];
+            grid.get(&key)?.iter().copied().find(|&j| skin.weights[j] < 0.5 && !own(j) && dot(sub(points[j], p), sub(points[j], p)) < contact * contact)
+        });
+        if let Some(j) = found {
+            let m: V3 = std::array::from_fn(|k| f32::midpoint(p[k], points[j][k]));
+            if dot(sub(m, root), sub(m, root)) > clear * clear {
+                contacts.push((m, skin.nearest[j]));
+            }
+        }
+    }
+    // places: contacts in touching 3 cm cells
+    let mut cells: HashMap<[i32; 3], Vec<usize>> = HashMap::new();
+    for (k, (m, _)) in contacts.iter().enumerate() {
+        cells.entry(cell(*m, 0.03)).or_default().push(k);
+    }
+    let mut seen: std::collections::HashSet<[i32; 3]> = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for &start in cells.keys() {
+        if !seen.insert(start) {
+            continue;
+        }
+        let (mut stack, mut members) = (vec![start], Vec::new());
+        while let Some(c) = stack.pop() {
+            members.extend(cells[&c].iter().copied());
+            for n in 0..27 {
+                let key = [c[0] + n % 3 - 1, c[1] + n / 3 % 3 - 1, c[2] + n / 9 - 1];
+                if cells.contains_key(&key) && seen.insert(key) {
+                    stack.push(key);
+                }
+            }
+        }
+        let pts: Vec<V3> = members.iter().map(|&k| contacts[k].0).collect();
+        let lo = std::array::from_fn(|k| pts.iter().map(|p| p[k]).fold(f32::MAX, f32::min));
+        let hi = std::array::from_fn(|k| pts.iter().map(|p| p[k]).fold(f32::MIN, f32::max));
+        let mut count: HashMap<usize, usize> = HashMap::new();
+        for &k in &members {
+            *count.entry(contacts[k].1).or_default() += 1;
+        }
+        let bone = count.into_iter().max_by_key(|&(b, n)| (n, usize::MAX - b)).map(|(b, _)| &skin.bones[b]);
+        out.push(Bridge { lo, hi, contacts: pts, bone: bone.map(|b| format!("{}->{}", b.parent, b.child)).unwrap_or_default() });
+    }
+    out.sort_by(|a, b| b.contacts.len().cmp(&a.contacts.len()));
+    out
+}
+
 /// A rotation of `angle` radians about a unit `axis`, as a matrix.
 #[must_use]
 pub fn rotation(axis: V3, angle: f32) -> [[f32; 3]; 3] {
@@ -1459,6 +1624,41 @@ mod tests {
         v.sections[last].set_corner(&plane, 0, raised);
         assert!(v.contains(probe) && closed(&v) && v.range().is_some_and(|(_, hi)| hi > 1.29));
         assert!(Removal::new(&RigFile { cuts: vec![Cut { name: "box".into(), views: vec![v.clone()], ..Cut::default() }], ..RigFile::default() }).removes(probe));
+    }
+
+    /// Skinning by nearest bone: the arm's points follow it, the body's do not, the shoulder
+    /// blends; where the arm's surface touches the body's away from the shoulder, one bridge.
+    #[test]
+    fn skin_and_bridges() {
+        let plane = Preset::Transverse.plane(0.0);
+        let joint = |name: &str, parent: Option<&str>, p: V3| Joint {
+            name: name.into(),
+            parent: parent.map(String::from),
+            observations: vec![Observation { plane, offset: p[1], point: plane.to_2d(p) }],
+            proposed: false,
+        };
+        let joints = vec![
+            joint("pelvis", None, [0.0, 1.0, 0.0]),
+            joint("chest", Some("pelvis"), [0.0, 1.4, 0.0]),
+            joint("shoulder", Some("chest"), [0.2, 1.4, 0.0]),
+            joint("elbow", Some("shoulder"), [0.25, 1.1, 0.0]),
+            joint("wrist", Some("elbow"), [0.25, 0.85, 0.0]),
+        ];
+        let mut points: Vec<V3> = (0..50).map(|k| [0.0, 0.9 + k as f32 * 0.01, 0.0]).collect();
+        points.extend((0..25).map(|k| [0.25, 0.85 + k as f32 * 0.01, 0.0]));
+        // a hand of the arm and the body's flank, 1.5 cm apart at 1.0 m
+        points.push([0.135, 1.0, 0.0]);
+        points.push([0.12, 1.0, 0.0]);
+        let n = points.len();
+        let s = skin(&points, &joints, "shoulder", 0.04).expect("a limb");
+        assert!(s.weights[..50].iter().all(|&w| w == 0.0), "the body stays");
+        assert!(s.weights[50..75].iter().all(|&w| w == 1.0), "the arm follows");
+        assert!(s.weights[n - 2] == 1.0 && s.weights[n - 1] == 0.0);
+        // the hand past the wrist is part of the limb
+        assert!(s.bones.iter().any(|b| b.child == "wrist+" && b.limb));
+        let found = bridges(&points, &s, [0.2, 1.4, 0.0], 0.02, 0.08);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!((found[0].lo[1] - 1.0).abs() < 0.01 && found[0].bone == "pelvis->chest", "{found:?}");
     }
 
     /// A draft keeps unaccepted work through saving and loading; an empty one leaves no file.
