@@ -75,6 +75,31 @@ character in minutes.
 Done when: a scanned figure with five named parts waves its arm in an fframes clip and in
 Spine, from one command plus a pivot file.
 
+### Rigging the 3D figures (started 2026-10-30)
+
+The turntable figures (low-poly glTF and Gaussian splat) as moving characters. Order: A-pose
+farmer, mesh rig and walk, splat deformation, horse, rider.
+
+1. **Parts check.** Done: `parts model.glb` slices the surface by height and reports the parts
+   that move on their own and where they join, so bridges between limbs and body are measured,
+   not assumed.
+2. **Skeleton fitting.** Human and horse templates, joint positions checked against the
+   reconstructed anatomy. Horse and rider are separate characters; the rider's root sits on a
+   saddle anchor, with hand and foot constraints where needed.
+3. **Skin weights.** Nearest bone is only the first estimate (it gives an arm to the body or
+   mixes neighbouring legs): anatomical regions, smooth and normalised weights. Export joint
+   indices, weights, inverse bind matrices and animation channels as a complete animated glTF.
+4. **Splat deformation.** Weights from the matching mesh surface by triangle interpolation,
+   limited to the body part. Centre and covariance both deform: under a local affine transform
+   A, the covariance becomes A Σ Aᵀ.
+5. **Motion.** The farmer's mesh-only walk first, then with splats; the horse's gait on its
+   own before the rider and the contact constraints.
+6. **Separating a limb.** An option to cut an arm free of what blocks it (body, saddle,
+   another figure) where the reconstruction joined them, with the hidden surface filled.
+
+An A-pose reduces the reconstruction's ambiguities (accidental bridges, missing surface where
+limbs touch); it does not by itself make a mesh ready to animate.
+
 ## Priority 3: mesh simplification and levels of detail
 
 Light meshes make the 3D export usable in browsers, on phones, in AR and in game engines.

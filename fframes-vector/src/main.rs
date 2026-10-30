@@ -640,6 +640,38 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some("parts") if args.len() >= 2 => {
+            // parts model.glb [--cell 0.015]: the parts of a standing figure that move on their
+            // own (legs, an arm free of the body) and where they join, from height slices
+            let run = || -> Result<(), String> {
+                let data = std::fs::read(&args[1]).map_err(|e| format!("{}: {e}", args[1]))?;
+                let (positions, indices) = fframes_vector::rig::read_glb_mesh(&data).map_err(|e| format!("{}: {e}", args[1]))?;
+                let p = fframes_vector::rig::parts(&positions, &indices, opt(&args, "--cell").unwrap_or(0.015));
+                eprintln!("{}: {:.2} m high, {} parts ({} cm layers, {} small sections left out)", args[1], p.height, p.parts.len(), p.cell * 100.0, p.dropped);
+                for (i, q) in p.parts.iter().enumerate() {
+                    eprintln!(
+                        "{i:3}: {:4.2}-{:4.2} m ({:3.0}-{:3.0} %), centre x {:5.2} z {:5.2}, section {:5.0} cm², below {:?}, above {:?}",
+                        q.bottom,
+                        q.top,
+                        100.0 * q.bottom / p.height,
+                        100.0 * q.top / p.height,
+                        q.centre[0],
+                        q.centre[1],
+                        q.area * 1e4,
+                        q.below,
+                        q.above
+                    );
+                }
+                Ok(())
+            };
+            match run() {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some("splat-scene") if args.len() >= 4 => {
             // splat-scene walk.mp4 cameras.json out.mp4 --splat file.ply:height:x:z [--splat ...]:
             // Gaussian splats drawn into a fframes-walk video, through the cameras it logged

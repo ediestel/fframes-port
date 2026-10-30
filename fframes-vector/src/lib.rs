@@ -31,6 +31,7 @@ pub mod quantize;
 pub mod points;
 pub mod raster;
 pub mod report;
+pub mod rig;
 pub mod splat;
 pub mod trace;
 pub mod tree;
