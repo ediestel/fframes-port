@@ -574,7 +574,7 @@ fn main() -> ExitCode {
             }
         }
         Some("splat-depth") if args.len() >= 3 => {
-            // splat-depth splats.ply dataset_dir [--every 8] [--offset 3] [--mesh model.glb]:
+            // splat-depth splats.ply dataset_dir [--every 8] [--offset 3] [--mesh model.glb] [--points out.ply]:
             // depth diagnostics of trained splats, and their cross-sections against a mesh
             use fframes_vector::splat::{depth_report, read_cameras, read_splats};
             let (ply, dir) = (&args[1], std::path::Path::new(&args[2]));
@@ -585,6 +585,17 @@ fn main() -> ExitCode {
                 let cams = read_cameras(&dir.join("transforms.json"))?;
                 let (report, points) = depth_report(&splats, &cams, dir, every, offset)?;
                 eprintln!("{report}");
+                // --points out.ply: the confident surface points (world, metres)
+                if let Some(out) = opt::<String>(&args, "--points") {
+                    let mut ply = format!(
+                        "ply\nformat binary_little_endian 1.0\nelement vertex {}\nproperty float x\nproperty float y\nproperty float z\nend_header\n",
+                        points.len()
+                    )
+                    .into_bytes();
+                    ply.extend(points.iter().flatten().flat_map(|v| v.to_le_bytes()));
+                    std::fs::write(&out, ply).map_err(|e| format!("{out}: {e}"))?;
+                    eprintln!("{out}: {} surface points", points.len());
+                }
                 // cross-sections: per tenth of the height, the width in x and z (2-98 %)
                 let bands = |pts: &[[f32; 3]]| -> Vec<(f32, f32)> {
                     let (lo, hi) = pts.iter().fold((f32::MAX, f32::MIN), |m, p| (m.0.min(p[1]), m.1.max(p[1])));
