@@ -348,6 +348,18 @@ fn run() -> Result<(), String> {
         editor.rig.joints = propose_skeleton(&editor.figure.positions, &editor.figure.indices, editor.rig.front_yaw);
         eprintln!("proposed: a skeleton of {} joints", editor.rig.joints.len());
     }
+    // a proposal of the earlier kind (three views) is replaced by the single box, and an
+    // unaccepted edit of it with it
+    let mut draft = draft;
+    let old: Vec<usize> = (0..editor.rig.cuts.len()).filter(|&i| editor.rig.cuts[i].proposed && editor.rig.cuts[i].views.len() > 1).collect();
+    if !old.is_empty() {
+        if draft.editing.is_some_and(|i| old.contains(&i)) {
+            draft.cut = None;
+            draft.editing = None;
+        }
+        editor.rig.cuts.retain(|c| !(c.proposed && c.views.len() > 1));
+        eprintln!("the earlier three-view proposal is replaced by one box");
+    }
     if editor.rig.cuts.is_empty() {
         editor.rig.cuts = propose_cuts(&editor.figure.positions, &editor.figure.indices, editor.rig.front_yaw);
         for c in &editor.rig.cuts {
@@ -669,6 +681,97 @@ impl Editor {
                     }
                     None => "nothing to discard".into(),
                 }
+            }
+        };
+    }
+
+    /// Option+click on a box (a cut whose levels have the same corners): on one of its dots
+    /// removes it (a dot of a middle level: that level; else that corner from every level),
+    /// on an edge adds a dot there (on a level's outline: a corner on every level; on an edge
+    /// between levels: a new level at that height).
+    fn box_dot(&mut self, at: PhysicalPosition<f64>) {
+        enum Change {
+            Remove(usize, usize, usize),
+            Corner(usize, usize, usize, [f32; 2]),
+            Level(usize, f32, usize, [f32; 2]),
+        }
+        let at = Point::new(at.x as f32, at.y as f32);
+        let ui = self.window.as_ref().map_or(1.0, |w| w.scale_factor() as f32);
+        let reach = GRAB * ui;
+        let find = |cut: &Cut, me: &Self| -> Option<Change> {
+            // on a segment: where along it (0..1), when the pointer is near
+            let along = |p: V3, q: V3| -> Option<f32> {
+                let (a, b) = (me.screen(p)?, me.screen(q)?);
+                let ab = b - a;
+                let t = (((at - a).x * ab.x + (at - a).y * ab.y) / (ab.x * ab.x + ab.y * ab.y).max(1e-6)).clamp(0.0, 1.0);
+                ((a + ab * t - at).length() < reach).then_some(t)
+            };
+            for (vi, v) in cut.views.iter().enumerate().filter(|(_, v)| v.corresponding()) {
+                for (l, s) in v.sections.iter().enumerate() {
+                    for (k, q) in s.contour.iter().enumerate() {
+                        if me.screen(v.plane.to_3d(*q, s.offset)).is_some_and(|p| (p - at).length() < reach) {
+                            return Some(Change::Remove(vi, l, k));
+                        }
+                    }
+                }
+                for (l, s) in v.sections.iter().enumerate() {
+                    let n = s.contour.len();
+                    for k in 0..n {
+                        let (p, q) = (s.contour[k], s.contour[(k + 1) % n]);
+                        if let Some(t) = along(v.plane.to_3d(p, s.offset), v.plane.to_3d(q, s.offset)) {
+                            return Some(Change::Corner(vi, l, k, [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]));
+                        }
+                        if let Some(up) = v.sections.get(l + 1) {
+                            let r = up.contour[k];
+                            if let Some(t) = along(v.plane.to_3d(p, s.offset), v.plane.to_3d(r, up.offset)) {
+                                let offset = s.offset + (up.offset - s.offset) * t;
+                                return Some(Change::Level(vi, offset, k, [p[0] + (r[0] - p[0]) * t, p[1] + (r[1] - p[1]) * t]));
+                            }
+                        }
+                    }
+                }
+            }
+            None
+        };
+        let change = match self.pending.as_ref().and_then(|c| find(c, self)) {
+            Some(c) => {
+                self.keep_step();
+                c
+            }
+            None if self.pending.is_some() => {
+                self.message = "Option+click a dot (removes it) or an edge (adds one) of the box being edited".into();
+                return;
+            }
+            None => {
+                let Some((i, c)) = (0..self.rig.cuts.len()).find_map(|i| find(&self.rig.cuts[i], self).map(|c| (i, c))) else {
+                    self.message = "Option+click a dot of a box to remove it, or an edge to add one".into();
+                    return;
+                };
+                self.keep_step();
+                self.open_cut(i);
+                c
+            }
+        };
+        let Some(cut) = &mut self.pending else { return };
+        self.message = match change {
+            Change::Remove(vi, l, k) => {
+                let v = &mut cut.views[vi];
+                if l > 0 && l + 1 < v.sections.len() {
+                    v.sections.remove(l);
+                    "level removed".into()
+                } else if v.remove_corner(k) {
+                    "corner removed from every level".into()
+                } else {
+                    "a box keeps at least 3 corners".into()
+                }
+            }
+            Change::Corner(vi, l, k, p) => {
+                cut.views[vi].insert_corner(l, k, p);
+                "corner added on every level: drag it".into()
+            }
+            Change::Level(vi, offset, k, p) => {
+                cut.views[vi].insert_level(offset, k, p);
+                format!("level added at {offset:.3} m: drag its dots")
             }
         };
     }
@@ -1132,6 +1235,31 @@ impl Editor {
                         }
                     }
                 }
+                if view.corresponding() {
+                    // one box: each level's outline, the edges from corner to corner between
+                    // levels, and where the active plane cuts it
+                    let mut seg = |p: V3, q: V3, w: f32| {
+                        if let (Some(s), Some(e)) = (self.screen(p), self.screen(q)) {
+                            lines.push((s, e, colour, w));
+                        }
+                    };
+                    for (l, s) in view.sections.iter().enumerate() {
+                        let n = s.contour.len();
+                        for k in 0..n {
+                            seg(view.plane.to_3d(s.contour[k], s.offset), view.plane.to_3d(s.contour[(k + 1) % n], s.offset), 2.0);
+                            if let Some(up) = view.sections.get(l + 1) {
+                                seg(view.plane.to_3d(s.contour[k], s.offset), view.plane.to_3d(up.contour[k], up.offset), 2.0);
+                            }
+                        }
+                    }
+                    if let Some(a) = self.active {
+                        let (pos, ind) = view.surface();
+                        for (p, q) in section_segments(&pos, &ind, &a.plane, a.offset) {
+                            seg(p, q, 3.5);
+                        }
+                    }
+                    continue;
+                }
                 let mut offsets: Vec<f32> = view.sections.iter().map(|s| s.offset).collect();
                 offsets.extend((0..=6).map(|k| lo + (hi - lo) * k as f32 / 6.0));
                 for (n, t) in offsets.iter().enumerate() {
@@ -1194,7 +1322,7 @@ impl Editor {
                 self.message
             )
         };
-        let keys = "click: dot / joint   drag any dot: move   Enter: close contour   Up/Down or ⌥+drag: move plane   drag outline: region (Shift: whole cut)   E: edit cut   N: next section   Delete or Cmd+Z: undo step   Shift+Delete: remove section   [ ]: ends   P: protect   A: accept   D: discard   J: joint   X: apply   T: original/rebuilt   , . ; ' 0: arm   F: confirm front   B: turn front   Cmd+Z: undo   Q: quit";
+        let keys = "click: dot / joint   drag any dot: move   Enter: close contour   Up/Down or ⌥+drag: move plane   drag outline: region (Shift: whole cut)   ⌥+click box dot: remove, edge: add   E: edit cut   N: next section   Delete or Cmd+Z: undo step   Shift+Delete: remove section   [ ]: ends   P: protect   A: accept   D: discard   J: joint   X: apply   T: original/rebuilt   , . ; ' 0: arm   F: confirm front   B: turn front   Cmd+Z: undo   Q: quit";
         let labels: [(&str, Action); 11] = [
             ("Transverse", Action::Plane(Preset::Transverse)),
             ("Coronal", Action::Plane(Preset::Coronal)),
@@ -1606,7 +1734,8 @@ impl ApplicationHandler for Editor {
                     // a press on a dot (of the open contour, or of a cut's section on the
                     // plane) grabs it
                     let at = Point::new(self.cursor.x as f32, self.cursor.y as f32);
-                    self.grabbed = if self.activation_click { None } else { self.grab_at(at) };
+                    // Option+click adds or removes a box's dot instead of grabbing
+                    self.grabbed = if self.activation_click || self.modifiers.alt_key() { None } else { self.grab_at(at) };
                 }
                 ElementState::Released => {
                     let grabbed = self.grabbed.take();
@@ -1627,6 +1756,7 @@ impl ApplicationHandler for Editor {
                             Some(Grab::Joint(_)) => {
                                 self.history.pop();
                             }
+                            None if moved < CLICK && !activation && self.modifiers.alt_key() => self.box_dot(self.cursor),
                             None if moved < CLICK && !activation => self.click(self.cursor),
                             _ => {}
                         }

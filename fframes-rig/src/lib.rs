@@ -185,6 +185,74 @@ impl View {
         Some(interpolate(&a.contour, &b.contour, t))
     }
 
+    /// Whether all sections have the same number of corners, so corresponding corners are
+    /// joined by straight edges (a box when there are two sections of four).
+    #[must_use]
+    pub fn corresponding(&self) -> bool {
+        self.sections.first().is_some_and(|f| f.contour.len() >= 3 && self.sections.iter().all(|s| s.contour.len() == f.contour.len()))
+    }
+
+    /// The surface of a view whose sections correspond: the sections as its levels, quads
+    /// between corresponding edges of neighbouring levels, the first and last closed (fans).
+    #[must_use]
+    pub fn surface(&self) -> (Vec<V3>, Vec<u32>) {
+        if !self.corresponding() {
+            return (Vec::new(), Vec::new());
+        }
+        let n = self.sections[0].contour.len() as u32;
+        let pos: Vec<V3> = self.sections.iter().flat_map(|s| s.contour.iter().map(|q| self.plane.to_3d(*q, s.offset))).collect();
+        let mut ind = Vec::new();
+        for l in 0..self.sections.len() as u32 - 1 {
+            for k in 0..n {
+                let (a, b) = (l * n + k, l * n + (k + 1) % n);
+                ind.extend([a, b, b + n, a, b + n, a + n]);
+            }
+        }
+        let last = (self.sections.len() as u32 - 1) * n;
+        for k in 1..n - 1 {
+            ind.extend([0, k + 1, k, last, last + k, last + k + 1]);
+        }
+        (pos, ind)
+    }
+
+    /// Adds a corner on edge `edge` (between corners `edge` and `edge + 1`) of section
+    /// `section`, at `point`; the other sections get one at the same place along their edge.
+    pub fn insert_corner(&mut self, section: usize, edge: usize, point: [f32; 2]) {
+        let Some(s) = self.sections.get(section) else { return };
+        let n = s.contour.len();
+        let (a, b) = (s.contour[edge % n], s.contour[(edge + 1) % n]);
+        let ab = [b[0] - a[0], b[1] - a[1]];
+        let t = (((point[0] - a[0]) * ab[0] + (point[1] - a[1]) * ab[1]) / (ab[0] * ab[0] + ab[1] * ab[1]).max(1e-12)).clamp(0.0, 1.0);
+        for (i, s) in self.sections.iter_mut().enumerate() {
+            let m = s.contour.len();
+            let (p, q) = (s.contour[edge % m], s.contour[(edge + 1) % m]);
+            let at = if i == section { point } else { [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t] };
+            s.contour.insert(edge % m + 1, at);
+        }
+    }
+
+    /// Adds a level at `offset` (between two sections): the shape there, with corner
+    /// `corner` moved to `point`.
+    pub fn insert_level(&mut self, offset: f32, corner: usize, point: [f32; 2]) {
+        let Some(mut contour) = self.contour_at(offset) else { return };
+        if let Some(c) = contour.get_mut(corner) {
+            *c = point;
+        }
+        self.sections.push(Section { offset, contour });
+        self.sort();
+    }
+
+    /// Removes a corner from every section (a section keeps at least three).
+    pub fn remove_corner(&mut self, corner: usize) -> bool {
+        if !self.sections.iter().all(|s| s.contour.len() > 3 && corner < s.contour.len()) {
+            return false;
+        }
+        for s in &mut self.sections {
+            s.contour.remove(corner);
+        }
+        true
+    }
+
     /// Whether a point lies in this view's volume.
     #[must_use]
     pub fn contains(&self, p: V3) -> bool {
@@ -359,6 +427,10 @@ impl PreparedView {
     fn new(v: &View) -> Option<Self> {
         let (lo, hi) = v.range()?;
         let mut sections: Vec<(f32, Vec<[f32; 2]>)> = Vec::new();
+        // sections with the same corners (a box): corner to corner, as drawn
+        if v.corresponding() {
+            return Some(PreparedView { plane: v.plane, lo, hi, sections: v.sections.iter().map(|s| (s.offset, s.contour.clone())).collect() });
+        }
         for s in &v.sections {
             let ring = resample(&s.contour, SAMPLES);
             let ring = match sections.last() {
@@ -700,7 +772,7 @@ pub fn section_pieces(segments: &[(V3, V3)]) -> Vec<Vec<usize>> {
 /// middle; the height where they first become one is where the reconstruction joined them.
 /// The gap seen just below (between the body's outer edge and the arm's inner edge, over the
 /// arm's depth) is proposed as removed from there up to 0.74 of the height (under the
-/// armpit), drawn in all three planes.
+/// armpit), as one box: a rectangle at the bottom and one at the top, corner over corner.
 #[must_use]
 pub fn propose_cuts(positions: &[V3], indices: &[u32], front_yaw: f32) -> Vec<Cut> {
     let (lo, hi) = positions.iter().fold((f32::MAX, f32::MIN), |(l, h), p| (l.min(p[1]), h.max(p[1])));
@@ -709,7 +781,7 @@ pub fn propose_cuts(positions: &[V3], indices: &[u32], front_yaw: f32) -> Vec<Cu
         return Vec::new();
     }
     let (side, _, front) = axes(front_yaw);
-    let planes = (Preset::Transverse.plane(front_yaw), Preset::Coronal.plane(front_yaw), Preset::Sagittal.plane(front_yaw));
+    let planes = (Preset::Transverse.plane(front_yaw),);
     let mid_section = section_segments(positions, indices, &planes.0, lo + 0.5 * height);
     let middle = if mid_section.is_empty() { 0.0 } else { mid_section.iter().map(|(a, _)| dot(*a, side)).sum::<f32>() / mid_section.len() as f32 };
     // per piece: lowest and highest side coordinate, lowest and highest front coordinate
@@ -757,31 +829,11 @@ pub fn propose_cuts(positions: &[V3], indices: &[u32], front_yaw: f32) -> Vec<Cu
         let (s0, s1) = (middle + sign * body_edge, middle + sign * arm_edge);
         let (s0, s1) = (s0.min(s1), s0.max(s1));
         let (f0, f1) = (f0 - 0.01, f1 + 0.01);
-        // the box as three views, each a rectangle in its plane
-        let corner = |pl: &Plane, s: f32, fr: f32, y: f32| -> [f32; 2] {
-            let p: V3 = std::array::from_fn(|k| side[k] * s + front[k] * fr + if k == 1 { y } else { 0.0 });
-            pl.to_2d(p)
-        };
-        let rect = |pl: &Plane, pts: [(f32, f32, f32); 4]| -> Vec<[f32; 2]> { pts.iter().map(|&(s, fr, y)| corner(pl, s, fr, y)).collect() };
-        let (t, c, g) = &planes;
-        let across = |y: f32| Section { offset: y, contour: rect(t, [(s0, f0, y), (s1, f0, y), (s1, f1, y), (s0, f1, y)]) };
-        let fm = f32::midpoint(f0, f1);
-        let sm = f32::midpoint(s0, s1);
-        let views = vec![
-            View { plane: *t, sections: vec![across(y0), across(y1)], before: 0.0, after: 0.0 },
-            View {
-                plane: *c,
-                sections: vec![Section { offset: fm, contour: rect(c, [(s0, fm, y0), (s1, fm, y0), (s1, fm, y1), (s0, fm, y1)]) }],
-                before: (f1 - f0) / 2.0,
-                after: (f1 - f0) / 2.0,
-            },
-            View {
-                plane: *g,
-                sections: vec![Section { offset: sm, contour: rect(g, [(sm, f0, y0), (sm, f1, y0), (sm, f1, y1), (sm, f0, y1)]) }],
-                before: (s1 - s0) / 2.0,
-                after: (s1 - s0) / 2.0,
-            },
-        ];
+        // one box: its bottom and top rectangles, corner over corner
+        let t = planes.0;
+        let corner = |s: f32, fr: f32, y: f32| -> [f32; 2] { t.to_2d(std::array::from_fn(|k| side[k] * s + front[k] * fr + if k == 1 { y } else { 0.0 })) };
+        let across = |y: f32| Section { offset: y, contour: vec![corner(s0, f0, y), corner(s1, f0, y), corner(s1, f1, y), corner(s0, f1, y)] };
+        let views = vec![View { plane: t, sections: vec![across(y0), across(y1)], before: 0.0, after: 0.0 }];
         out.push(Cut { name: format!("{name} bridge"), protect: false, views, proposed: true });
     }
     out
@@ -920,6 +972,10 @@ const SAMPLES: usize = 64;
 /// turned to match `a` best, each point moved in a straight line.
 #[must_use]
 pub fn interpolate(a: &[[f32; 2]], b: &[[f32; 2]], t: f32) -> Vec<[f32; 2]> {
+    // the same number of corners: each corner moves to its own (a box's edges stay straight)
+    if a.len() == b.len() {
+        return a.iter().zip(b).map(|(p, q)| [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]).collect();
+    }
     let (ra, rb) = (resample(a, SAMPLES), resample(b, SAMPLES));
     if ra.is_empty() || rb.is_empty() {
         return if t < 0.5 { a.to_vec() } else { b.to_vec() };
@@ -1273,6 +1329,38 @@ mod tests {
         assert!(!cut.contains([16.0 * size, 52.0 * size, 3.0 * size]), "the body");
         let rig = RigFile { cuts: cuts.clone(), ..RigFile::default() };
         assert!(!rig.removes([18.5 * size, 52.0 * size, 3.0 * size]) && Removal::new(&rig).is_empty());
+    }
+
+    /// A box (two rectangles, corner over corner): its surface is closed; a corner added on an
+    /// edge goes to both rectangles and the box still holds what it held; a level added part
+    /// way up bends it there; removing the added corner gives the box back.
+    #[test]
+    fn box_corners_and_levels() {
+        let mut v = View { plane: Preset::Transverse.plane(0.0), sections: vec![
+            Section { offset: 1.0, contour: square(0.0, 0.0, 0.05) },
+            Section { offset: 1.2, contour: square(0.0, 0.0, 0.05) },
+        ], before: 0.0, after: 0.0 };
+        let closed = |v: &View| {
+            let (_, ind) = v.surface();
+            let mut edges: std::collections::HashMap<(u32, u32), i32> = std::collections::HashMap::new();
+            for t in ind.chunks_exact(3) {
+                for (a, b) in [(t[0], t[1]), (t[1], t[2]), (t[2], t[0])] {
+                    *edges.entry((a.min(b), a.max(b))).or_default() += 1;
+                }
+            }
+            !ind.is_empty() && edges.values().all(|&c| c == 2)
+        };
+        assert!(v.corresponding() && closed(&v));
+        let inside_before = v.contains(v.plane.to_3d([0.04, 0.04], 1.1));
+        v.insert_corner(0, 1, [0.05, 0.0]);
+        assert!(v.sections.iter().all(|s| s.contour.len() == 5) && closed(&v));
+        assert_eq!(v.contains(v.plane.to_3d([0.04, 0.04], 1.1)), inside_before);
+        // a level at 1.1 m with corner 2 pulled out: the box bulges there, not at the ends
+        let out = [0.09, 0.0];
+        v.insert_level(1.1, 2, out);
+        assert_eq!(v.sections.len(), 3);
+        assert!(v.contains(v.plane.to_3d([0.08, 0.0], 1.1)) && !v.contains(v.plane.to_3d([0.08, 0.0], 1.01)));
+        assert!(v.remove_corner(2) && v.sections.iter().all(|s| s.contour.len() == 4) && closed(&v));
     }
 
     /// A draft keeps unaccepted work through saving and loading; an empty one leaves no file.
