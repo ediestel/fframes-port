@@ -30,6 +30,7 @@ pub mod lowpoly;
 pub mod quantize;
 pub mod points;
 pub mod raster;
+pub mod recipe;
 pub mod report;
 pub mod rig;
 pub mod splat;

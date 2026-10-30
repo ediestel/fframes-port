@@ -1,5 +1,10 @@
 # The Flemish farmer, exactly as built on 29 Oct 2026 (session 8a8a2aea), local times.
-# Every step and setting as it was run; expected values are what that run measured.
+# Every step and setting as it was run. Run with `fframes-vector run <this file>` from the
+# repository root; it refuses outputs that exist, so these files (already built) are safe.
+# `expect`: the checks a run must pass (stops at the first failure). `measured`: what the
+# 29 Oct run gave, for the record. Limits for a new figure come from these measurements:
+# mirror error at most twice the farmer's, overlap and outline distance no worse than the
+# farmer's low-poly mesh (0.913, 2.31 px), excess at most 8 %.
 # Paths are relative to the repository root unless absolute.
 
 figure: flemish_farmer
@@ -8,8 +13,7 @@ source:
   # NTGT / Grok Imagine video, 21:35; input picture examples/golden_spurs/flemish_farmer_2k_green.png
   clip: "~/Library/Application Support/engineering.amdg.ntgt.desktop/cases/2026-10-29T09-47-02_Untitled/results/actions/1402c79e-a89c-4b4b-a837-6b8eb7d1958e/out/Clip_(Grok)_29.10._21_35.mp4"
   md5: 2fa0a7e441f8ba60804ecaf69c32a32b
-  size: [736, 400]
-  frames: 193
+  # 736 x 400, 193 frames
 
 steps:
   - name: trim
@@ -17,16 +21,22 @@ steps:
     run: ffmpeg -y -i {source.clip} -vf "trim=start_frame=1,setpts=PTS-STARTPTS" -c:v libx264 -crf 8 -pix_fmt yuv444p examples/golden_spurs/turntable_farmer.mp4
     output: examples/golden_spurs/turntable_farmer.mp4
     expect:
-      md5: 8b4458bcb77af2afd39639342ffe26ec
       frames: 192
+      md5: 8b4458bcb77af2afd39639342ffe26ec
+    measured:
       background: [203, 203, 203]
 
   - name: dataset
     # Brush training set from the measured turn; mesh written alongside
     code: fdd5a6f   # depth.rs as it was at 22:33, before the revision ac3105e
-    run: target/release/fframes-vector depth examples/golden_spurs/turntable_farmer.mp4 examples/golden_spurs/turntable_3d/models/farmer_v3.glb --height 1.7 --hull --splat examples/golden_spurs/turntable_3d/splat_farmer
+    run: "{fframes-vector} depth examples/golden_spurs/turntable_farmer.mp4 examples/golden_spurs/turntable_3d/models/farmer_v3.glb --height 1.7 --hull --splat examples/golden_spurs/turntable_3d/splat_farmer"
     output: examples/golden_spurs/turntable_3d/splat_farmer
     expect:
+      mirror_error_px: {max: 3.5}
+      depth_known_percent: {min: 60}
+      turn_degrees: {min: 360}
+      images: {min: 150}
+    measured:
       half_turn_frames: 84.88   # found automatically, not set
       turn_degrees: 405
       axis_x: 372.5
@@ -37,24 +47,32 @@ steps:
       voxels: 578308
       images: 192
       start_points: 29702
-      camera_check_percent: [89, 95]   # start points landing on the figure, per checked frame
+      camera_check_percent: [89, 95]   # start points landing on the figure, per checked frame (a script, not the runner)
 
   - name: train
     tool: brush 0.3.0 (~/.local/opt/brush-0.3.0, linked as ~/.local/bin/brush)
-    # defaults: 30000 steps; exports every 5000 steps into the working directory (moved afterwards)
-    run: brush examples/golden_spurs/turntable_3d/splat_farmer --with-viewer
+    # defaults: 30000 steps, an export every 5000 steps; on 29 Oct they went into the working
+    # directory and were moved to export/ afterwards, here they go there directly
+    run: brush examples/golden_spurs/turntable_3d/splat_farmer --with-viewer --export-path examples/golden_spurs/turntable_3d/splat_farmer/export
     output: examples/golden_spurs/turntable_3d/splat_farmer/export/export_30000.ply
     expect:
-      splats: 43113
+      splats: {min: 10000}
       sh_degree: 3
+    measured:
+      splats: 43113
 
   - name: render
     code: 60f3c88
-    run: target/release/fframes-vector splat-video examples/golden_spurs/turntable_3d/splat_farmer/export/export_30000.ply examples/golden_spurs/turntable_3d/splat_farmer examples/golden_spurs/film/farmer_splat.mp4 --scale 2
+    run: "{fframes-vector} splat-video examples/golden_spurs/turntable_3d/splat_farmer/export/export_30000.ply examples/golden_spurs/turntable_3d/splat_farmer examples/golden_spurs/film/farmer_splat.mp4 --scale 2"
     output: examples/golden_spurs/film/farmer_splat.mp4
     expect:
+      overlap: {min: 0.913}
+      outline_distance_px: {max: 2.31}
+      excess_percent: {max: 8}
+    measured:
       frames: 192
-      size: [1472, 800]
+      width: 1472
+      height: 800
       overlap: 0.937
       outline_distance_px: 1.93
       missed_percent: 1.4

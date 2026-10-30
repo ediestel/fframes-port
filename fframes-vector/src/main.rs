@@ -817,6 +817,20 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some("run") if args.len() >= 2 => {
+            // run recipe.yaml (from the repository root): a figure's route step by step, each
+            // result measured against the recipe's checks; stops at the first that fails
+            match fframes_vector::recipe::run(std::path::Path::new(&args[1])) {
+                Ok(log) => {
+                    eprintln!("log: {} ({:.1} s)", log.display(), start.elapsed().as_secs_f32());
+                    ExitCode::SUCCESS
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some("splat-video") if args.len() >= 4 => {
             // splat-video splats.ply dataset_dir out.mp4 [--scale 2] [--fps 24]: the splats seen
             // by every camera of the dataset's transforms.json, encoded with ffmpeg; every 8th
