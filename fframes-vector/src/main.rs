@@ -215,57 +215,19 @@ fn turntable_frames(video: &str, count: usize) -> Result<Vec<image::RgbaImage>, 
     frames
 }
 
-/// A model's face ready for its expressions: with the library's teeth, the model cut along
-/// the mouth slit (its glTF and positions replaced) and the teeth and mouth cavity to add;
-/// every expression as morph target offsets.
-struct FaceModel {
-    data: Vec<u8>,
-    positions: Vec<[f32; 3]>,
-    morphs: Vec<(String, Vec<[f32; 3]>)>,
-    mouth: Option<(fframes_rig::face::Part, fframes_rig::face::Part, fframes_rig::face::Teeth)>,
-    cut: usize,
-}
-
-/// The face of a model by the library (the one that comes with fframes, or `library`).
-fn face_model(data: Vec<u8>, positions: Vec<[f32; 3]>, indices: &[u32], face: &fframes_rig::face::Face, library: Option<String>) -> Result<FaceModel, String> {
-    use fframes_rig::face;
+/// Every expression of the library (the one that comes with fframes, or `library`) as morph
+/// target offsets for the model's vertices.
+fn expression_morphs(positions: &[[f32; 3]], face: &fframes_rig::face::Face, library: Option<String>) -> Result<Vec<(String, Vec<[f32; 3]>)>, String> {
     let text = match &library {
         Some(path) => std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?,
-        None => face::LIBRARY.to_string(),
+        None => fframes_rig::face::LIBRARY.to_string(),
     };
-    let library = face::Library::parse(&text)?;
-    let (data, positions, mouth, cut) = match &library.teeth {
-        Some(t) => {
-            let slit = face::mouth_slit(&positions, indices, face);
-            let data = fframes_vector::rig::apply_slit(&data, &slit)?;
-            let (teeth, cavity) = face::teeth(face, t);
-            (data, slit.positions, Some((teeth, cavity, t.clone())), slit.cut)
-        }
-        None => (data, positions, None, 0),
-    };
-    let morphs = library
+    let library = fframes_rig::face::Library::parse(&text)?;
+    library
         .expressions
         .keys()
-        .map(|name| face::expression(&positions, face, &library, name).map(|o| (name.clone(), o)))
-        .collect::<Result<_, _>>()?;
-    Ok(FaceModel { data, positions, morphs, mouth, cut })
-}
-
-/// The model with the face's teeth and mouth cavity, fixed to `joint` when skinned.
-fn with_mouth(data: Vec<u8>, model: &FaceModel, joint: Option<u16>) -> Result<Vec<u8>, String> {
-    match &model.mouth {
-        Some((teeth, cavity, t)) => fframes_vector::rig::add_parts(&data, &[("teeth", teeth, t.colour, 0.35), ("mouth cavity", cavity, t.cavity, 0.9)], joint),
-        None => Ok(data),
-    }
-}
-
-/// How many vertices each expression moves, and how far at most.
-fn report_morphs(morphs: &[(String, Vec<[f32; 3]>)]) {
-    for (name, offsets) in morphs {
-        let moved = offsets.iter().filter(|o| o.iter().any(|v| v.abs() > 1e-6)).count();
-        let most = offsets.iter().map(|o| (o[0] * o[0] + o[1] * o[1] + o[2] * o[2]).sqrt()).fold(0.0, f32::max);
-        eprintln!("  {name:12} {moved:5} vertices move, at most {:.1} mm", most * 1000.0);
-    }
+        .map(|name| fframes_rig::face::expression(positions, face, &library, name).map(|o| (name.clone(), o)))
+        .collect()
 }
 
 fn main() -> ExitCode {
@@ -750,15 +712,18 @@ fn main() -> ExitCode {
             // morph targets), from the face points placed as joints; no skeleton
             let run = || -> Result<(), String> {
                 let data = std::fs::read(&args[1]).map_err(|e| format!("{}: {e}", args[1]))?;
-                let (positions, indices) = fframes_vector::rig::read_glb_mesh(&data).map_err(|e| format!("{}: {e}", args[1]))?;
+                let (positions, _) = fframes_vector::rig::read_glb_mesh(&data).map_err(|e| format!("{}: {e}", args[1]))?;
                 let rig = fframes_rig::RigFile::load(std::path::Path::new(&args[2]))?;
                 let face = fframes_rig::face::Face::from_joints(&rig.joints)?;
-                let model = face_model(data, positions, &indices, &face, opt::<String>(&args, "--library"))?;
-                let out = fframes_vector::rig::export_rigged(&model.data, None, &model.morphs).map_err(|e| format!("{}: {e}", args[1]))?;
-                let out = with_mouth(out, &model, None)?;
+                let morphs = expression_morphs(&positions, &face, opt::<String>(&args, "--library"))?;
+                let out = fframes_vector::rig::export_rigged(&data, None, &morphs).map_err(|e| format!("{}: {e}", args[1]))?;
                 std::fs::write(&args[3], out).map_err(|e| format!("{}: {e}", args[3]))?;
-                eprintln!("{}: mouth {:.1} cm wide, slit through {} edges{}", args[3], face.scale * 100.0, model.cut, if model.mouth.is_some() { ", teeth and mouth cavity added" } else { "" });
-                report_morphs(&model.morphs);
+                eprintln!("{}: mouth {:.1} cm wide", args[3], face.scale * 100.0);
+                for (name, offsets) in &morphs {
+                    let moved = offsets.iter().filter(|o| o.iter().any(|v| v.abs() > 1e-6)).count();
+                    let most = offsets.iter().map(|o| (o[0] * o[0] + o[1] * o[1] + o[2] * o[2]).sqrt()).fold(0.0, f32::max);
+                    eprintln!("  {name:12} {moved:5} vertices move, at most {:.1} mm", most * 1000.0);
+                }
                 Ok(())
             };
             match run() {
@@ -776,28 +741,20 @@ fn main() -> ExitCode {
             // Unreal; mesh, UVs and textures unchanged
             let run = || -> Result<(), String> {
                 let data = std::fs::read(&args[1]).map_err(|e| format!("{}: {e}", args[1]))?;
-                let (positions, indices) = fframes_vector::rig::read_glb_mesh(&data).map_err(|e| format!("{}: {e}", args[1]))?;
+                let (positions, _) = fframes_vector::rig::read_glb_mesh(&data).map_err(|e| format!("{}: {e}", args[1]))?;
                 let rig = fframes_rig::RigFile::load(std::path::Path::new(&args[2]))?;
                 let falloff = opt(&args, "--falloff").unwrap_or(0.04);
-                // the expressions too, once the face points are placed (the mouth slit first:
-                // it changes the vertices the weights are for)
-                let (model, mouth_at) = match fframes_rig::face::Face::from_joints(&rig.joints) {
-                    Ok(face) => (face_model(data, positions, &indices, &face, opt::<String>(&args, "--library"))?, Some(face.mouth)),
+                let skinning = fframes_rig::skin_weights(&positions, &rig.joints, falloff).ok_or("the rig has no bones: place and accept joints first")?;
+                // the expressions too, once the face points are placed
+                let morphs = match fframes_rig::face::Face::from_joints(&rig.joints) {
+                    Ok(face) => expression_morphs(&positions, &face, opt::<String>(&args, "--library"))?,
                     Err(e) => {
                         eprintln!("no expressions: {e}");
-                        (FaceModel { data, positions, morphs: Vec::new(), mouth: None, cut: 0 }, None)
+                        Vec::new()
                     }
                 };
-                let positions = &model.positions;
-                // the face points mark the face; they are no bones
-                let bones: Vec<fframes_rig::Joint> = rig.joints.iter().filter(|j| !fframes_rig::face::POINTS.contains(&j.name.as_str())).cloned().collect();
-                let skinning = fframes_rig::skin_weights(positions, &bones, falloff).ok_or("the rig has no bones: place and accept joints first")?;
-                let out = fframes_vector::rig::export_rigged(&model.data, Some(&skinning), &model.morphs).map_err(|e| format!("{}: {e}", args[1]))?;
-                // teeth and cavity follow the joint the middle of the mouth follows most
-                let joint = mouth_at.and_then(|m| fframes_rig::skin_weights(&[m], &bones, falloff)).map(|s| s.influences[0][0].0);
-                let out = with_mouth(out, &model, joint)?;
+                let out = fframes_vector::rig::export_rigged(&data, Some(&skinning), &morphs).map_err(|e| format!("{}: {e}", args[1]))?;
                 std::fs::write(&args[3], out).map_err(|e| format!("{}: {e}", args[3]))?;
-                report_morphs(&model.morphs);
                 let shared = skinning.influences.iter().filter(|inf| inf[1].1 > 0.0).count();
                 eprintln!(
                     "{}: {} joints, {} vertices skinned ({shared} shared between joints, falloff {:.0} mm)",

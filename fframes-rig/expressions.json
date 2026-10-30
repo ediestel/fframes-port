@@ -1,5 +1,5 @@
 {
-  "comment": "Facial action units (FACS) as regions of the face that move, and expressions that mix them. Sizes and moves are in mouth widths; directions in the face's own frame: up (mouth to eyes), front (out of the face, towards the nose tip), out (away from the face's middle). Regions sit at the face points placed as joints: mouth (mouth_l, mouth_r: the corners), eye (eye_l, eye_r: the lower lids), cheek (cheek_l, cheek_r: the cheekbones), nose (its tip); derived: fold (nasolabial fold, between a mouth corner and the nose wing), lips (the middle of the mouth). A region with a side moves only the points above (upper) or below (lower) the mouth slit. teeth: the arch of teeth and the mouth cavity behind the lips, shown when the lips part.",
+  "comment": "Facial action units (FACS) as regions of the face that move, and expressions that mix them. Sizes and moves are in mouth widths; directions in the face's own frame: up (mouth to eyes), front (out of the face, towards the nose tip), out (away from the face's middle). Regions sit at the face points placed as joints: mouth (mouth_l, mouth_r: the corners), eye (eye_l, eye_r: the lower lids), cheek (cheek_l, cheek_r: the cheekbones), nose (its tip); fold (nasolabial fold) lies between a mouth corner and the nose wing.",
   "units": {
     "AU12": [
       { "at": "mouth", "radius": 0.55, "up": 0.16, "out": 0.12, "front": -0.06 },
@@ -8,24 +8,10 @@
     "AU6": [
       { "at": "cheek", "radius": 0.7, "up": 0.08, "front": 0.05 },
       { "at": "eye", "radius": 0.3, "up": 0.05, "front": 0.01 }
-    ],
-    "AU25": [
-      { "at": "lips", "radius": 0.55, "up": 0.09, "side": "upper" },
-      { "at": "lips", "radius": 0.55, "up": -0.07, "side": "lower" }
     ]
   },
   "expressions": {
     "smile": { "AU12": 1.0, "AU6": 0.8 },
-    "smile_soft": { "AU12": 0.5, "AU6": 0.3 },
-    "smile_teeth": { "AU12": 1.0, "AU6": 0.8, "AU25": 1.0 }
-  },
-  "teeth": {
-    "width": 0.9,
-    "depth": 0.32,
-    "behind": 0.12,
-    "height": 0.14,
-    "count": 10,
-    "colour": [0.86, 0.82, 0.72],
-    "cavity": [0.18, 0.06, 0.06]
+    "smile_soft": { "AU12": 0.5, "AU6": 0.3 }
   }
 }
