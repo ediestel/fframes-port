@@ -530,6 +530,15 @@ impl Editor {
         self.arrive_plane();
     }
 
+    /// Where the pointer is on the screen plane through `at` (square to the view): the point a
+    /// dragged dot follows, one to one with the pointer.
+    fn screen_drag(&self, position: PhysicalPosition<f64>, at: V3) -> Option<V3> {
+        let camera = self.camera();
+        let screen = Plane { normal: camera.forward().to_array(), u: camera.right().to_array(), v: camera.up_vector().to_array() };
+        let (o, d) = self.ray(position)?;
+        screen.hit(screen.offset_of(at), o, d).map(|(p, _)| p)
+    }
+
     /// Zooms by `factor` (under 1 closer) towards the point of the figure under the pointer,
     /// or the middle of the view where there is none.
     fn zoom(&mut self, factor: f32) {
@@ -1640,8 +1649,14 @@ impl ApplicationHandler for Editor {
                     if let Some(g) = self.grabbed {
                         match g {
                             Grab::Draft(i) => {
-                                if let Some(q) = self.plane_point(position) {
-                                    self.draft[i] = q;
+                                // across the screen, then onto the plane (never along the
+                                // direction towards the camera, where a slanted plane would
+                                // magnify the pointer's movement)
+                                if let Some(a) = self.active {
+                                    let at = a.plane.to_3d(self.draft[i], a.offset);
+                                    if let Some(p) = self.screen_drag(position, at) {
+                                        self.draft[i] = a.plane.to_2d(p);
+                                    }
                                 }
                             }
                             Grab::Outline { view, section, whole, last } => {
@@ -1682,27 +1697,28 @@ impl ApplicationHandler for Editor {
                                 }
                             }
                             Grab::Section(vi, si, pi) => {
-                                // within the active plane through the dot (else across the
-                                // screen); the dot's place in its level follows, and where the
-                                // plane crosses the levels (sagittal, coronal) its height moves
-                                // the whole level of a box
-                                let camera = self.camera();
-                                let screen = Plane { normal: camera.forward().to_array(), u: camera.right().to_array(), v: camera.up_vector().to_array() };
-                                // a plane seen nearly edge-on gives no hold: then across the screen
-                                let facing = |pl: &Plane| Vec3::from_array(pl.normal).dot(camera.forward()).abs() > 0.25;
-                                let drag = self.active.map(|a| a.plane).filter(|pl| facing(pl)).unwrap_or(screen);
-                                let ray = self.ray(position);
-                                if let (Some((o, d)), Some(cut)) = (ray, &mut self.pending) {
+                                // across the screen, then within the active plane through the
+                                // dot (no plane: kept on its level); where that plane crosses
+                                // the levels (sagittal, coronal) the height moves the box's
+                                // whole level
+                                let active = self.active;
+                                let at = self.pending.as_ref().map(|c| {
+                                    let v = &c.views[vi];
+                                    v.plane.to_3d(v.sections[si].contour[pi], v.sections[si].offset)
+                                });
+                                let moved = at.and_then(|at| self.screen_drag(position, at).map(|p| (at, p)));
+                                if let (Some((at, mut p)), Some(cut)) = (moved, &mut self.pending) {
+                                    if let Some(a) = active {
+                                        let n = Vec3::from_array(a.plane.normal);
+                                        let off = (Vec3::from_array(p) - Vec3::from_array(at)).dot(n);
+                                        p = (Vec3::from_array(p) - n * off).to_array();
+                                    }
                                     let v = &mut cut.views[vi];
-                                    let boxed = v.corresponding();
-                                    let crosses = self.active.is_some_and(|a| !a.plane.parallel_to(&v.plane));
+                                    let moves_level = v.corresponding() && active.is_some_and(|a| !a.plane.parallel_to(&v.plane));
                                     let s = &mut v.sections[si];
-                                    let at = v.plane.to_3d(s.contour[pi], s.offset);
-                                    if let Some((p, _)) = drag.hit(drag.offset_of(at), o, d) {
-                                        s.contour[pi] = v.plane.to_2d(p);
-                                        if boxed && crosses {
-                                            s.offset = v.plane.offset_of(p);
-                                        }
+                                    s.contour[pi] = v.plane.to_2d(p);
+                                    if moves_level {
+                                        s.offset = v.plane.offset_of(p);
                                     }
                                 }
                             }
