@@ -19,6 +19,8 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod face;
+
 pub type V3 = [f32; 3];
 
 fn dot(a: V3, b: V3) -> f32 {

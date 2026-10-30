@@ -215,6 +215,21 @@ fn turntable_frames(video: &str, count: usize) -> Result<Vec<image::RgbaImage>, 
     frames
 }
 
+/// Every expression of the library (the one that comes with fframes, or `library`) as morph
+/// target offsets for the model's vertices.
+fn expression_morphs(positions: &[[f32; 3]], face: &fframes_rig::face::Face, library: Option<String>) -> Result<Vec<(String, Vec<[f32; 3]>)>, String> {
+    let text = match &library {
+        Some(path) => std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?,
+        None => fframes_rig::face::LIBRARY.to_string(),
+    };
+    let library = fframes_rig::face::Library::parse(&text)?;
+    library
+        .expressions
+        .keys()
+        .map(|name| fframes_rig::face::expression(positions, face, &library, name).map(|o| (name.clone(), o)))
+        .collect()
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let start = std::time::Instant::now();
@@ -691,8 +706,37 @@ fn main() -> ExitCode {
                 }
             }
         }
+        Some("expressions") if args.len() >= 4 => {
+            // expressions model.glb rig.json out.glb [--library expressions.json]: the model with
+            // every expression of the library as a morph target (Blender shape keys, Unreal
+            // morph targets), from the face points placed as joints; no skeleton
+            let run = || -> Result<(), String> {
+                let data = std::fs::read(&args[1]).map_err(|e| format!("{}: {e}", args[1]))?;
+                let (positions, _) = fframes_vector::rig::read_glb_mesh(&data).map_err(|e| format!("{}: {e}", args[1]))?;
+                let rig = fframes_rig::RigFile::load(std::path::Path::new(&args[2]))?;
+                let face = fframes_rig::face::Face::from_joints(&rig.joints)?;
+                let morphs = expression_morphs(&positions, &face, opt::<String>(&args, "--library"))?;
+                let out = fframes_vector::rig::export_rigged(&data, None, &morphs).map_err(|e| format!("{}: {e}", args[1]))?;
+                std::fs::write(&args[3], out).map_err(|e| format!("{}: {e}", args[3]))?;
+                eprintln!("{}: mouth {:.1} cm wide", args[3], face.scale * 100.0);
+                for (name, offsets) in &morphs {
+                    let moved = offsets.iter().filter(|o| o.iter().any(|v| v.abs() > 1e-6)).count();
+                    let most = offsets.iter().map(|o| (o[0] * o[0] + o[1] * o[1] + o[2] * o[2]).sqrt()).fold(0.0, f32::max);
+                    eprintln!("  {name:12} {moved:5} vertices move, at most {:.1} mm", most * 1000.0);
+                }
+                Ok(())
+            };
+            match run() {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("{e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         Some("rig-export") if args.len() >= 4 => {
-            // rig-export model.glb rig.json out.glb [--falloff 0.04]: the model with the rig's
+            // rig-export model.glb rig.json out.glb [--falloff 0.04] [--library expressions.json]:
+            // with the face points placed, also every expression as a morph target; the model with the rig's
             // skeleton and soft skin weights (up to four joints per vertex), for Blender and
             // Unreal; mesh, UVs and textures unchanged
             let run = || -> Result<(), String> {
@@ -701,7 +745,15 @@ fn main() -> ExitCode {
                 let rig = fframes_rig::RigFile::load(std::path::Path::new(&args[2]))?;
                 let falloff = opt(&args, "--falloff").unwrap_or(0.04);
                 let skinning = fframes_rig::skin_weights(&positions, &rig.joints, falloff).ok_or("the rig has no bones: place and accept joints first")?;
-                let out = fframes_vector::rig::export_skinned(&data, &skinning).map_err(|e| format!("{}: {e}", args[1]))?;
+                // the expressions too, once the face points are placed
+                let morphs = match fframes_rig::face::Face::from_joints(&rig.joints) {
+                    Ok(face) => expression_morphs(&positions, &face, opt::<String>(&args, "--library"))?,
+                    Err(e) => {
+                        eprintln!("no expressions: {e}");
+                        Vec::new()
+                    }
+                };
+                let out = fframes_vector::rig::export_rigged(&data, Some(&skinning), &morphs).map_err(|e| format!("{}: {e}", args[1]))?;
                 std::fs::write(&args[3], out).map_err(|e| format!("{}: {e}", args[3]))?;
                 let shared = skinning.influences.iter().filter(|inf| inf[1].1 > 0.0).count();
                 eprintln!(
