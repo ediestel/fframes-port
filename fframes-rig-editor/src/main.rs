@@ -353,7 +353,8 @@ fn run() -> Result<(), String> {
     let mut draft = draft;
     let old: Vec<usize> = (0..editor.rig.cuts.len()).filter(|&i| editor.rig.cuts[i].proposed && editor.rig.cuts[i].views.len() > 1).collect();
     if !old.is_empty() {
-        if draft.editing.is_some_and(|i| old.contains(&i)) {
+        // an edit already of the single box is kept; only an edit of the old kind goes
+        if draft.editing.is_some_and(|i| old.contains(&i)) && draft.cut.as_ref().is_some_and(|c| c.views.len() > 1) {
             draft.cut = None;
             draft.editing = None;
         }
@@ -366,6 +367,10 @@ fn run() -> Result<(), String> {
             let range = c.views.first().and_then(View::range).unwrap_or_default();
             eprintln!("proposed: {} from {:.3} to {:.3} m", c.name, range.0, range.1);
         }
+    }
+    // the replacement is kept, so it happens once
+    if !old.is_empty() {
+        editor.rig.save(&editor.rig_file)?;
     }
     if !draft.is_empty() {
         editor.editing = draft.editing.and_then(|i| editor.rig.cuts.get(i).cloned().map(|c| (i, c)));
