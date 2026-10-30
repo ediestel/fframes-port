@@ -1210,6 +1210,7 @@ impl Editor {
         let removal = fframes_rig::Removal::new(&rig);
         let mut lines: Vec<(Point, Point, Color, f32)> = Vec::new();
         let mut dots: Vec<(Point, Color, f32)> = Vec::new();
+        let mut tags: Vec<(Point, String, Color)> = Vec::new();
         let figure = self.shown();
         if let Some(a) = self.active {
             for (p, q) in section_segments(&figure.positions, &figure.indices, &a.plane, a.offset) {
@@ -1243,11 +1244,26 @@ impl Editor {
             };
             for view in &cut.views {
                 let Some((lo, hi)) = view.range() else { continue };
-                // every section's corners as dots, to drag from any view
-                for s in &view.sections {
-                    for q in &s.contour {
-                        if let Some(p) = self.screen(view.plane.to_3d(*q, s.offset)) {
-                            dots.push((p, colour, 5.0));
+                // every section's corners as dots, to drag from any view; a box's corners named
+                // by where they lie in it: l(ateral) or m(edial) from the figure's midline,
+                // a(nterior) or p(osterior), cr(anial) or ca(udal)
+                let corners: Vec<V3> = view.sections.iter().flat_map(|s| s.contour.iter().map(|q| view.plane.to_3d(*q, s.offset))).collect();
+                let (side, up, front) = axes(self.rig.front_yaw);
+                let centre = self.centre.to_array();
+                let along = |p: &V3, axis: V3| (0..3).map(|k| (p[k] - centre[k]) * axis[k]).sum::<f32>();
+                let mean = |f: &dyn Fn(&V3) -> f32| corners.iter().map(f).sum::<f32>() / corners.len().max(1) as f32;
+                let (lateral, anterior, cranial) = (mean(&|p| along(p, side).abs()), mean(&|p| along(p, front)), mean(&|p| along(p, up)));
+                for p in &corners {
+                    if let Some(s) = self.screen(*p) {
+                        dots.push((s, colour, 5.0));
+                        if view.corresponding() {
+                            let name = format!(
+                                "{} {} {}",
+                                if along(p, side).abs() >= lateral { "l" } else { "m" },
+                                if along(p, front) >= anterior { "a" } else { "p" },
+                                if along(p, up) >= cranial { "cr" } else { "ca" }
+                            );
+                            tags.push((s, name, colour));
                         }
                     }
                 }
@@ -1324,6 +1340,7 @@ impl Editor {
 
         let ui = window.scale_factor() as f32;
         let font = Font::from_typeface(&self.typeface, 13.0 * ui);
+        let small = Font::from_typeface(&self.typeface, 10.0 * ui);
         let alerts = self.alerts();
         let status = if let Some(t) = &self.typing {
             format!("joint name: {t}_")
@@ -1384,6 +1401,14 @@ impl Editor {
                 canvas.draw_circle(*p, (r + 1.5) * ui, &fill);
                 fill.set_color(*c);
                 canvas.draw_circle(*p, r * ui, &fill);
+            }
+            // the box corners' names, small, beside their dots
+            for (p, name, c) in &tags {
+                let at = (p.x + 7.0 * ui, p.y - 5.0 * ui);
+                fill.set_color(Color::BLACK);
+                canvas.draw_str(name, (at.0 + ui, at.1 + ui), &small, &fill);
+                fill.set_color(*c);
+                canvas.draw_str(name, at, &small, &fill);
             }
             // the icons
             let (mut x, y) = (10.0 * ui, 10.0 * ui);
