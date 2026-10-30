@@ -544,20 +544,6 @@ impl Editor {
         screen.hit(screen.offset_of(at), o, d).map(|(p, _)| p)
     }
 
-    /// Where a dot at `at`, dragged to the pointer, lies on `plane` at `offset`: exactly under
-    /// the pointer, unless the plane is seen within 15° of edge-on; then across the screen and
-    /// dropped onto the plane, so it cannot shoot off in depth.
-    fn plane_drag(&self, position: PhysicalPosition<f64>, at: V3, plane: &Plane, offset: f32) -> Option<V3> {
-        let (o, d) = self.ray(position)?;
-        let n = Vec3::from_array(plane.normal);
-        if Vec3::from_array(d).dot(n).abs() > 15_f32.to_radians().sin() {
-            if let Some((p, _)) = plane.hit(offset, o, d) {
-                return Some(p);
-            }
-        }
-        let p = Vec3::from_array(self.screen_drag(position, at)?);
-        Some((p - n * (p.dot(n) - offset)).to_array())
-    }
 
     /// Zooms by `factor` (under 1 closer) towards the point of the figure under the pointer,
     /// or the middle of the view where there is none.
@@ -1247,12 +1233,13 @@ impl Editor {
         // cuts: their sections, and outlines through the volume between them
         let pending_name = self.pending.as_ref().map(|c| c.name.clone());
         for cut in &rig.cuts {
-            // proposed magenta, being edited orange, protected green, accepted blue
+            // apart from the joints' blue, orange and yellow: proposed magenta, being edited
+            // cyan, protected green, accepted violet
             let colour = match (cut.protect, Some(&cut.name) == pending_name.as_ref(), cut.proposed) {
-                (_, true, _) => Color::from_rgb(255, 150, 50),
+                (_, true, _) => Color::from_rgb(40, 225, 225),
                 (_, false, true) => Color::from_rgb(235, 80, 225),
                 (true, false, false) => Color::from_rgb(80, 210, 130),
-                (false, false, false) => Color::from_rgb(90, 170, 255),
+                (false, false, false) => Color::from_rgb(155, 110, 255),
             };
             for view in &cut.views {
                 let Some((lo, hi)) = view.range() else { continue };
@@ -1669,10 +1656,11 @@ impl ApplicationHandler for Editor {
                     if let Some(g) = self.grabbed {
                         match g {
                             Grab::Draft(i) => {
-                                // under the pointer on the plane
+                                // as a joint: across the screen at the dot's depth, kept on
+                                // the plane
                                 if let Some(a) = self.active {
                                     let at = a.plane.to_3d(self.draft[i], a.offset);
-                                    if let Some(p) = self.plane_drag(position, at, &a.plane, a.offset) {
+                                    if let Some(p) = self.screen_drag(position, at) {
                                         self.draft[i] = a.plane.to_2d(p);
                                     }
                                 }
@@ -1715,22 +1703,16 @@ impl ApplicationHandler for Editor {
                                 }
                             }
                             Grab::Section(vi, si, pi) => {
-                                // under the pointer within the active plane itself (no plane:
-                                // on its level); the dot's level goes with it, so the dot stays
-                                // in the plane (sagittal, coronal: the height moves the box's
-                                // whole level)
-                                let active = self.active;
+                                // as a joint: across the screen at the dot's depth; on a box
+                                // the height moves the dot's whole level
                                 let at = self.pending.as_ref().map(|c| {
                                     let v = &c.views[vi];
-                                    (v.plane, v.sections[si].offset, v.plane.to_3d(v.sections[si].contour[pi], v.sections[si].offset))
+                                    v.plane.to_3d(v.sections[si].contour[pi], v.sections[si].offset)
                                 });
-                                let moved = at.and_then(|(own, level, at)| match active {
-                                    Some(a) => self.plane_drag(position, at, &a.plane, a.offset),
-                                    None => self.plane_drag(position, at, &own, level),
-                                });
+                                let moved = at.and_then(|at| self.screen_drag(position, at));
                                 if let (Some(p), Some(cut)) = (moved, &mut self.pending) {
                                     let v = &mut cut.views[vi];
-                                    let moves_level = active.is_some_and(|a| v.corresponding() || a.plane.parallel_to(&v.plane));
+                                    let moves_level = v.corresponding();
                                     let s = &mut v.sections[si];
                                     s.contour[pi] = v.plane.to_2d(p);
                                     if moves_level {
