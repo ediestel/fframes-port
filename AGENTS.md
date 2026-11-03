@@ -444,6 +444,15 @@ A check only the scene can make (a caption over two lines, a value out of range)
 from `render_frame` with `fframes::diagnostics::error("name", detail)` or `::warning`; it
 appears in `inspect` and stops `render` like the built-in findings.
 
+### 5a. A figure as layers, back and forth with an illustrator
+
+`examples/illustrator` (README there): one folder per figure with `figure.toml`, the source
+picture and the artist's PNG or SVG layers. Stages `trace` (fframes-vector pieces, the
+contour drawing from their borders, centrelines of the outlines), `export` (a layered PSD and
+every layer as a PNG at the canvas size, for Procreate or a vector app), `import` (the artist's files checked, PNGs
+traced to pieces when asked), `all`; then any fframes command renders the stack, one `<g>` per
+layer. Start a new figure by copying the Dix-Hallpike folder.
+
 ### 5b. Numbers, words and narration as data
 
 Tunable numbers, words and numeric tracks belong in a TOML file read by `fframes::params`

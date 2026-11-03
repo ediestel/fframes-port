@@ -1,0 +1,31 @@
+[package]
+name = "illustrator"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "A figure as layers that go back and forth between fframes and an illustrator: trace a picture, export the layers, import what was drawn on top, render the stack"
+
+[dependencies]
+fframes = { workspace = true, features = ["compile-time-svgtree", "cli", "vector"] }
+fframes_skia_renderer = { workspace = true, features = ["metal"] }
+fframes_native_player = { workspace = true, features = ["metal", "audio"] }
+fframes_vector = { path = "../../fframes-vector" }
+# Rasterizes the layers for the artist (the CPU renderer fframes uses).
+svgr.workspace = true
+usvgr.workspace = true
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+[lib]
+name = "illustrator"
+path = "src/lib.rs"
+doctest = false
+
+[[bin]]
+name = "illustrator"
+path = "src/main.rs"
+
+[lints]
+workspace = true

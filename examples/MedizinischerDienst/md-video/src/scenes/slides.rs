@@ -11,15 +11,15 @@ use crate::ui::*;
 
 type Draw = for<'a> fn(&mut Frame, &FFramesContext<'a, '_>, f32) -> Svgr<'a>;
 
-pub const IDS: [&str; 24] = [
+pub const IDS: [&str; 25] = [
     "M01_Titel", "M02_Kernnutzen", "M03_Ausgaben", "M04_Betraege", "M05_Pruefprozess", "M06_Prueffragen",
     "M07_Kodierpruefung", "M08_Klinisch", "M09_Evidenz", "M10_Kapazitaet", "M11_RegionalerMD", "M12_Wirtschaftlichkeit",
     "M13_GKV", "M14_Streitaufwand", "M15_Beteiligte", "M16_Weitere", "M17_Reform", "M18_Verantwortung",
-    "M19_Anwendung", "M20_Stufen", "M21_Kennzahlen", "M22_Annahmen", "M23_Quellen", "M24_Abschluss",
+    "M19_Anwendung", "M20_Stufen", "M21_Kennzahlen", "M22_Annahmen", "M23_Quellen", "M24_AMDG", "M25_Abschluss",
 ];
 
-pub const DRAWS: [Draw; 24] = [
-    s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24,
+pub const DRAWS: [Draw; 25] = [
+    s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s_amdg, s24,
 ];
 
 // ---------------------------------------------------------------------------
@@ -667,7 +667,32 @@ fn s23<'a>(_f: &mut Frame, _ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     )
 }
 
-/// 24 · Abschluss.
+/// 24 · Warum AMDG Engineers: die Seite aus dem Kodierprüfungs-Video im
+/// Wortlaut, für den Medizinischen Dienst: je eine Aussage in Amber, darunter
+/// die zugehörigen Aussagen in Grün, nacheinander eingeblendet.
+fn s_amdg<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
+    let w = 1560;
+    let a1 = para(f, ctx, 180, 240, w, 32, 500, AMBER, "\u{201E}AMDG Engineers verbindet automatisierte Dokumentation mit der Prüfung jeder Aussage. Fehler werden erkannt und korrigiert.\u{201C}");
+    let g1a = para(f, ctx, 180, 348, w, 28, 400, GREEN, "\u{201E}Der Medizinische Dienst erhält überprüfbare Ergebnisse: mit nachvollziehbaren Quellen, dokumentierten Prüfergebnissen und ausdrücklich ausgewiesenen Prüflücken.\u{201C}");
+    let g1b = para(f, ctx, 180, 446, w, 28, 400, GREEN, "\u{201E}Jede Antwort durchläuft einen iterativen Prüf- und Korrekturprozess, bis alle erkannten Falschaussagen entfernt sind.\u{201C}");
+    let a2 = para(f, ctx, 180, 650, w, 32, 500, AMBER, "\u{201E}Das System prüft jede Angabe vor der KI-Verarbeitung und kontrolliert die Ergebnisse anschließend so lange, bis alle erkannten Fehler entfernt sind.\u{201C}");
+    let g2 = para(f, ctx, 180, 758, w, 28, 400, GREEN, "\u{201E}Das Prüfprotokoll dokumentiert Quellen, Prüfergebnisse und die Aspekte, die nicht geprüft wurden.\u{201C}");
+    fframes::svgr!(<g>
+        {rise_in(t, 0.5, fframes::svgr!(<g>
+            {card(140.0, 180.0, 1640.0, 380.0, Some(AMBER), PANEL, LINE)}
+            {a1}
+        </g>))}
+        {rise_in(t, 4.0, g1a)}
+        {rise_in(t, 8.0, g1b)}
+        {rise_in(t, 12.0, fframes::svgr!(<g>
+            {card(140.0, 590.0, 1640.0, 270.0, Some(AMBER), PANEL, LINE)}
+            {a2}
+        </g>))}
+        {rise_in(t, 16.0, g2)}
+    </g>)
+}
+
+/// 25 · Abschluss.
 fn s24<'a>(_f: &mut Frame, _ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     let c1 = enter(t, 0.3, 0.8);
     let c2 = enter(t, 1.0, 0.8);

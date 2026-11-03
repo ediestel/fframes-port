@@ -81,6 +81,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "amdg-video"
+version = "0.1.0"
+dependencies = [
+ "fframes",
+ "fframes_native_player",
+ "fframes_skia_renderer",
+]
+
+[[package]]
 name = "android-activity"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1871,6 +1880,22 @@ name = "i_tree"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "155181bc97d770181cf9477da51218a19ee92a8e5be642e796661aee2b601139"
+
+[[package]]
+name = "illustrator"
+version = "0.1.0"
+dependencies = [
+ "fframes",
+ "fframes_native_player",
+ "fframes_skia_renderer",
+ "fframes_vector",
+ "image",
+ "serde",
+ "serde_json",
+ "svgr",
+ "toml 0.8.2",
+ "usvgr",
+]
 
 [[package]]
 name = "image"

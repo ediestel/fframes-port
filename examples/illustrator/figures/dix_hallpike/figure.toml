@@ -1,0 +1,49 @@
+# The Dix-Hallpike reference picture as a layered figure. From the repository root:
+#   cargo run --release -p illustrator -- examples/illustrator/figures/dix_hallpike all
+#   cargo run --release -p illustrator -- examples/illustrator/figures/dix_hallpike frame 0
+#
+# The canvas is the picture at `scale`: 675 x 372 px times 3 = 2025 x 1116 px. The artist
+# draws at that size; the layers exported for them are in export/, their own PNG or SVG files
+# go next to source.png and are added on top in name order (or listed below with their
+# settings: opacity, and trace = none | outlines | pieces for a PNG to become vector pieces).
+
+source = "source.png"
+scale = 3
+
+# The flatten step: this picture's contours are dark grey, not black, so a pixel darker than
+# 0.6 of full brightness counts as line. tol and min_piece are coarse so the colour areas are
+# few and large; the contours layer strokes their borders and fills the outline pieces, which
+# is the sketch the artist begins on. The outline mask (trace-outlines) and the centrelines
+# (trace-lines) give no usable line drawing from this 675 px picture.
+[trace]
+dark = 0.6
+tol = 70.0
+min_piece = 150
+contour_width = 1.4
+contour_color = "#2C3539"
+contour_min_area = 400
+
+# Layers bottom to top. kind: source | trace-pieces | trace-outlines | trace-lines |
+# trace-contours | file.
+[[layers]]
+name = "photo"
+kind = "source"
+opacity = 0.7
+
+[[layers]]
+name = "colour"
+kind = "trace-pieces"
+opacity = 0.5
+
+[[layers]]
+name = "contours"
+kind = "trace-contours"
+
+# A test of the round trip: a PNG "drawn" on top (a black frame), traced to vector lines at
+# import, and an SVG layer taken as it is. Replace them with the artist's files.
+[[layers]]
+name = "draft"
+kind = "file"
+file = "10_draft.png"
+trace = "outlines"
+opacity = 0.6

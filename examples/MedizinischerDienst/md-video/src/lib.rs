@@ -19,7 +19,7 @@ include_media_dir!(pub struct MdMedia, "examples/MedizinischerDienst/md-video/me
 pub const FPS: usize = 30;
 pub const WIDTH: usize = 1920;
 pub const HEIGHT: usize = 1080;
-pub const N: usize = 24;
+pub const N: usize = 25;
 
 pub const NAMES: [&str; N] = [
     "Einleitung",
@@ -45,6 +45,7 @@ pub const NAMES: [&str; N] = [
     "Kennzahlen",
     "Annahmen und Bezugsgrößen",
     "Quellen",
+    "Warum AMDG Engineers",
     "Abschluss",
 ];
 

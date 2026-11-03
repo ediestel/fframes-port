@@ -203,6 +203,16 @@ piece. In a video: `PieceTree::new(&doc, "name")`, then `Svgr::from(tree.all())`
 `tree.group("french_banner")` inside `svgr!` (see `examples/golden_spurs/src/film.rs`).
 Presets: `VectorizeParams::outlined(scale)` for pictures with drawn outlines.
 
+For a figure that an illustrator draws on and hands back, use `examples/illustrator` (README
+there) instead of running the crate by hand: one folder per figure with `figure.toml`, stages
+`trace`, `export`, `import`, `all`, every layer a `<g>` in the rendered stack. Its `[trace]`
+table overrides the preset (`dark = 0.6` for contours that are dark grey rather than black),
+and its `trace-lines` layer draws the centre of every outline as a stroke of a chosen width,
+which is how traced lines come out fine instead of as the filled band potrace gives. For a
+picture without black ink lines (a photo, a painted or low-resolution web picture) the
+`trace-contours` layer is the sketch: the borders of the colour pieces as strokes, with coarse
+`tol` and `min_piece`.
+
 ## Fast animation in fframes (`scripts/window_tree.rs`, superseded by `PieceTree`)
 
 Never pass the traced SVG to `Svgr::from_svg_string` per frame. Parse it once into a static

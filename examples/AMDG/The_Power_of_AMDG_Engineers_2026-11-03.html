@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Power of AMDG Engineers</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;1,300;1,400&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+  /* Layout: one narrow column like a folded sheet; a single rule under the title; one statement per section; one table, the contest. */
+  :root {
+    --paper: #ffffff;
+    --ink: #14201b;
+    --ink-soft: #4a5a52;
+    --rule: #cfd8d2;
+    --seal: #1e4d3a;
+    --seal-soft: #e6efe9;
+    --fault: #8a2a2a;
+    --display: "Spectral", Georgia, "Times New Roman", serif;
+    --text: "Spectral", Georgia, "Times New Roman", serif;
+    --label: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0f1714;
+      --ink: #ece9e1;
+      --ink-soft: #a7b3ac;
+      --rule: #2a3a33;
+      --seal: #7fbf9f;
+      --seal-soft: #16261f;
+      --fault: #e08a8a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0f1714;
+    --ink: #ece9e1;
+    --ink-soft: #a7b3ac;
+    --rule: #2a3a33;
+    --seal: #7fbf9f;
+    --seal-soft: #16261f;
+    --fault: #e08a8a;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--text);
+    font-weight: 400;
+    font-size: 1.125rem;
+    line-height: 1.6;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 0;
+  }
+  main {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding-block: 4rem 5rem;
+    display: grid;
+    gap: 3.25rem;
+  }
+  .eyebrow, section h2 {
+    font-family: var(--label);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--seal);
+    margin: 0;
+  }
+  .eyebrow { margin-bottom: 0.75rem; }
+  header h1 {
+    font-family: var(--display);
+    font-weight: 300;
+    font-size: clamp(2.4rem, 7vw, 3.6rem);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    margin: 0 0 1.5rem;
+    text-wrap: balance;
+  }
+  header p.standfirst {
+    font-size: 1.3rem;
+    line-height: 1.45;
+    font-weight: 300;
+    margin: 0;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+    text-wrap: balance;
+  }
+  section { display: grid; gap: 0.6rem; }
+  section p { margin: 0; max-width: 62ch; }
+  section p + p { margin-top: 0.5rem; }
+  .lead { font-size: 1.2rem; font-weight: 300; line-height: 1.45; }
+
+  .domains { display: grid; gap: 1.25rem; margin-top: 0.5rem; }
+  .domain { border-left: 2px solid var(--seal); padding-left: 1rem; min-width: 0; }
+  .domain b {
+    display: block;
+    font-family: var(--label);
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: var(--ink);
+    margin-bottom: 0.15rem;
+  }
+  .domain span { color: var(--ink-soft); }
+
+  .tablewrap { overflow-x: auto; margin-top: 0.5rem; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 30rem;
+    font-size: 1rem;
+    font-variant-numeric: tabular-nums;
+  }
+  thead th {
+    font-family: var(--label);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    text-align: left;
+    padding: 0 0.75rem 0.6rem 0;
+    border-bottom: 1px solid var(--ink);
+  }
+  thead th.num, td.num { text-align: right; padding-right: 0; padding-left: 0.75rem; white-space: nowrap; }
+  tbody td {
+    padding: 0.7rem 0.75rem 0.7rem 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: 1px solid var(--ink); }
+  td.what { color: var(--ink); }
+  td.what small { display: block; color: var(--ink-soft); font-size: 0.9rem; }
+  td.fault { color: var(--fault); }
+  td.clear { color: var(--seal); font-weight: 500; }
+  .tablenote { font-size: 0.95rem; color: var(--ink-soft); margin-top: 0.75rem; }
+
+  .record { background: var(--seal-soft); padding: 1.5rem; border-radius: 2px; }
+  .record p { font-size: 1.2rem; font-weight: 300; line-height: 1.45; }
+  .name p.latin { font-style: italic; font-weight: 300; font-size: 1.3rem; margin-bottom: 0.25rem; }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.25rem;
+    font-family: var(--label);
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    display: grid;
+    gap: 0.4rem;
+  }
+  footer .imprint { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+  @media (prefers-reduced-motion: no-preference) {
+    main { animation: settle 500ms ease-out both; }
+    @keyframes settle { from { opacity: 0.6; transform: translateY(4px) } to { opacity: 1; transform: none } }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">A pamphlet</p>
+    <h1>The Power of AMDG&nbsp;Engineers</h1>
+    <p class="standfirst">An LLM service in which every claim is adjudicated before it is delivered. The output is a record of what was established, not a text to be trusted.</p>
+  </header>
+
+  <section>
+    <h2>What it is</h2>
+    <p class="lead">The most precise use of a language model there is.</p>
+    <p>AMDG Engineers works with a proprietary modulation of the frontier model. The modulation controls hallucination. It changes the model's behaviour without changing the model. A response is not written and then checked. Each claim in it is adjudicated, and only a claim that is whole is delivered as established. The quality of the modulation is professional: it is built for the signature at the bottom of the page, not for conversation.</p>
+  </section>
+
+  <section>
+    <h2>What it does not allow</h2>
+    <p><b>Privation.</b> A claim with a constituent missing is not a weaker claim. It is not the claim. It falls, and what fell is named.</p>
+    <p><b>A costly deficient claim surviving.</b> The error is caught where it is made, so its cost is never paid downstream.</p>
+    <p><b>Drift.</b> The system does not chat. Every answer is given once, from a standing start, under the same standard. The thousandth answer is held to exactly what the first was held to, and nothing said before can bend it.</p>
+  </section>
+
+  <section>
+    <h2>What is declared</h2>
+    <p>What the adjudication could not settle is declared as unsettled. It is never delivered as an answer. A case outside what the system can examine is declared as such. The reader sees, for every statement, whether it was established or not, and knows exactly what remains to check.</p>
+  </section>
+
+  <section>
+    <h2>Against the current art</h2>
+    <p>The current art is the frontier model called directly. The same model, grok-4.7, was given the same query twice: once direct, once under the modulation. One call each. Each response was checked afterwards against its source: the document, the mathematics, the published software package. The model had none of them.</p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Pair, checked against</th>
+            <th class="num">grok-4.7 direct</th>
+            <th class="num">grok-4.7 modulated</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="what">Documents<small>statements the documents do not support</small></td>
+            <td class="num fault">2</td>
+            <td class="num clear">0</td>
+          </tr>
+          <tr>
+            <td class="what">Mathematics<small>statements the mathematics does not support</small></td>
+            <td class="num fault">1</td>
+            <td class="num clear">0</td>
+          </tr>
+          <tr>
+            <td class="what">Robot code, bosdyn-client 5.2.0<small>API errors in the program</small></td>
+            <td class="num fault">3</td>
+            <td class="num clear">0</td>
+          </tr>
+          <tr>
+            <td class="what">Of these errors, disclosed in the response</td>
+            <td class="num fault">none</td>
+            <td class="num clear">—</td>
+          </tr>
+          <tr>
+            <td class="what">What could not be established, named</td>
+            <td class="num fault">none</td>
+            <td class="num clear">all</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tablenote">Every error of the direct call. None under the modulation. The difference is total in every pair, and the direct call's robot program fails at startup, every time, without saying so.</p>
+    <p>One query earlier, on a UR5e arm, said the same thing without a table. Asked for code to return the arm to a safe home pose, the direct call invented the robot's address and a pose and called it safe. The modulated call took both as inputs, required the pose to be verified for the cell, and did nothing until they were supplied. No pose is safe for every cell, and it said so.</p>
+  </section>
+
+  <section>
+    <h2>Where it belongs</h2>
+    <p class="lead">Every domain in which one false statement is the whole cost.</p>
+    <div class="domains">
+      <div class="domain">
+        <b>Legal</b>
+        <span>Every assertion in a letter or an opinion carries its verdict before it binds the client. Nothing is cited that does not resolve.</span>
+      </div>
+      <div class="domain">
+        <b>Insurance</b>
+        <span>A coverage decision rests on claims that were established, and the file shows which. What was not established is in the file as not established.</span>
+      </div>
+      <div class="domain">
+        <b>Hospitals</b>
+        <span>A clinical statement reaches the ward only if it survived adjudication. What could not be settled arrives marked, never disguised as an answer.</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What follows</h2>
+    <p><b>Reliability.</b> The same standard on every answer, because there is no conversation to erode it.</p>
+    <p><b>Precision.</b> Each statement is one thing said of one thing, with its verdict beside it. There is no sentence in which a true part carries a false one.</p>
+    <p><b>Accountability.</b> Liability attaches to claims, and every claim here carries its verdict. An auditor reads the record, not a sample. A regulator sees what was established and what was declared open. A professional signs what survived, knowing what did not.</p>
+    <p>Where a case lies beyond the system, the system says so. That is still more than anything else in use can say.</p>
+  </section>
+
+  <section class="record">
+    <h2>The record</h2>
+    <p>The response is the proof. Every claim and its outcome, on the page in front of you. No sampling, no score, no trust required. The claims above are open to challenge on the stated queries and the stated checks.</p>
+  </section>
+
+  <section class="name">
+    <h2>The name</h2>
+    <p class="latin">Ad maiorem Dei gloriam.</p>
+    <p>Every claim is ordered to that end and to the bonum commune. That is the final cause of the whole system, and it is why the standard does not bend to the convenience of an answer.</p>
+  </section>
+
+  <footer>
+    <div class="imprint">
+      <span>AMDG Engineering</span>
+      <span>Eckhart Diestel, Dr. univ. Gent, MD</span>
+      <span>November 2026</span>
+    </div>
+    <span>Documented in: Controlling Hallucination Without Changing the Model: Paired Tests in Documents, Mathematics, and Robot Code (3 Nov 2026); and the UR5e comparison, one query, one model, 11 Oct 2026. Responses preserved verbatim with SHA-256 hashes.</span>
+  </footer>
+</main>
+</body>
+</html>

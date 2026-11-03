@@ -58,10 +58,12 @@ members = [
     "examples/lottie",
     "examples/svg-in-3d",
     "examples/shared/narration",
+    "examples/illustrator",
     "examples/Korntal/korntal-room-booking",
     "examples/Klinik/klinik-dokumentation",
     "examples/Kodierpruefung/kodierpruefung-video",
     "examples/MedizinischerDienst/md-video",
+    "examples/AMDG/amdg-video",
 ]
 
 [workspace.lints.rust]

@@ -1,0 +1,3 @@
+# What the stages write; `illustrator <figure> all` makes them again in seconds.
+figures/*/trace/
+figures/*/export/

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2025" height="1116" viewBox="0 0 2025 1116">
+  <!-- a test layer in the artist's place: a terracotta arrow between the two steps -->
+  <path d="M 900 560 C 980 440, 1080 440, 1160 560" fill="none" stroke="#C9735D" stroke-width="9" stroke-linecap="round"/>
+  <path d="M 1130 520 L 1160 560 L 1112 566" fill="none" stroke="#C9735D" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
