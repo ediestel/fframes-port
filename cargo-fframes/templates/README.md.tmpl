@@ -19,7 +19,7 @@ rendered with the {{backend_label}} backend.
 {{run}} inspect                       # missing media/fonts, clipped text, panics in any frame
 {{run}} render {{strip_range}} --draft    # a part of the video, half resolution, fast preset
 {{run}} audio analyze --waveform w.png  # loudness (LUFS), peaks, silence per scene
-{{run}} render                        # the final video, writes out.mp4
+{{run}} render                        # the final video, writes out.mp4; inspects first and refuses on an error (--fail-on never skips)
 {{preview_line}}```
 
 Times accept frames (`120`), seconds (`3.2s`), `m:ss`, percentages (`50%`), scenes (`DataScene`,

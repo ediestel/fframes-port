@@ -432,6 +432,28 @@ Use the same `FontQuery` values in the `<text>` attributes (`font-family`, `font
 `font-weight`) so what is measured is what is drawn. `font-weight` is a number from 1 to
 1000, written or as `{expr}`, or `normal`/`bold`; a number outside that range is ignored.
 
+`frame.text_metrics(ctx, font)` gives the font's ascent, descent and line gap in pixels at
+that size. `fframes::layout` builds on it: `Block::Text`, `Block::Fixed` (a box of known size
+with its content), `Block::Gap` and row/column `Block::Stack`s are measured against the real
+fonts (`block.measure(&mut FrameMeasurer { frame, ctx })`) into a `Measured` tree that keeps
+every child's size and the wrapped lines; `render(x, y)` draws it, `rect_of("name", x, y)`
+gives a named block's rectangle, `line_count()` the wrapped lines. Size a band or card from
+`measured.size()` instead of guessing; see Klinik's caption band (`narration.rs`).
+
+A check only the scene can make (a caption over two lines, a value out of range) is reported
+from `render_frame` with `fframes::diagnostics::error("name", detail)` or `::warning`; it
+appears in `inspect` and stops `render` like the built-in findings.
+
+### 5b. Numbers, words and narration as data
+
+Tunable numbers, words and numeric tracks belong in a TOML file read by `fframes::params`
+(`Params::parse(include_str!(..))` in a `LazyLock`, `p.missing(&[names], &[tracks])` checked
+at start, then `p.number`, `p.text`, `p.at(track, seconds)`), not in Rust constants; see
+`examples/GP_figures/dix_hallpike.toml` and `poses.toml`. A narrated video takes its timing
+from the `shared-narration` crate (`examples/shared/narration`, see
+`examples/shared/README.md`): scene lengths, `lines.tsv`, `durations.tsv` and the cues give
+one checked `Schedule` for scenes, captions and voice tracks, as Klinik and Korntal do.
+
 ### 6. Scenes (optional)
 
 Split a long video into `Scene` implementations and let the framework place them on the timeline.
