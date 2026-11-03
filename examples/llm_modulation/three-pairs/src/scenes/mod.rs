@@ -36,12 +36,14 @@ macro_rules! script_scene {
 
 pub mod conclusion;
 pub mod pairs;
+pub mod problem;
 pub mod results;
 pub mod setup;
 pub mod title;
 
 pub use conclusion::{ChallengeScene, ConclusionScene};
 pub use pairs::{DocumentsScene, MathScene, RobotScene};
+pub use problem::ProblemScene;
 pub use results::ResultsScene;
 pub use setup::SetupScene;
 pub use title::TitleScene;
@@ -51,6 +53,7 @@ pub fn tones() -> Vec<f32> {
     use crate::page::{FLAG_AT, FLAG_DUR, FLAG_STEP};
     let mut out = Vec::new();
     for (start, n) in [
+        (ProblemScene::START, problem::FLAGS),
         (DocumentsScene::START, pairs::flags(pairs::DOC_ROWS)),
         (MathScene::START, pairs::flags(pairs::MATH_ROWS)),
         (RobotScene::START, pairs::flags(pairs::ROBOT_ROWS)),

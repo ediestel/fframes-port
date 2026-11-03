@@ -1,0 +1,41 @@
+# Poses of the reference rig (`reference_rig.svg`), read by `src/puppet.rs`.
+#
+# A pose names segments of the rig and their angle in degrees, clockwise on screen, 0 = as
+# traced; a segment not named keeps 0. The figure is seen from the front, its right side is on
+# the image's left (`_r`): moving the right arm or leg outwards is positive, the left one
+# negative. Segment ids: head, upper_arm_r, lower_arm_r, hand_r, upper_arm_l, lower_arm_l,
+# hand_l, thigh_r, shin_r, foot_r, thigh_l, shin_l, foot_l (the rig file is checked at start;
+# an unknown id stops the video).
+#
+# `PuppetSheet` draws the poses side by side in this order. A move turns one pose into another
+# between two seconds, for `puppet::pose_at`; easing: linear, ease-in, ease-out, ease-in-out
+# or hold.
+
+[[poses]]
+name = "neutral"
+
+[[poses]]
+name = "arms out"
+angles = { upper_arm_r = 45.0, upper_arm_l = -45.0 }
+
+[[poses]]
+name = "arm raised, legs apart"
+angles = { upper_arm_r = 100.0, lower_arm_r = 20.0, thigh_r = 12.0, thigh_l = -12.0 }
+
+[[poses]]
+name = "hands on hips"
+angles = { upper_arm_r = 35.0, lower_arm_r = -95.0, upper_arm_l = -35.0, lower_arm_l = 95.0 }
+
+[[moves]]
+from = "neutral"
+to = "arms out"
+start = 0.0
+end = 1.0
+easing = "ease-in-out"
+
+[[moves]]
+from = "arms out"
+to = "hands on hips"
+start = 1.5
+end = 2.5
+easing = "ease-in-out"

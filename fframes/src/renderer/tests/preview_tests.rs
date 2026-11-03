@@ -32,6 +32,7 @@ impl Scene for Outro {
 
     fn render_frame(&self, _: Frame, ctx: &FFramesContext) -> Svgr<'_> {
         let _ = ctx.get_image("missing.png");
+        crate::diagnostics::error("caption", "1700 px wide, the band is 1560 px");
         crate::svgr!(<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"></svg>)
     }
 }
@@ -119,6 +120,16 @@ fn inspect_reports_missing_media_and_empty_frames() {
             .any(|d| matches!(d, Diagnostic::MissingMedia { name, .. } if name == "missing.png"))
     );
     assert!(kinds.iter().any(|d| matches!(d, Diagnostic::EmptyFrame)));
+
+    // The scene's own check arrives like the built-in ones, grouped by its name.
+    let custom = report
+        .diagnostics
+        .iter()
+        .find(|d| matches!(&d.diagnostic, Diagnostic::Custom { .. }))
+        .expect("the custom diagnostic is collected");
+    assert_eq!(custom.severity, crate::diagnostics::Severity::Error);
+    assert_eq!(custom.key, "custom:caption");
+    assert_eq!(custom.message, "caption: 1700 px wide, the band is 1560 px");
 }
 
 struct Labelled;

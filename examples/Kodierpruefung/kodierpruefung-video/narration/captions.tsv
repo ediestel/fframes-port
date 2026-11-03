@@ -1,0 +1,40 @@
+c1_1	Die Prüfassistenz für das Medizincontrolling: von der vollständigen Erschließung der Patientenakte bis zur geprüften Kodierung.
+c1_2	Diagnosen, Prozeduren und abrechnungsrelevante Angaben werden mit ihren Fundstellen in der Dokumentation verbunden.
+c2_1	Die Assistenz unterstützt die Kodierprüfung vor der Rechnungsstellung, solange Korrekturen noch ohne Prüfverfahren möglich sind, und im Prüfverfahren selbst.
+c2_2	Fünf Schritte: Fall übernehmen, Akte erschließen, Kodierung abgleichen, Abweichungen ausweisen, prüfen und freigeben.
+c2_3	Jede Antwort führt zur Fundstelle in Arztbriefen, Verlauf, Pflege und Befunden.
+c2_4	Über jede Änderung entscheidet die Kodierfachkraft; Ergänzungen der Dokumentation nehmen die Behandelnden selbst vor.
+c2_5	Im Prüfverfahren stellt die Assistenz die Unterlagen zusammen und bereitet eine belegte Stellungnahme vor.
+c3_0	Die folgenden Daten wurden mit der proprietären LLM-Modulation von AMDG Engineers extrahiert und analysiert, ohne weitere Unterstützung.
+c3_1	Ein virtueller Modellfall, alle Personen und Daten sind fiktiv: Ist die Kodierung durch die Dokumentation belegt?
+c3_2	Die Hauptdiagnose ist belegt: eine sturzbedingte Schenkelhalsfraktur; der Herzstillstand trat erst nach der Operation auf.
+c3_3	Nicht belegt sind die Sepsis, die Mangelernährung und eine Transfusion, die nicht stattfand.
+c3_4	Die Nierenkrankheit ist unspezifischer kodiert als dokumentiert; die Intensivbehandlung ist ohne ihre Aufwandspunkte nicht prüfbar.
+c3_5	Jedes Ergebnis nennt Unterlage und Seite.
+c4_1	Kodiert sind 97 Beatmungsstunden.
+c4_2	Belegt sind 87: Intubation am 6. November um 4:24 Uhr, Extubation am 9. November um 18:30 Uhr, zusammen 86 Stunden und 6 Minuten, aufgerundet 87.
+c4_3	Die DRG A13F setzt mehr als 95 Beatmungsstunden voraus. Mit 87 Stunden ist sie nicht erreichbar.
+c4_4	Der Entlassbrief nennt das Ende der Beatmung ungenau; die Zeit nach der Extubation zählt nicht.
+c5_1	Abgerechnet als A13F: 25.665,64 Euro.
+c5_2	Nach der Korrektur kommen die DRG I08B bis I08D in Frage, 14 bis 42 Prozent weniger; die Varianten von I47 bilden die Untergrenze, bis 58 Prozent weniger.
+c5_3	Allein der Pflegeerlös macht über 14 Tage rund 7.000 Euro aus.
+c5_4	Die endgültige DRG bestimmt ein zertifizierter Grouper; gerechnet mit den Katalogwerten 2025 und dem Landesbasisfallwert Niedersachsen.
+c6_1	Vor der Rechnungsstellung: die Beatmungsstunden auf 87 korrigieren, die nicht belegten Kodes streichen, N18.32 eintragen.
+c6_2	Die Aufwandspunkte der Intensivbehandlung anfordern, den Entlassbrief an Verlauf und Befunde angleichen, neu gruppieren und freigeben.
+c6_3	Liegt die Rechnung schon beim Medizinischen Dienst, tragen dieselben Feststellungen die Stellungnahme: anerkennen, was nicht belegt ist; mit Unterlage und Seite belegen, was strittig ist.
+c7_1	Die Unterlagen werden auf einem Server im Netz des Krankenhauses geführt und verarbeitet.
+c7_2	Personenbezogene Angaben können vor der Auswertung im Haus pseudonymisiert werden; die Zuordnung bleibt im Haus.
+c7_3	Rollen regeln Lesen, Bearbeiten und Freigeben; Zugriffe und Änderungen werden protokolliert, Übertragungen verschlüsselt.
+c7_4	Falldaten dienen ausschließlich dem Prüfauftrag; eine Nutzung für allgemeines Modelltraining wird vertraglich ausgeschlossen.
+c7_5	Die Assistenz liefert Hinweise und Entwürfe. Die Verantwortung für Kodierung und Rechnung liegt beim Krankenhaus.
+cm_1	Die Prüfungen des Medizinischen Dienstes binden in jedem Haus Personal: im Schnitt rund vier Vollkräfte, rund 236.000 Euro im Jahr; bundesweit rund 245 Millionen Euro.
+cm_2	Nach den Prüfungen zahlten die Kliniken 2024 rund 1,19 Milliarden Euro an die Kassen zurück.
+cm_3	Rund die Hälfte der geprüften Rechnungen wird beanstandet, und ab 2027 steigen die gesetzlichen Prüfquoten.
+c8_1	Erlöse gehen nicht verloren: Was die Dokumentation nicht stützt, wird vor der Rechnung erkannt; im Modellfall 3.600 bis 14.800 Euro für einen einzigen Fall.
+c8_2	Eine zutreffende Rechnung zieht keinen Aufschlag nach sich, und mit zutreffender Abrechnung sinkt die Prüfquote.
+c8_3	Die Prüfung findet auch, was dokumentiert, aber nicht kodiert ist.
+c8_4	Die Prüfung eines Falls dauert Minuten statt Stunden; die Rechnung kann ohne Verzug gestellt werden.
+c8_5	Widersprüche zwischen Entlassbrief und Akte werden vor dem Versand sichtbar, und die Fachkräfte gewinnen Zeit für die Kodierentscheidung.
+c9_1	Ein Pilot prüft fachliche Qualität und Wirtschaftlichkeit an Fällen des Hauses.
+c9_2	Aufgabe und Maßstab festlegen, eine Referenz aus bereits geprüften Fällen aufbauen, im Arbeitsablauf mit und ohne Assistenz vergleichen, gemeinsam entscheiden.
+c9_3	Bewertet werden Fakten und Quellen, die Kodierqualität, der gesamte Arbeitsaufwand und die Nutzbarkeit.

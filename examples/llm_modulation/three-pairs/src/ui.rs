@@ -440,7 +440,7 @@ pub fn typed_block(
 // the page header
 
 /// The sections, in order, for the header's progress marker.
-pub const SECTIONS: [&str; 6] = ["The Setup", "Documents", "Mathematics", "Robot Code", "Results", "Conclusion"];
+pub const SECTIONS: [&str; 7] = ["The Problem", "The Setup", "Documents", "Mathematics", "Robot Code", "Results", "Conclusion"];
 
 /// The header of section `n` (1-based): its number and `title` on the left,
 /// one mark per section on the right, the current one lit.

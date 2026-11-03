@@ -169,7 +169,11 @@ After every change:
    reports missing images, fonts or glyphs, text cut off by the edge of the canvas, invalid
    SVG (zero-sized rectangles, bad radii), broken transforms and panics, each with its time
    and scene. It exits with code 2 on errors. Fix everything it reports. A warning that only
-   appears on a scene's first frames is usually an entrance; check it with a strip.
+   appears on a scene's first frames is usually an entrance; check it with a strip. A check
+   only the project can make (a caption wider than its band, a value out of range) is reported
+   from `render_frame` with `fframes::diagnostics::error("name", detail)` or `::warning` and
+   listed the same way, grouped by name. `render` runs this inspection first and refuses to
+   encode on an error finding (`--fail-on never` skips it, `--fail-on warning` is stricter).
 3. `$R strip <scene or range> -n 12` writes a contact sheet (`strip.png`): evenly spaced frames
    in one labelled image. Open it with your image tool. It is the fastest way to judge layout,
    rhythm and motion. `$R strip 2s,5s,9s` puts chosen times side by side.
@@ -220,7 +224,7 @@ times with commas.
 | `onion RANGE -n N` | see a movement's trajectory and easing |
 | `svg TIME` | read a frame's final SVG as text (positions, text, colors) |
 | `preview [TIME] [--paused] [--mute]` | real-time window with sound, for the user |
-| `render [RANGE] [-o out.mp4] [--draft]` | encode the video or a part of it (audio cut to match) |
+| `render [RANGE] [-o out.mp4] [--draft] [--fail-on error\|warning\|never]` | encode the video or a part of it (audio cut to match); inspects the range first and stops with exit code 2 on an error finding (`--fail-on never` skips the check) |
 | `audio analyze [RANGE] [--waveform w.png]` | loudness (LUFS), true peak, clipping, silence, per scene |
 | `audio at TIMES` | which sounds play at a moment, where in their file and how loud |
 | `audio render [RANGE] -o a.wav` | the mix as a WAV file |

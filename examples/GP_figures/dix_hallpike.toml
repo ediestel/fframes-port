@@ -1,0 +1,13 @@
+# Numbers and words of the Dix-Hallpike scene (`src/dix_hallpike.rs`), read once at start;
+# a missing name stops the video. Angles in degrees, clockwise on screen.
+
+[values]
+# Trunk and head angles sitting and with the head hanging. Traced, the trunk leans back 39
+# degrees: +46 sits it up 5 degrees short of vertical, -40 lays it level. Lying, -48 brings
+# the head's axis 22 degrees below the horizontal.
+trunk_sit = 46.0
+trunk_lie = -40.0
+head_sit = 8.0
+head_hang = -48.0
+# The title line of the short and the plate.
+title = "DIX-HALLPIKE TEST · RIGHT EAR"

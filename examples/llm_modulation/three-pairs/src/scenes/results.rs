@@ -5,7 +5,7 @@ use fframes::{FFramesContext, Frame, Svgr};
 use crate::page::*;
 use crate::ui::*;
 
-script_scene!(ResultsScene, 81.0, 93.0);
+script_scene!(ResultsScene, 93.0, 105.0);
 
 impl ResultsScene {
     fn draw(&self, frame: &mut Frame, ctx: &FFramesContext, _t: f32) -> Svgr<'static> {
@@ -23,6 +23,6 @@ impl ResultsScene {
                 ("Requested components present", "yes", "yes"),
             ],
         );
-        fframes::svgr!(<g>{stage()}{header(5, "Results", 1.0)}{tab}</g>)
+        fframes::svgr!(<g>{stage()}{header(6, "Results", 1.0)}{tab}</g>)
     }
 }

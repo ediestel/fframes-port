@@ -7,6 +7,7 @@
 //! statement the source does not support.
 
 pub mod page;
+pub mod qr;
 pub mod scenes;
 pub mod ui;
 
@@ -54,6 +55,7 @@ impl Video for Film {
     fn define_scenes(&self) -> Scenes<'_> {
         Scenes::from(vec![
             &TitleScene as &dyn Scene,
+            &ProblemScene,
             &SetupScene,
             &DocumentsScene,
             &MathScene,

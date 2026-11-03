@@ -33,6 +33,11 @@ impl<'a> crate::FontFace<'a> for RendererFont<'a> {
                 / face.units_per_em() as usize,
         )
     }
+
+    fn metrics(&self, font_size: usize) -> Option<crate::FontMetrics> {
+        let face = crate::ttf_parser::Face::parse(self.data.as_ref().as_ref(), self.index).ok()?;
+        Some(crate::FontMetrics::from_face(&face, font_size))
+    }
 }
 
 #[derive(Debug)]

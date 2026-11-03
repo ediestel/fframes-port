@@ -1282,6 +1282,7 @@ dependencies = [
  "serde_json",
  "svgr",
  "svgr-macro",
+ "toml 0.8.2",
  "ttf-parser",
  "usvgr",
  "uuid",
@@ -2110,6 +2111,16 @@ dependencies = [
  "fframes",
  "fframes_native_player",
  "fframes_skia_renderer",
+ "shared-narration",
+]
+
+[[package]]
+name = "kodierpruefung-video"
+version = "0.1.0"
+dependencies = [
+ "fframes",
+ "fframes_native_player",
+ "fframes_skia_renderer",
 ]
 
 [[package]]
@@ -2146,6 +2157,7 @@ dependencies = [
  "fframes",
  "fframes_native_player",
  "fframes_skia_renderer",
+ "shared-narration",
 ]
 
 [[package]]
@@ -2351,6 +2363,15 @@ checksum = "8ea1f30cedd69f0a2954655f7188c6a834246d2bcf1e315e2ac40c4b24dc9519"
 dependencies = [
  "cfg-if",
  "rayon",
+]
+
+[[package]]
+name = "md-video"
+version = "0.1.0"
+dependencies = [
+ "fframes",
+ "fframes_native_player",
+ "fframes_skia_renderer",
 ]
 
 [[package]]
@@ -3939,6 +3960,13 @@ dependencies = [
  "fframes_native_player",
  "fframes_skia_renderer",
  "image",
+]
+
+[[package]]
+name = "shared-narration"
+version = "0.1.0"
+dependencies = [
+ "fframes",
 ]
 
 [[package]]

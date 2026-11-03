@@ -9,6 +9,9 @@ fframes = { path = "/Users/eckhartdiestel/Desktop/Coding_Projects/fframes-main/f
 fframes_skia_renderer = { path = "/Users/eckhartdiestel/Desktop/Coding_Projects/fframes-main/fframes-skia-renderer", features = ["metal"] }
 fframes_native_player = { path = "/Users/eckhartdiestel/Desktop/Coding_Projects/fframes-main/fframes-native-player", default-features = false, features = ["metal", "audio"] }
 geo = "0.29"
+# `poses.toml`: the puppet's poses and moves as data
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
 
 [lib]
 name = "gp_figures"

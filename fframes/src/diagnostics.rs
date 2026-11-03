@@ -55,6 +55,14 @@ pub enum Diagnostic {
     EmptyFrame,
     /// `render_frame` panicked.
     Panic { message: String },
+    /// Reported by the video's own code through [`custom`], [`warning`] or [`error`]: a check
+    /// only the project can make, such as a caption wider than its band. `name` identifies the
+    /// check across frames, `detail` says what is wrong in this frame.
+    Custom {
+        level: Severity,
+        name: String,
+        detail: String,
+    },
 }
 
 impl Diagnostic {
@@ -63,12 +71,14 @@ impl Diagnostic {
         match self {
             Diagnostic::TextClipped { text, .. } => format!("text_clipped:{text}"),
             Diagnostic::TextOffCanvas { text, .. } => format!("text_off_canvas:{text}"),
+            Diagnostic::Custom { name, .. } => format!("custom:{name}"),
             other => other.to_string(),
         }
     }
 
     pub fn severity(&self) -> Severity {
         match self {
+            Diagnostic::Custom { level, .. } => *level,
             Diagnostic::Panic { .. }
             | Diagnostic::MissingMedia { .. }
             | Diagnostic::MissingGlyph { .. }
@@ -109,6 +119,7 @@ impl std::fmt::Display for Diagnostic {
             }
             Diagnostic::EmptyFrame => write!(f, "frame is empty"),
             Diagnostic::Panic { message } => write!(f, "render_frame panicked: {message}"),
+            Diagnostic::Custom { name, detail, .. } => write!(f, "{name}: {detail}"),
         }
     }
 }
@@ -139,6 +150,27 @@ pub fn report(diagnostic: Diagnostic) {
             collected.push(diagnostic);
         }
     });
+}
+
+/// Reports a check of the video's own code, for example from `render_frame`. `inspect`, `frame`
+/// and the `render` gate list it with the frame, time and scene like the built-in findings;
+/// `name` groups the same check across frames, `detail` says what is wrong in this frame.
+pub fn custom(level: Severity, name: impl Into<String>, detail: impl Into<String>) {
+    report(Diagnostic::Custom {
+        level,
+        name: name.into(),
+        detail: detail.into(),
+    });
+}
+
+/// [`custom`] at warning level.
+pub fn warning(name: impl Into<String>, detail: impl Into<String>) {
+    custom(Severity::Warning, name, detail);
+}
+
+/// [`custom`] at error level: `inspect` and `render` exit with code 2.
+pub fn error(name: impl Into<String>, detail: impl Into<String>) {
+    custom(Severity::Error, name, detail);
 }
 
 pub(crate) fn report_missing_media(media: MediaKind, name: &str) {
@@ -333,6 +365,20 @@ mod tests {
 
         let ((), nothing) = collect(|| ());
         assert_eq!(nothing, Vec::<Diagnostic>::new());
+    }
+
+    #[test]
+    fn custom_checks_carry_their_level_name_and_detail() {
+        let ((), collected) = collect(|| {
+            error("caption", "1700 px wide");
+            warning("caption", "1700 px wide");
+            warning("caption", "1700 px wide");
+        });
+        assert_eq!(collected.len(), 2, "the repeated warning is one finding");
+        assert_eq!(collected[0].severity(), Severity::Error);
+        assert_eq!(collected[1].severity(), Severity::Warning);
+        assert_eq!(collected[0].group_key(), "custom:caption");
+        assert_eq!(collected[0].to_string(), "caption: 1700 px wide");
     }
 
     #[test]

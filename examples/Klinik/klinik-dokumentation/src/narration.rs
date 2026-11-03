@@ -1,21 +1,24 @@
 //! Narration of the revised script, one clip per sentence (`narration/lines.tsv`,
-//! made by `narration/make.sh`). Each sentence has a cue in its scene; it
-//! starts at the cue or right after the sentence before it, whichever is later,
-//! using the measured clip lengths in `narration/durations.tsv`. Captions show
-//! the same sentences, at most two lines at a time.
+//! made by `narration/make.sh`), resolved by the `shared-narration` crate: each
+//! sentence has a cue in its scene and starts at the cue or right after the
+//! sentence before it, using the measured clip lengths in
+//! `narration/durations.tsv`. Captions show the same sentences, at most two
+//! lines at a time; a gap shorter than a second keeps the previous caption.
+//! The schedule is checked when first used: a missing line, a missing clip
+//! length or a sentence running past its scene stops the video.
 
 use std::sync::LazyLock;
 
+use fframes::layout::{Block, FrameMeasurer, TextBlock};
 use fframes::{FFramesContext, FontQuery, Frame, Svgr};
+use shared_narration::{DurationSource, Input, Policy, Schedule};
 
 use crate::ui::*;
 
-/// Start of every scene in seconds (frame table of the revised script).
-pub const SCENE_START: [f32; 13] = [0.0, 18.0, 48.0, 93.0, 143.0, 194.0, 229.0, 259.0, 284.0, 319.0, 360.5, 391.0, 436.0];
-pub const TOTAL: f32 = 446.0;
-
-const LINES_TSV: &str = include_str!("../narration/lines.tsv");
-const DURATIONS_TSV: &str = include_str!("../narration/durations.tsv");
+/// Length of every scene in seconds (frame table of the revised script).
+pub const SCENE_SECONDS: [f32; 15] = [
+    18.0, 30.0, 45.0, 50.0, 51.0, 35.0, 30.0, 25.0, 35.0, 41.5, 30.5, 94.0, 22.0, 12.0, 10.0,
+];
 
 /// (clip id, scene, cue in seconds into the scene)
 const CUES: &[(&str, usize, f32)] = &[
@@ -61,141 +64,78 @@ const CUES: &[(&str, usize, f32)] = &[
     ("sd_1", 12, 0.8),
     ("sd_2", 12, 12.5),
     ("sd_3", 12, 17.7),
-    ("sc_4", 12, 27.4),
-    ("sc_5", 12, 36.7),
+    ("se_1", 12, 27.6),
+    ("se_2", 12, 32.6),
+    ("se_3", 12, 42.8),
+    ("se_4", 12, 54.4),
+    ("se_5", 12, 65.1),
+    ("se_6", 12, 82.4),
 ];
 
-pub struct Line {
-    pub file: String,
-    pub start: f32,
-    pub end: f32,
-    pub text: String,
-}
-
-pub static LINES: LazyLock<Vec<Line>> = LazyLock::new(|| {
-    let text_of = |id: &str| {
-        LINES_TSV
-            .lines()
-            .find(|l| l.split('\t').next() == Some(id))
-            .and_then(|l| l.split('\t').nth(2))
-            .unwrap_or("")
-            .to_owned()
-    };
-    let dur_of = |id: &str| {
-        DURATIONS_TSV
-            .lines()
-            .find(|l| l.split('\t').next() == Some(id))
-            .and_then(|l| l.split('\t').nth(1))
-            .and_then(|d| d.trim().parse::<f32>().ok())
-            .unwrap_or(3.0)
-    };
-    let mut out: Vec<Line> = Vec::new();
-    let mut prev: Option<(usize, f32)> = None;
-    for (id, scene, cue) in CUES {
-        let mut start = SCENE_START[scene - 1] + cue;
-        if let Some((s, end)) = prev
-            && s == *scene
-        {
-            start = start.max(end + 0.35);
-        }
-        let end = start + dur_of(id);
-        out.push(Line { file: format!("{id}.wav"), start, end, text: text_of(id) });
-        prev = Some((*scene, end));
-    }
-    out
+/// The one timing of the video: scenes, lines and captions.
+pub static SCHEDULE: LazyLock<Schedule> = LazyLock::new(|| {
+    Schedule::build(&Input {
+        scene_seconds: &SCENE_SECONDS,
+        lines_tsv: include_str!("../narration/lines.tsv"),
+        text_column: 2,
+        durations: DurationSource::Measured(include_str!("../narration/durations.tsv")),
+        cues: CUES,
+        policy: Policy {
+            bridge_gaps_under: Some(1.0),
+            ..Policy::default()
+        },
+    })
+    .unwrap_or_else(|problems| {
+        panic!(
+            "narration does not resolve:\n{}",
+            shared_narration::problems_text(&problems)
+        )
+    })
 });
 
-/// One caption: a piece of a sentence short enough for two lines.
-pub struct Cue {
-    pub from: f32,
-    pub until: f32,
-    pub text: String,
-}
+/// Bottom edge of the caption band, inside the safe margin, and its padding around the text.
+const BAND_BOTTOM: f32 = 988.0;
+const BAND_PAD: f32 = 30.0;
 
-const MAX_CHARS: usize = 140;
-
-/// Splits a sentence near its middle, preferring a comma, colon or semicolon.
-fn split(text: &str) -> Vec<String> {
-    if text.chars().count() <= MAX_CHARS {
-        return vec![text.to_owned()];
-    }
-    let mid = text.len() / 2;
-    let mut best: Option<(usize, usize)> = None;
-    for (i, c) in text.char_indices() {
-        if c != ' ' {
-            continue;
-        }
-        let prev = text[..i].chars().last().unwrap_or(' ');
-        let punct = matches!(prev, ',' | ':' | ';');
-        let dist = i.abs_diff(mid);
-        let score = if punct { dist } else { dist + 40 };
-        if best.is_none_or(|(s, _)| score < s) {
-            best = Some((score, i));
-        }
-    }
-    match best {
-        Some((_, i)) => {
-            let mut out = split(text[..i].trim());
-            out.extend(split(text[i..].trim()));
-            out
-        }
-        None => vec![text.to_owned()],
-    }
-}
-
-pub static CUES_CAPTIONS: LazyLock<Vec<Cue>> = LazyLock::new(|| {
-    let mut cues = Vec::new();
-    for line in LINES.iter() {
-        let parts = split(&line.text);
-        let total: usize = parts.iter().map(|p| p.chars().count()).sum();
-        let mut from = line.start;
-        let dur = line.end - line.start;
-        for (i, p) in parts.iter().enumerate() {
-            let share = p.chars().count() as f32 / total.max(1) as f32;
-            let until = if i + 1 == parts.len() { line.end + 0.35 } else { from + dur * share };
-            cues.push(Cue { from, until, text: p.clone() });
-            from = until;
-        }
-    }
-    // a gap shorter than a second would blank the band for a few frames:
-    // keep the caption until the next one starts
-    for i in 1..cues.len() {
-        if cues[i].from - cues[i - 1].until < 1.0 {
-            cues[i - 1].until = cues[i - 1].until.max(cues[i].from);
-        }
-    }
-    cues
-});
-
-/// The caption band at the bottom, inside the safe margin.
+/// The caption band at the bottom: as high as its measured text plus the padding, the bottom
+/// edge fixed, the text centred in it. More than two lines is reported by `inspect`.
 pub fn captions<'a>(frame: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
-    let Some(cue) = CUES_CAPTIONS.iter().find(|c| t >= c.from && t < c.until) else {
+    let Some(cue) = SCHEDULE.caption_at(t) else {
         return Svgr::empty();
     };
-    let near = CUES_CAPTIONS.iter().filter(|c| c.until > t - 0.5 && c.from < t + 0.5).count();
-    let o = if near > 1 { 1.0 } else { window(t, cue.from, cue.until, 0.18) };
-    let words = frame
-        .text_break_lines(
-            ctx,
-            &cue.text,
-            fframes::BreakLinesOpts {
-                font: FontQuery { family: SANS, size: 34, weight: 400, ..Default::default() },
-                width: 1560,
-                line_height: 1.3,
-                x: 180,
-                y: 926,
-                align: fframes::TextAlign::Center,
-                fill: "#F3F6FF",
-                dominant_baseline: "auto",
-                text_anchor: "start",
-                opacity: 1.0,
-            },
-        )
-        .unwrap_or_else(Svgr::empty);
+    let o = if SCHEDULE.captions_near(t, 0.5) > 1 { 1.0 } else { window(t, cue.from, cue.until, 0.18) };
+    let text = TextBlock::new(cue.text.clone(), FontQuery { family: SANS, size: 34, weight: 400, ..Default::default() })
+        .wrap(1560)
+        .line_height(1.3)
+        .align(fframes::TextAlign::Center)
+        .fill("#F3F6FF");
+    let Some(text) = Block::Text(text).measure(&mut FrameMeasurer { frame, ctx }) else {
+        return Svgr::empty();
+    };
+    if text.line_count() > 2 {
+        fframes::diagnostics::warning("caption_lines", format!("{} lines: \"{}\"", text.line_count(), cue.text));
+    }
+    let height = text.size().height + 2.0 * BAND_PAD;
+    let top = BAND_BOTTOM - height;
     fframes::svgr!(
         <g opacity={o}>
-            <rect x="96" y="884" width="1728" height="104" rx="22" fill="#050916" opacity="0.82" stroke="#2A3566" stroke-width="1.5" />
-            {words}
+            <rect x="96" y={top} width="1728" height={height} rx="22" fill="#050916" opacity="0.82" stroke="#2A3566" stroke-width="1.5" />
+            {text.render(180.0, top + BAND_PAD)}
         </g>
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The data files and cues resolve without a problem, and the frame table is unchanged.
+    #[test]
+    fn schedule_resolves() {
+        let s = &*SCHEDULE;
+        assert_eq!(s.lines.len(), CUES.len());
+        assert_eq!(s.total, 529.0);
+        assert_eq!(s.scene_start(10), 360.5);
+        assert_eq!(s.scene_start(12), 485.0);
+    }
 }

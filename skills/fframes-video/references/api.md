@@ -164,6 +164,65 @@ let paragraph: Svgr = frame
 The helpers take `&mut frame` and return `None` when the font is not loaded; use the same
 family, size and weight in the `<text>` attributes. `text-anchor="middle"` centers on `x`.
 
+`frame.text_metrics(ctx, font)` gives the font's `ascent`, `descent` and `line_gap` in pixels
+at that size, so a box can be sized from the text instead of a guess.
+
+### Measured layout
+
+`fframes::layout` lays out text, boxes and gaps in rows and columns, measured against the real
+fonts before drawing: a band is as high as its caption, a highlight lands on the words it
+marks. Wrap widths are given by the author; nothing is inferred from the parent.
+
+```rust
+use fframes::layout::{Align, Block, FrameMeasurer, TextBlock};
+let title = TextBlock::new(name, font).wrap(900).line_height(1.2).fill("#0f172a");
+let block = Block::column(16.0, Align::Start, vec![
+    Block::named("title", Block::Text(title)),
+    Block::fixed(900.0, 4.0, rule_svgr),         // a box of known size, content drawn at its top left
+    Block::Gap(8.0),
+    Block::Text(TextBlock::new(body, small).wrap(900)),
+]);
+// measuring resolves the fonts once (cached, independent of position); None while a font loads
+let Some(measured) = block.measure(&mut FrameMeasurer { frame, ctx }) else { return Svgr::empty() };
+let height = measured.size().height;                 // size the card from the content
+let title_rect = measured.rect_of("title", x, y);    // decorate a named block
+svgr!(<g><rect x={x} y={y} width="900" height={height} />{measured.render(x, y)}</g>)
+```
+
+`measured.line_count()` is the number of wrapped lines, for a check such as "a caption has
+more than two lines" reported with `fframes::diagnostics::warning`.
+
+## Numbers and words from a data file
+
+`fframes::params` reads a scene's tunable numbers, words and numeric tracks from a TOML file,
+so an angle, a timing or a label changes without touching Rust (with cargo-watch, a save of
+the file rebuilds). Checked once at start; every problem is listed, nothing is guessed.
+
+```toml
+[values]
+trunk_sit = 46.0
+title = "DIX-HALLPIKE TEST"
+[tracks]                                    # keys: [seconds, value, easing?]
+trunk = [[6.4, 46.0], [7.4, -40.0, "ease-in-out"]]   # linear, ease-in, ease-out, ease-in-out, hold
+```
+
+```rust
+use fframes::params::Params;
+static PARAMS: LazyLock<Params> = LazyLock::new(|| {
+    let p = Params::parse(include_str!("../scene.toml"))
+        .unwrap_or_else(|problems| panic!("scene.toml:\n{}", fframes::params::problems_text(&problems)));
+    let missing = p.missing(&["trunk_sit", "title"], &["trunk"]);   // the names the scene reads
+    assert!(missing.is_empty(), "scene.toml lacks: {}", missing.join(", "));
+    p
+});
+let trunk_sit = PARAMS.number("trunk_sit").unwrap();   // f32
+let title = PARAMS.text("title").unwrap();             // &str
+let trunk = PARAMS.at("trunk", frame.seconds()).unwrap(); // the track's value now
+```
+
+Before its first key a track holds the first value, after its last key the last one; `hold`
+keeps the previous value until the key's time.
+
 ## Media
 
 - `include_media_dir!(pub struct MyMedia, "media")` embeds a folder; the path is relative to
@@ -280,6 +339,16 @@ let (png, report) = previewer.render_inspected(frame, &mut fframes::CpuFrameRend
 png.save_png("intro.png")?;
 let svg = previewer.svg(frame)?;
 let problems = previewer.inspect(frame)?.diagnostics;
+```
+
+A check only the project can make is reported from inside `render_frame` and arrives in
+`inspect`, `frame` and the `render` gate with the frame, time and scene, grouped by its name
+across frames (`fframes::diagnostics::warning` for a warning):
+
+```rust
+if width > band {
+    fframes::diagnostics::error("caption", format!("{width} px wide, the band is {band} px"));
+}
 ```
 
 Skia: `SkiaFFramesRenderer::new_metal(&SkiaMetalCtx::new(W, H)?, SkiaPipelineConfig::default())`

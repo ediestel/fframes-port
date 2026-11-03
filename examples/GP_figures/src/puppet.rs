@@ -12,10 +12,14 @@
 //! negative.
 
 use fframes::Svgr;
+use fframes::animation::Easing;
+use fframes::params::{Key, KeyEasing, Track};
 use geo::{BooleanOps, Coord, LineString, MultiPolygon, Polygon};
-use std::sync::OnceLock;
+use std::collections::BTreeMap;
+use std::sync::{LazyLock, OnceLock};
 
 const RIG: &str = include_str!("../reference_rig.svg");
+const POSES_TOML: &str = include_str!("../poses.toml");
 
 /// Rig point drawn at the (x, y) given to `draw`.
 pub const ORIGIN: (f32, f32) = (-15.6, 70.0);
@@ -131,6 +135,21 @@ impl Rig {
         Rig(parse(src, front))
     }
 
+    /// The ids of every segment, parents before children.
+    pub fn ids(&self) -> Vec<&str> {
+        fn walk<'s>(seg: &'s Seg, out: &mut Vec<&'s str>) {
+            out.push(&seg.id);
+            for child in &seg.children {
+                walk(child, out);
+            }
+        }
+        let mut out = Vec::new();
+        for seg in &self.0 {
+            walk(seg, &mut out);
+        }
+        out
+    }
+
     /// Outline of the rig posed by `angle(id)` (degrees, clockwise on screen):
     /// one smoothed path of the union of all pieces, in rig coordinates.
     pub fn outline(&self, angle: &dyn Fn(&str) -> f64) -> String {
@@ -189,25 +208,140 @@ fn rig() -> &'static Rig {
     RIG_TREE.get_or_init(|| Rig::parse(RIG, true))
 }
 
-/// Angles in degrees per segment id of `reference_rig.svg`.
-#[derive(Clone, Copy, Debug)]
+/// Angles in degrees per segment id of `reference_rig.svg`, from `poses.toml`.
+#[derive(Clone, Debug, PartialEq)]
 pub struct Pose {
-    pub name: &'static str,
-    pub angles: &'static [(&'static str, f32)],
+    pub name: String,
+    pub angles: Vec<(String, f32)>,
 }
 
-pub const POSES: &[Pose] = &[
-    Pose { name: "neutral", angles: &[] },
-    Pose { name: "arms out", angles: &[("upper_arm_r", 45.0), ("upper_arm_l", -45.0)] },
-    Pose {
-        name: "arm raised, legs apart",
-        angles: &[("upper_arm_r", 100.0), ("lower_arm_r", 20.0), ("thigh_r", 12.0), ("thigh_l", -12.0)],
-    },
-    Pose {
-        name: "hands on hips",
-        angles: &[("upper_arm_r", 35.0), ("lower_arm_r", -95.0), ("upper_arm_l", -35.0), ("lower_arm_l", 95.0)],
-    },
-];
+impl Pose {
+    /// The angle of segment `id`, 0 when the pose does not name it.
+    pub fn angle(&self, id: &str) -> f32 {
+        self.angles.iter().find(|(n, _)| n == id).map_or(0.0, |(_, a)| *a)
+    }
+}
+
+/// One pose turning into another between two seconds, from `poses.toml`.
+#[derive(Clone, Debug)]
+pub struct Move {
+    pub from: usize,
+    pub to: usize,
+    pub start: f32,
+    pub end: f32,
+    pub easing: KeyEasing,
+}
+
+#[derive(serde::Deserialize)]
+struct PosesFile {
+    #[serde(default)]
+    poses: Vec<PoseFile>,
+    #[serde(default)]
+    moves: Vec<MoveFile>,
+}
+
+#[derive(serde::Deserialize)]
+struct PoseFile {
+    name: String,
+    #[serde(default)]
+    angles: BTreeMap<String, f32>,
+}
+
+#[derive(serde::Deserialize)]
+struct MoveFile {
+    from: String,
+    to: String,
+    start: f32,
+    end: f32,
+    easing: Option<String>,
+}
+
+/// `poses.toml` read and checked against the rig: every angle names a segment of
+/// `reference_rig.svg`, every move names two poses in time order, every easing is known.
+fn load_poses() -> (Vec<Pose>, Vec<Move>) {
+    let file: PosesFile = toml::from_str(POSES_TOML).unwrap_or_else(|e| panic!("poses.toml: {}", e.message()));
+    let ids = rig().ids();
+    let mut problems: Vec<String> = Vec::new();
+    let poses: Vec<Pose> = file
+        .poses
+        .into_iter()
+        .map(|p| {
+            for id in p.angles.keys().filter(|id| !ids.contains(&id.as_str())) {
+                problems.push(format!("pose \"{}\": \"{id}\" is not a segment of the rig ({})", p.name, ids.join(", ")));
+            }
+            Pose { name: p.name, angles: p.angles.into_iter().collect() }
+        })
+        .collect();
+    let moves: Vec<Move> = file
+        .moves
+        .iter()
+        .filter_map(|m| {
+            let index = |name: &str| poses.iter().position(|p| p.name == name);
+            let (Some(from), Some(to)) = (index(&m.from), index(&m.to)) else {
+                problems.push(format!("move {} -> {}: a pose with that name does not exist", m.from, m.to));
+                return None;
+            };
+            if m.end <= m.start {
+                problems.push(format!("move {} -> {}: ends at {} s, before it starts at {} s", m.from, m.to, m.end, m.start));
+                return None;
+            }
+            let easing = match m.easing.as_deref() {
+                None => KeyEasing::Ease(Easing::Linear),
+                Some(name) => match KeyEasing::named(name) {
+                    Some(easing) => easing,
+                    None => {
+                        problems.push(format!("move {} -> {}: unknown easing \"{name}\"", m.from, m.to));
+                        return None;
+                    }
+                },
+            };
+            Some(Move { from, to, start: m.start, end: m.end, easing })
+        })
+        .collect();
+    assert!(problems.is_empty(), "poses.toml:\n{}", problems.iter().map(|p| format!("- {p}\n")).collect::<String>());
+    (poses, moves)
+}
+
+/// The poses and the moves of `poses.toml`.
+type PosesAndMoves = (Vec<Pose>, Vec<Move>);
+
+static POSES_AND_MOVES: LazyLock<PosesAndMoves> = LazyLock::new(load_poses);
+
+/// The poses of `poses.toml`, in its order.
+pub static POSES: LazyLock<&'static [Pose]> = LazyLock::new(|| &POSES_AND_MOVES.0);
+
+/// The pose at `t` seconds of the moves in `poses.toml`: before the first move its `from`
+/// pose, during a move the angles eased between its two poses, after it the `to` pose.
+pub fn pose_at(t: f32) -> Pose {
+    let (poses, moves) = &*POSES_AND_MOVES;
+    let Some(first) = moves.first() else {
+        return poses.first().cloned().unwrap_or(Pose { name: "neutral".into(), angles: vec![] });
+    };
+    let current = moves.iter().rev().find(|m| t >= m.start).unwrap_or(first);
+    let (from, to) = (&poses[current.from], &poses[current.to]);
+    if t <= current.start {
+        return from.clone();
+    }
+    if t >= current.end {
+        return to.clone();
+    }
+    let mut ids: Vec<&str> = from.angles.iter().chain(&to.angles).map(|(id, _)| id.as_str()).collect();
+    ids.sort_unstable();
+    ids.dedup();
+    let angles = ids
+        .into_iter()
+        .map(|id| {
+            let track = Track {
+                keys: vec![
+                    Key { t: current.start, value: from.angle(id), easing: KeyEasing::Ease(Easing::Linear) },
+                    Key { t: current.end, value: to.angle(id), easing: current.easing },
+                ],
+            };
+            (id.to_owned(), track.at(t))
+        })
+        .collect();
+    Pose { name: format!("{} -> {}", from.name, to.name), angles }
+}
 
 /// Rings of `seg` and its children, posed: `rotate(angle(id))` about each
 /// pivot, composed down the hierarchy.
@@ -240,6 +374,29 @@ fn to_d(mp: &MultiPolygon<f64>) -> String {
         }
     }
     d
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `poses.toml` names only segments of the rig and its moves resolve.
+    #[test]
+    fn poses_load_and_moves_interpolate() {
+        let poses = *POSES;
+        assert_eq!(poses.len(), 4);
+        assert_eq!(poses[1].name, "arms out");
+        assert_eq!(poses[1].angle("upper_arm_r"), 45.0);
+        assert!(rig().ids().contains(&"upper_arm_r"));
+
+        // before the first move: neutral; in its middle (ease-in-out is symmetric): half way
+        assert_eq!(pose_at(-1.0).angle("upper_arm_r"), 0.0);
+        let middle = pose_at(0.5).angle("upper_arm_r");
+        assert!((middle - 22.5).abs() < 2.0, "{middle}");
+        assert_eq!(pose_at(1.2).angle("upper_arm_r"), 45.0);
+        // the second move ends in "hands on hips"
+        assert_eq!(pose_at(3.0), poses[3]);
+    }
 }
 
 /// `pose` with rig point `ORIGIN` at (x, y), at `scale`.

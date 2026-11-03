@@ -146,6 +146,10 @@ pub struct RenderArgs {
     /// Fast low quality preview: half resolution (unless --scale) and fastest encoder preset.
     #[arg(long)]
     pub draft: bool,
+    /// Check the range like `inspect` first and stop with exit code 2 instead of rendering
+    /// when a finding of this severity is found; `never` renders without the check.
+    #[arg(long, value_enum, default_value = "error")]
+    pub fail_on: FailOn,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -209,8 +213,9 @@ pub struct SvgArgs {
     pub output: Option<PathBuf>,
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Debug, Clone, Copy, Default, ValueEnum)]
 pub enum FailOn {
+    #[default]
     Error,
     Warning,
     Never,
@@ -737,14 +742,37 @@ fn render<'a, 'media: 'a, V: Video + Send + Sync, B: FFramesRenderBackend>(
     backend: B,
 ) -> CliResult {
     let started = Instant::now();
-    let previewer = Previewer::new(video, &options).map_err(err)?;
+    let mut previewer = Previewer::new(video, &options).map_err(err)?;
     let timeline = previewer.timeline().clone();
-    drop(previewer);
 
     let range = match &args.range {
         Some(spec) => timeline.resolve_range(spec).map_err(err)?,
         None => timeline.full_range(),
     };
+
+    // The gate: the same inspection as `inspect` (without `--pops`) over the range; a finding
+    // of the requested severity is printed instead of rendering a wrong video.
+    if !matches!(args.fail_on, FailOn::Never) {
+        let check = InspectArgs {
+            range: args.range.clone().unwrap_or_else(|| "all".to_owned()),
+            every: "0.25s".to_owned(),
+            all_frames: false,
+            info: false,
+            fail_on: args.fail_on,
+            pops: false,
+        };
+        let (result, failed) = inspect_findings(json, &mut previewer, None, &check)?;
+        if failed {
+            print(json, &result, || {
+                format!(
+                    "{}\nnot rendered: fix the findings, or pass `--fail-on never` to render anyway",
+                    inspect_text(&result)
+                )
+            });
+            return Ok(ExitCode::from(2));
+        }
+    }
+    drop(previewer);
     options.frame_range = Some(range.clone());
 
     if args.draft {
@@ -1319,12 +1347,14 @@ fn scan_pops<'a, 'm: 'a, V: Video>(
         .collect())
 }
 
-fn inspect<'a, 'm: 'a, V: Video>(
+/// The findings of `inspect` over `args`, and whether they fail `args.fail_on`. The renderer
+/// is only needed for `--pops`.
+fn inspect_findings<'a, 'm: 'a, V: Video>(
     json: bool,
     previewer: &mut Previewer<'a, 'm, V>,
-    renderer: &mut dyn FrameRenderer,
-    args: InspectArgs,
-) -> CliResult {
+    renderer: Option<&mut dyn FrameRenderer>,
+    args: &InspectArgs,
+) -> CliResult<(InspectResult, bool)> {
     let timeline = previewer.timeline().clone();
     let range = timeline.resolve_range(&args.range).map_err(err)?;
     let step = if args.all_frames {
@@ -1386,6 +1416,7 @@ fn inspect<'a, 'm: 'a, V: Video>(
         })
         .map_err(err)?;
     let pop_scanned_frames = if args.pops {
+        let renderer = renderer.ok_or_else(|| "--pops needs a frame renderer".to_owned())?;
         findings.extend(scan_pops(json, previewer, renderer, range.clone())?);
         Some(range.len())
     } else {
@@ -1408,33 +1439,45 @@ fn inspect<'a, 'm: 'a, V: Video>(
         pop_scanned_frames,
         findings,
     };
-    print(json, &result, || {
-        let mut text = format!("checked {} frames", result.checked_frames);
-        if let Some(scanned) = result.pop_scanned_frames {
-            let _ = write!(text, ", compared {scanned} frames for pops");
-        }
-        text.push_str(": ");
-        if result.findings.is_empty() {
-            text.push_str("no problems found");
-        } else {
-            let _ = write!(text, "{} findings", result.findings.len());
-        }
-        for f in &result.findings {
-            let _ = write!(
-                text,
-                "\n{:?} {:.2}s..{:.2}s (frames {}..{}, seen in {}){}: {}",
-                f.severity,
-                f.first_seconds,
-                f.last_seconds,
-                f.first_frame,
-                f.last_frame,
-                f.frames,
-                scenes_label(&f.scenes),
-                f.message
-            );
-        }
-        text
-    });
+    Ok((result, failed))
+}
+
+fn inspect_text(result: &InspectResult) -> String {
+    let mut text = format!("checked {} frames", result.checked_frames);
+    if let Some(scanned) = result.pop_scanned_frames {
+        let _ = write!(text, ", compared {scanned} frames for pops");
+    }
+    text.push_str(": ");
+    if result.findings.is_empty() {
+        text.push_str("no problems found");
+    } else {
+        let _ = write!(text, "{} findings", result.findings.len());
+    }
+    for f in &result.findings {
+        let _ = write!(
+            text,
+            "\n{:?} {:.2}s..{:.2}s (frames {}..{}, seen in {}){}: {}",
+            f.severity,
+            f.first_seconds,
+            f.last_seconds,
+            f.first_frame,
+            f.last_frame,
+            f.frames,
+            scenes_label(&f.scenes),
+            f.message
+        );
+    }
+    text
+}
+
+fn inspect<'a, 'm: 'a, V: Video>(
+    json: bool,
+    previewer: &mut Previewer<'a, 'm, V>,
+    renderer: &mut dyn FrameRenderer,
+    args: InspectArgs,
+) -> CliResult {
+    let (result, failed) = inspect_findings(json, previewer, Some(renderer), &args)?;
+    print(json, &result, || inspect_text(&result));
 
     Ok(if failed {
         ExitCode::from(2)
@@ -1896,6 +1939,25 @@ mod tests {
             cli.command,
             Some(Command::Inspect(InspectArgs { pops: true, .. }))
         ));
+
+        // The render gate stops on errors unless told otherwise.
+        let cli = Cli::<NoArgs>::try_parse_from(["video", "render", "Intro"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Some(Command::Render(RenderArgs {
+                fail_on: FailOn::Error,
+                ..
+            }))
+        ));
+        let cli = Cli::<NoArgs>::try_parse_from(["video", "render", "--fail-on", "never"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Some(Command::Render(RenderArgs {
+                fail_on: FailOn::Never,
+                ..
+            }))
+        ));
+        assert!(matches!(RenderArgs::default().fail_on, FailOn::Error));
     }
 
     #[test]

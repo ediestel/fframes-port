@@ -111,6 +111,15 @@ impl<'a> fframes::FontFace<'a> for WasmFontFace<'a> {
                 / self.face.units_per_em() as usize,
         )
     }
+
+    fn metrics(&self, font_size: usize) -> Option<fframes::FontMetrics> {
+        let scale = font_size as f32 / f32::from(self.face.units_per_em());
+        Some(fframes::FontMetrics {
+            ascent: f32::from(self.face.ascender()) * scale,
+            descent: -f32::from(self.face.descender()) * scale,
+            line_gap: f32::from(self.face.line_gap()) * scale,
+        })
+    }
 }
 
 impl<'a> fframes::FontSource<'a> for WasmFontSource {

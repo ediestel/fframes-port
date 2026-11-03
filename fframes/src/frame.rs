@@ -362,6 +362,22 @@ impl Frame {
         Some(width)
     }
 
+    /// The vertical metrics of the font at the query's size: ascent above and descent below
+    /// the baseline and the font's line gap, in pixels. `None` if the font is not resolved.
+    pub fn text_metrics(
+        &self,
+        ctx: &crate::FFramesContext<'_, '_>,
+        font_query: FontQuery,
+    ) -> Option<crate::FontMetrics> {
+        let face = ctx.font_source?.resolve_font(
+            font_query.family,
+            font_query.weight,
+            font_query.style,
+            font_query.stretch,
+        )?;
+        face.metrics(font_query.size)
+    }
+
     /// Shortens the text so that it fits into `max_width` pixels, the equivalent of
     /// css `text-overflow`. Text that already fits is returned as is; otherwise the
     /// characters that do not fit are dropped and, depending on `overflow`, the text

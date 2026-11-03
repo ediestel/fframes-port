@@ -1,0 +1,20 @@
+[package]
+name = "kodierpruefung-video"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+fframes = { workspace = true, features = ["compile-time-svgtree", "cli"] }
+fframes_skia_renderer = { workspace = true, features = ["metal"] }
+fframes_native_player = { workspace = true, features = ["metal", "audio"] }
+
+[lib]
+name = "kodierpruefung_video"
+path = "src/lib.rs"
+doctest = false
+
+[[bin]]
+name = "kodierpruefung-video"
+path = "src/main.rs"
+

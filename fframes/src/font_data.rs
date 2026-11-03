@@ -73,9 +73,39 @@ impl From<ttf_parser::Width> for FontStretch {
     }
 }
 
+/// Vertical metrics of a face at one font size, in pixels: the text of a line reaches
+/// `ascent` above its baseline and `descent` below it, and `line_gap` is the font's own
+/// extra space between lines.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
+pub struct FontMetrics {
+    pub ascent: f32,
+    /// A positive distance below the baseline.
+    pub descent: f32,
+    pub line_gap: f32,
+}
+
+impl FontMetrics {
+    /// Height of one line of text without any line gap.
+    pub fn height(&self) -> f32 {
+        self.ascent + self.descent
+    }
+
+    /// The metrics of a parsed face at `font_size` pixels.
+    pub fn from_face(face: &ttf_parser::Face<'_>, font_size: usize) -> Self {
+        let scale = font_size as f32 / f32::from(face.units_per_em());
+        Self {
+            ascent: f32::from(face.ascender()) * scale,
+            descent: -f32::from(face.descender()) * scale,
+            line_gap: f32::from(face.line_gap()) * scale,
+        }
+    }
+}
+
 pub trait FontFace<'a>: Sync + Send + std::fmt::Debug {
     fn is_monospaced(&self) -> Option<bool>;
     fn resolve_char_width(&self, font_size: usize, char: char) -> Option<usize>;
+    /// Vertical metrics at `font_size` pixels, see [`FontMetrics`].
+    fn metrics(&self, font_size: usize) -> Option<FontMetrics>;
 
     fn font_variant(&self, font_size: usize) -> Option<FontVariant> {
         let is_monospaced = self.is_monospaced()?;

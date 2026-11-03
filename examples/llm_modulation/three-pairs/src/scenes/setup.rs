@@ -8,7 +8,7 @@ use fframes::{FFramesContext, Frame, Svgr};
 use crate::page::*;
 use crate::ui::*;
 
-script_scene!(SetupScene, 5.0, 19.0);
+script_scene!(SetupScene, 17.0, 31.0);
 
 /// The three queries: (pair, domain, query).
 const QUERIES: [(&str, &str, &str); 3] = [
@@ -117,7 +117,7 @@ impl SetupScene {
         fframes::svgr!(
             <g>
                 {stage()}
-                {header(1, "The Setup", 1.0)}
+                {header(2, "The Setup", 1.0)}
                 {out}
                 {check}
             </g>

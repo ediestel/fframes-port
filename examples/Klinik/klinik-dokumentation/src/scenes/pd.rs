@@ -1,18 +1,27 @@
-//! Szene 12 · 06:31–07:16 · Zeitgewinn und Kosten. Quelle ist die
+//! Szene 12 · 06:31–08:05 · Zeitgewinn und Nutzen. Quelle ist die
 //! Patientenakte; jedes ausgewählte Dokument entsteht daraus, ohne dass jemand
 //! es schreibt; Ärztinnen, Ärzte und Pflege prüfen nur noch und geben frei;
-//! der Dienst arbeitet mit hoher Genauigkeit und Zuverlässigkeit. Abgerechnet
-//! wird je erbrachter Leistung, die Kosten für das Haus regelt der Vertrag;
-//! schon ein vermiedener Kodierfehler kann den Dienst bezahlen.
+//! der Dienst arbeitet mit hoher Genauigkeit und Zuverlässigkeit. Dann Zahlen
+//! aus deutschen Kliniken, jede mit ihrer Quelle auf der Karte:
+//! Dokumentationsanteil (DKI 2024, HiMSS), ärztliche Dokumentationszeit je Tag
+//! (MB-Monitor 2022, DKI 2024), abweichende Medikation in
+//! Entlassunterlagen (Kohortenstudie Belgien 2012), Personalkosten der
+//! MD-Prüfungen (DKI 2026), Rückzahlungen 2024 (GKV-Statistik).
 
 use fframes::{FFramesContext, Frame, Svgr};
 
 use super::common::*;
 use crate::ui::*;
 
-const DOCS: [&str; 5] = ["Entlassbrief", "Kodierprüfung", "Überweisung", "Kollegenbrief", "Verlaufsnotiz"];
+const DOCS: [&str; 5] = [
+    "Entlassbrief",
+    "Kodierprüfung",
+    "Überweisung",
+    "Kollegenbrief",
+    "Verlaufsnotiz",
+];
 
-pub fn draw<'a>(_f: &mut Frame, _ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
+pub fn draw<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     // --- the time the staff gains (until 26.8) ---------------------------
     let akte = rise_in(
         t,
@@ -112,67 +121,106 @@ pub fn draw<'a>(_f: &mut Frame, _ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'
         fframes::svgr!(<g>{akte}{feed}{list}{out}{made}{no_writing}{review}{bars}{quality}</g>),
     );
 
-    // --- what it costs (from 27.2) ----------------------------------------
-    let mut units = Vec::new();
-    let mut bar_w = 0.0;
-    for i in 0..8 {
-        let at = 29.0 + i as f32 * 0.32;
-        bar_w += enter(t, at, 0.3) * 40.0;
-        units.push(rise_in(t, at, icon_doc(170.0 + i as f32 * 62.0, 300.0, 46.0, GREEN)));
+    // --- the gain in figures from German hospitals (from 27.2) -------------
+    // (top-left x, y, width, appears, figure, colour, label, detail, source)
+    let tiles: [(f32, f32, f32, f32, &str, &str, &str, &str, &str); 5] = [
+        (
+            130.0,
+            230.0,
+            540.0,
+            32.8,
+            "1/3",
+            AMBER,
+            "der Arbeitszeit: Dokumentation",
+            "Ärzte und Pflege; Doppeldokumentation unter den meistgenannten Problemen",
+            "DKI-Umfrage 2024 · HiMSS",
+        ),
+        (
+            700.0,
+            230.0,
+            540.0,
+            43.0,
+            "3–4 h täglich",
+            AMBER,
+            "Dokumentation je Ärztin und Arzt",
+            "32 % der Klinikärzte: vier Stunden und mehr am Tag für Verwaltung",
+            "MB-Monitor 2022 · DKI 2024 · HiMSS",
+        ),
+        (
+            1270.0,
+            230.0,
+            520.0,
+            54.6,
+            "47,6 %",
+            RED,
+            "der Patienten: Medikation weicht ab",
+            "in den Entlassunterlagen, wenn Dokumente einzeln entstehen",
+            "Kohortenstudie, Belgien 2012",
+        ),
+        (
+            130.0,
+            500.0,
+            825.0,
+            65.3,
+            "236.000 €",
+            BLUE,
+            "je Haus und Jahr für MD-Prüfungen",
+            "rund vier Vollkräfte; bundesweit rund 245 Mio. € im Jahr",
+            "DKI-Umfrage 2026",
+        ),
+        (
+            965.0,
+            500.0,
+            825.0,
+            74.4,
+            "1,19 Mrd. €",
+            BLUE,
+            "Rückzahlungen an die Kassen",
+            "nach Prüfungen, bundesweit, Abrechnungsjahr 2024",
+            "GKV-Statistik",
+        ),
+    ];
+    let mut cards = Vec::new();
+    for (x, y, w, at, fig, color, label, detail, src) in tiles {
+        let h = 240.0;
+        cards.push(rise_in(
+            t,
+            at,
+            fframes::svgr!(<g>
+                {card(x, y, w, h, Some(color), PANEL, LINE)}
+                {text(x + 36.0, y + 78.0, 54.0, 500, color, "start", fig)}
+                {text(x + 36.0, y + 124.0, 23.0, 500, INK, "start", label)}
+                {para(f, ctx, (x + 36.0) as i32, (y + 160.0) as i32, (w - 70.0) as usize, 18, 400, MUTED, detail)}
+                {mono(x + 36.0, y + h - 18.0, 14.0, FAINT, "start", src)}
+            </g>),
+        ));
     }
-    let billing = rise_in(
+    let heading = rise_in(
         t,
-        27.4,
+        27.6,
+        text(
+            130.0,
+            200.0,
+            26.0,
+            500,
+            INK,
+            "start",
+            "Zahlen aus deutschen Kliniken",
+        ),
+    );
+    let one_source = rise_in(
+        t,
+        82.6,
         fframes::svgr!(<g>
-            {card(130.0, 200.0, 1660.0, 300.0, Some(AMBER), PANEL, LINE)}
-            {text(170.0, 258.0, 28.0, 500, AMBER, "start", "Abrechnung je erbrachter Leistung")}
-            {units}
-            {rise_in(t, 29.4, text(170.0, 410.0, 20.0, 400, MUTED, "start", "zum Beispiel je erstelltem Dokument"))}
-            <rect x="170" y="440" width="320" height="14" rx="7" fill={LINE} />
-            <rect x="170" y="440" width={bar_w.max(0.5)} height="14" rx="7" fill={AMBER} />
+            {check(150.0, 802.0, 18.0, prog(t, 82.8, 83.5), GREEN)}
+            {text(184.0, 812.0, 28.0, 500, GREEN, "start", "Eine Quelle · übereinstimmende Dokumente · jede Kodierung auf die Akte zurückführbar")}
         </g>),
     );
-    let contract = rise_in(
-        t,
-        32.6,
-        fframes::svgr!(<g>
-            <rect x="1180" y="250" width="560" height="200" rx="16" fill={BG} stroke={AMBER} stroke-width="2" />
-            {icon_doc(1214.0, 290.0, 80.0, AMBER)}
-            <path d="M1214 412 q14 -16 28 0 t28 0" fill="none" stroke={AMBER} stroke-width="3" stroke-linecap="round" opacity={prog(t, 33.6, 34.2)} />
-            {text(1310.0, 326.0, 28.0, 500, INK, "start", "Vertrag")}
-            {text(1310.0, 366.0, 20.0, 400, MUTED, "start", "regelt, was es für Ihr Haus kostet")}
-        </g>),
+    let figures_part = show(
+        enter(t, 27.2, 0.4),
+        0.0,
+        fframes::svgr!(<g>{heading}{cards}{one_source}</g>),
     );
 
-    // one avoided coding error can pay for the service
-    let tilt = ease_out(prog(t, 38.4, 39.6)) * 6.0;
-    let a = tilt.to_radians();
-    let (cx, cy, half) = (960.0, 640.0, 420.0);
-    let (lx, ly) = (cx - half * a.cos(), cy - half * a.sin());
-    let (rx, ry) = (cx + half * a.cos(), cy + half * a.sin());
-    let pan = |x: f32, y: f32, color: &str| {
-        let c = color.to_owned();
-        let c2 = color.to_owned();
-        fframes::svgr!(<g>
-            <path d={format!("M{x:.1} {y:.1} L{:.1} {:.1} M{x:.1} {y:.1} L{:.1} {:.1}", x - 110.0, y + 54.0, x + 110.0, y + 54.0)} stroke={c} stroke-width="2" />
-            <rect x={x - 140.0} y={y + 54.0} width="280" height="10" rx="5" fill={c2} />
-        </g>)
-    };
-    let scale = rise_in(
-        t,
-        36.8,
-        fframes::svgr!(<g>
-            <path d={format!("M{cx} {:.1} L{:.1} 830 L{:.1} 830 Z", cy + 8.0, cx - 46.0, cx + 46.0)} fill={PANEL} stroke={LINE} stroke-width="2" />
-            <path d={format!("M{lx:.1} {ly:.1} L{rx:.1} {ry:.1}")} stroke={INK} stroke-width="6" stroke-linecap="round" />
-            <circle cx={cx} cy={cy} r="10" fill={INK} />
-            {pan(lx, ly, AMBER)}
-            {pan(rx, ry, GREEN)}
-            {text(lx, ly + 100.0, 22.0, 500, AMBER, "middle", "Kosten des Dienstes")}
-            <g opacity={enter(t, 37.6, 0.5)}>{text(rx, ry + 100.0, 22.0, 500, GREEN, "middle", "ein vermiedener Kodierfehler")}</g>
-        </g>),
-    );
-    let few = rise_in(t, 40.2, badge(rx + 160.0, ry + 92.0, "+ EINIGE WENIGE", GREEN, GREEN_BG, 15.0));
-    let cost_part = show(enter(t, 27.2, 0.4), 0.0, fframes::svgr!(<g>{billing}{contract}{scale}{few}</g>));
-
-    fframes::svgr!(<g>{time_part}{cost_part}</g>)
+    fframes::svgr!(<g>{time_part}{figures_part}</g>)
 }

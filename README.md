@@ -75,7 +75,7 @@ Every command runs as `cargo run --release -- <command>` inside the project:
 | `onion "<scene>@0..<scene>@1s" -n 6` | `onion.png`, the blended movement |
 | `audio analyze --waveform w.png` | the loudness report and a waveform with scene lines and cue ticks |
 | `preview` | the real-time window, for a human |
-| `render [--draft]` | the video, or a part of it |
+| `render [--draft]` | the video, or a part of it; it runs `inspect` first and exits with code 2 instead of writing a file when that finds an error (`--fail-on never` skips the check) |
 
 `<scene>` is the name of a scene struct in your video. Times read as `120` (frame), `3.2s`, `50%`, `<scene>@1.2s`, and
 ranges like `<scene>@0..<scene>@1s`. Add `--json` to parse the output.

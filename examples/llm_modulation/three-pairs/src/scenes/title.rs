@@ -23,7 +23,6 @@ impl TitleScene {
                 {title}
                 <text x={W / 2.0} y="610" text-anchor="middle" font-family={SERIF} font-size="38" fill={INK}>{AUTHOR}</text>
                 <text x={W / 2.0} y="662" text-anchor="middle" font-family={SERIF} font-size="30" font-style="italic" fill={GREY}>{DATE}</text>
-                <text x={W / 2.0} y="712" text-anchor="middle" font-family={SERIF} font-size="26" fill={GREY}>"Built with fframes-port, based on dmtrKovalenko/fframes"</text>
             </g>
         )
     }

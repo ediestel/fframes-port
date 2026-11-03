@@ -831,13 +831,13 @@ See `examples/teej-podcast/src/main.rs`; `cargo fframes new` generates the same 
 
 | command | what |
 | --- | --- |
-| `render [RANGE] [-o out.mp4] [--draft]` | the video or a range of it (default command); `--draft` = half size + fastest preset |
+| `render [RANGE] [-o out.mp4] [--draft] [--fail-on error\|warning\|never]` | the video or a range of it (default command); `--draft` = half size + fastest preset. The range is inspected first (as `inspect` does, without `--pops`): a finding of the `--fail-on` severity (default `error`) prints the findings and exits with code 2 instead of writing a file; `--fail-on never` skips the check |
 | `frame 1s,50%,Intro@end [-o dir] [--svg] [--crop x,y,w,h] [--zoom N] [--ids]` | PNGs of single frames plus the problems found in them; `--crop` renders one rectangle sharply (zoomed to about 960 px wide), `--ids` outlines and labels every element with an `id` |
 | `strip [RANGE \| TIMES] -n 12 [--crop x,y,w,h]` | labelled contact sheet of evenly spaced frames (or of comma separated times), one image to review motion |
 | `onion RANGE -n 6` | frames blended into one image, shows the path of a movement |
 | `svg TIME` | the frame as SVG after conversion |
 | `timeline` | size, fps, scenes with frame and second ranges, audio tracks |
-| `inspect [RANGE] [--every 0.25s] [--pops]` | missing media/fonts/glyphs, text cut by the canvas edge, NaN transforms, panics; exit code 2 on errors. `--pops` also renders every frame small and warns about pops: parts that change in one frame between still frames (an element appearing, vanishing or jumping in front of another) |
+| `inspect [RANGE] [--every 0.25s] [--pops]` | missing media/fonts/glyphs, text cut by the canvas edge, NaN transforms, panics, and the video's own checks (`fframes::diagnostics::error("name", detail)` / `::warning` called in `render_frame`, grouped by name across frames); exit code 2 on errors. `--pops` also renders every frame small and warns about pops: parts that change in one frame between still frames (an element appearing, vanishing or jumping in front of another) |
 | `audio render/analyze/at` | WAV of the mix, loudness report and waveform, tracks playing at a time |
 | `preview [TIME] [--paused] [--mute]` | real-time GPU window (`fframes_native_player`), blocks until closed |
 

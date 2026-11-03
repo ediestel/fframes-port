@@ -582,6 +582,14 @@ mod tests {
         fn resolve_char_width(&self, _font_size: usize, _char: char) -> Option<usize> {
             Some(CHAR_WIDTH)
         }
+
+        fn metrics(&self, font_size: usize) -> Option<crate::FontMetrics> {
+            Some(crate::FontMetrics {
+                ascent: font_size as f32 * 0.8,
+                descent: font_size as f32 * 0.2,
+                line_gap: 0.0,
+            })
+        }
     }
 
     #[derive(Debug)]

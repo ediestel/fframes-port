@@ -11,11 +11,11 @@ pub mod scenes;
 pub mod ui;
 
 use fframes::{
-    AudioMap, AudioTimestamp::*, AudioTrack, Color, Duration, FFramesContext, Frame, Scene, Scenes, Svgr, Video,
+    AudioMap, Color, Duration, FFramesContext, Frame, Scene, Scenes, Svgr, Video,
     include_media_dir,
 };
 
-use narration::{LINES, SCENE_START, TOTAL, captions};
+use narration::{SCHEDULE, captions};
 use ui::*;
 
 include_media_dir!(pub struct KlinikMedia, "examples/Klinik/klinik-dokumentation/media");
@@ -23,7 +23,7 @@ include_media_dir!(pub struct KlinikMedia, "examples/Klinik/klinik-dokumentation
 pub const FPS: usize = 30;
 pub const WIDTH: usize = 1920;
 pub const HEIGHT: usize = 1080;
-const N: usize = 13;
+const N: usize = 15;
 
 pub const NAMES: [&str; N] = [
     "Einleitung",
@@ -37,7 +37,9 @@ pub const NAMES: [&str; N] = [
     "Datenübertragung und Sicherheit",
     "Anbindung im Haus: frei wählbar",
     "Einrichtung und Betrieb",
-    "Zeitgewinn und Kosten",
+    "Zeitgewinn und Nutzen",
+    "Warum jetzt",
+    "Warum AMDG Engineers",
     "Abschluss",
 ];
 
@@ -54,6 +56,8 @@ const SCENE_IDS: [&str; N] = [
     "S7b_Zugang",
     "S7c_Betrieb",
     "S7d_Zeitgewinn",
+    "S7e_WarumJetzt",
+    "S7f_AMDG",
     "S8_Abschluss",
 ];
 
@@ -72,6 +76,8 @@ const AUDIT: [&str; N] = [
     "",
     "",
     "",
+    "",
+    "",
 ];
 
 pub fn gsec(frame: &Frame) -> f32 {
@@ -79,7 +85,7 @@ pub fn gsec(frame: &Frame) -> f32 {
 }
 
 pub fn scene_end(i: usize) -> f32 {
-    if i + 1 < N { SCENE_START[i + 1] } else { TOTAL }
+    SCHEDULE.scene_end(i)
 }
 
 type Draw = for<'a> fn(&mut Frame, &FFramesContext<'a, '_>, f32) -> Svgr<'a>;
@@ -97,7 +103,7 @@ impl std::fmt::Debug for Part {
 
 impl Scene for Part {
     fn duration(&self) -> Duration<'_> {
-        let len = scene_end(self.index) - SCENE_START[self.index];
+        let len = scene_end(self.index) - SCHEDULE.scene_start(self.index);
         Duration::Frames((len * FPS as f32).round() as usize)
     }
 
@@ -107,7 +113,7 @@ impl Scene for Part {
 
     fn render_frame<'a>(&'a self, mut frame: Frame, ctx: &FFramesContext<'a, '_>) -> Svgr<'a> {
         let t = frame.index as f32 / FPS as f32;
-        let len = scene_end(self.index) - SCENE_START[self.index];
+        let len = scene_end(self.index) - SCHEDULE.scene_start(self.index);
         let fade_in = if self.index == 0 { 1.0 } else { ease_out(prog(t, 0.0, 0.45)) };
         let fade_out = if self.index == N - 1 { 1.0 } else { 1.0 - ease_in(prog(t, len - 0.4, len)) };
         let body = (self.draw)(&mut frame, ctx, t);
@@ -134,6 +140,8 @@ impl Default for KlinikVideo {
             scenes::pb::draw,
             scenes::pc::draw,
             scenes::pd::draw,
+            scenes::pe::draw,
+            scenes::pf::draw,
             scenes::p8::draw,
         ];
         Self { parts: draws.into_iter().enumerate().map(|(index, draw)| Part { index, draw }).collect() }
@@ -156,13 +164,10 @@ impl Video for KlinikVideo {
         Duration::Auto
     }
 
+    /// No sound: the voice-over was removed at the user's request; the
+    /// captions carry every sentence and keep the timing of the spoken clips.
     fn audio(&self) -> AudioMap<'_> {
-        AudioMap::from(
-            LINES
-                .iter()
-                .map(|l| AudioTrack::new(l.file.as_str(), Second(l.start)..Eof).voice())
-                .collect::<Vec<_>>(),
-        )
+        AudioMap::none()
     }
 
     fn define_scenes(&self) -> Scenes<'_> {
@@ -216,11 +221,13 @@ const GLOWS: [[f32; 4]; N] = [
     [0.9, 0.3, 0.4, 0.5],
     [0.5, 0.2, 0.8, 0.8],
     [0.6, 0.4, 0.9, 1.0],
+    [0.8, 0.7, 0.9, 0.3],
+    [0.5, 0.8, 1.0, 0.8],
     [0.8, 0.9, 0.7, 0.4],
 ];
 
 fn backdrop(t: f32) -> Svgr<'static> {
-    let i = SCENE_START.iter().rposition(|s| t >= *s).unwrap_or(0);
+    let i = SCHEDULE.scene_at(t);
     let end = scene_end(i);
     let next = (i + 1).min(N - 1);
     let k = ease_in_out(prog(t, end - 1.5, end));
@@ -242,9 +249,9 @@ fn backdrop(t: f32) -> Svgr<'static> {
 
 /// Szenennummer und -name, die laufende Protokollzeile und der dezente Hinweis.
 fn header(t: f32) -> Svgr<'static> {
-    let i = SCENE_START.iter().rposition(|s| t >= *s).unwrap_or(0);
-    let local = t - SCENE_START[i];
-    let end = scene_end(i) - SCENE_START[i];
+    let i = SCHEDULE.scene_at(t);
+    let local = t - SCHEDULE.scene_start(i);
+    let end = scene_end(i) - SCHEDULE.scene_start(i);
     let shown = i > 0 && i < N - 1;
     let o_head = if shown { window(local, 0.2, end - 0.1, 0.4) } else { 0.0 };
     let credit_o = if i == 0 { enter(local, 13.0, 1.0) } else if i == N - 1 { 0.0 } else { 1.0 };

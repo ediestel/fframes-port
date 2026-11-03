@@ -146,6 +146,8 @@ pub use renderer::*;
 pub mod animation;
 pub mod diagnostics;
 pub mod error;
+pub mod layout;
+pub mod params;
 pub mod log;
 pub mod validation;
 

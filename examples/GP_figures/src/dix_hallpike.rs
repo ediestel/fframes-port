@@ -18,11 +18,40 @@
 //! without text.
 
 use fframes::Svgr;
+use fframes::params::Params;
 use std::f32::consts::PI;
-use std::sync::OnceLock;
+use std::sync::{LazyLock, OnceLock};
 
 use crate::puppet::{FILL, INK, LINE, Rig};
 use crate::rig::{V2, View, arc, arrow, lerp, v2};
+
+/// The scene's angles and title, from `dix_hallpike.toml`; every name the scene reads is
+/// checked once here, so a missing or misspelt one stops the video at start.
+static PARAMS: LazyLock<Params> = LazyLock::new(|| {
+    let params = Params::parse(include_str!("../dix_hallpike.toml"))
+        .unwrap_or_else(|problems| panic!("dix_hallpike.toml:\n{}", fframes::params::problems_text(&problems)));
+    let missing = params.missing(&["trunk_sit", "trunk_lie", "head_sit", "head_hang", "title"], &[]);
+    assert!(missing.is_empty(), "dix_hallpike.toml lacks: {}", missing.join(", "));
+    params
+});
+
+/// A number of `dix_hallpike.toml`, checked present at start.
+fn num(name: &str) -> f32 {
+    PARAMS.number(name).unwrap_or_else(|| panic!("dix_hallpike.toml: {name} is not a number"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `dix_hallpike.toml` has every name the scene reads.
+    #[test]
+    fn params_resolve() {
+        assert_eq!(num("trunk_sit"), 46.0);
+        assert_eq!(num("head_hang"), -48.0);
+        assert_eq!(PARAMS.text("title"), Some("DIX-HALLPIKE TEST · RIGHT EAR"));
+    }
+}
 
 /// Reference sheet tokens: background, furniture cream, soft off-white, terracotta.
 pub const PAPER: &str = "#F5F6F0";
@@ -51,14 +80,8 @@ const COUCH_FOOT: f32 = 1.55;
 /// The rig's hip pivot is 81 px above the line the body lies on.
 const HIP: V2 = v2(0.0, COUCH_TOP + 81.0 * KP);
 
-/// Trunk and head angles (degrees, clockwise on screen) sitting and with the
-/// head hanging. Traced, the trunk leans back 39 degrees: +46 sits it up 5
-/// degrees short of vertical, -40 lays it level. Lying, -48 brings the head's
-/// axis 22 degrees below the horizontal.
-const TRUNK_SIT: f32 = 46.0;
-const TRUNK_LIE: f32 = -40.0;
-const HEAD_SIT: f32 = 8.0;
-const HEAD_HANG: f32 = -48.0;
+// Trunk and head angles sitting and with the head hanging: `trunk_sit`, `trunk_lie`,
+// `head_sit`, `head_hang` in `dix_hallpike.toml`.
 
 /// Short timing, seconds.
 pub const TURN: (f32, f32) = (2.2, 3.4);
@@ -172,8 +195,8 @@ struct Patient {
 }
 
 fn patient(s: &State) -> Patient {
-    let trunk = lerp(TRUNK_SIT, TRUNK_LIE, s.lie);
-    let head = lerp(HEAD_SIT, HEAD_HANG, s.lie);
+    let trunk = lerp(num("trunk_sit"), num("trunk_lie"), s.lie);
+    let head = lerp(num("head_sit"), num("head_hang"), s.lie);
     let posed = |p: V2| to_world(rot(rot(p, P_NECK, head), P_HIP, trunk), P_HIP, HIP, KP);
     let (centre, neck) = (posed(P_HEAD), posed(P_NECK));
     Patient { trunk, head, centre, up: (centre - neck).norm() }
@@ -283,7 +306,7 @@ fn captions(t: f32) -> Svgr<'static> {
         .collect();
     fframes::svgr!(
         <g>
-            <text x="71" y="66" font-family="Helvetica" font-size="24" font-weight="700" fill={INK} letter-spacing="1.5">{"DIX-HALLPIKE TEST · RIGHT EAR"}</text>
+            <text x="71" y="66" font-family="Helvetica" font-size="24" font-weight="700" fill={INK} letter-spacing="1.5">{PARAMS.text("title").unwrap_or("")}</text>
             {lines}
         </g>
     )

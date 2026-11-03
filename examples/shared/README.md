@@ -1,5 +1,19 @@
 # Shared pieces
 
+## `narration/`: the crate `shared-narration`
+
+One resolved schedule for a narrated video, used by Klinik and Korntal (a workspace member,
+`shared-narration = { path = "../../shared/narration" }`). Input: the scenes' lengths,
+`lines.tsv`, `durations.tsv` (or a reading speed without voice) and the cues `(id, scene,
+seconds into the scene)`. Output: scene starts and total, every line with start and end, the
+captions cut from the lines, and the voice tracks for the `AudioMap`. The policies the
+examples used are settings (`Policy`): 0.35 s between lines of a scene, the caption 0.35 s past
+the voice, sentences over 140 characters split at punctuation, optional bridging of caption
+gaps under 1 s. Missing text or duration, an unknown scene, a duplicate id and a line past the
+end of its scene are errors listed together; the video does not build from guessed values.
+
+## Plain files
+
 Reusable parts copied from the finished Gary film (`gary-video`, 2026-10). Plain files to
 copy into a new fframes project, not a crate.
 

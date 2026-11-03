@@ -9,9 +9,9 @@ use fframes::{FFramesContext, Frame, Svgr};
 use crate::page::*;
 use crate::ui::*;
 
-script_scene!(DocumentsScene, 19.0, 41.0);
-script_scene!(MathScene, 41.0, 59.0);
-script_scene!(RobotScene, 59.0, 81.0);
+script_scene!(DocumentsScene, 31.0, 53.0);
+script_scene!(MathScene, 53.0, 71.0);
+script_scene!(RobotScene, 71.0, 93.0);
 
 const DOCUMENTS: &[Row] = &[
     Row {
@@ -72,20 +72,20 @@ pub const ROBOT_ROWS: &[Row] = ROBOT;
 impl DocumentsScene {
     fn draw(&self, frame: &mut Frame, ctx: &FFramesContext, t: f32) -> Svgr<'static> {
         let g = grid(frame, ctx, t, DOCUMENTS, ("2", "0"), "statements the documents do not support");
-        fframes::svgr!(<g>{stage()}{header(2, "Documents", 1.0)}{g}</g>)
+        fframes::svgr!(<g>{stage()}{header(3, "What a Document Establishes", 1.0)}{g}</g>)
     }
 }
 
 impl MathScene {
     fn draw(&self, frame: &mut Frame, ctx: &FFramesContext, t: f32) -> Svgr<'static> {
         let g = grid(frame, ctx, t, MATH, ("1", "0"), "statements the mathematics does not support");
-        fframes::svgr!(<g>{stage()}{header(3, "Mathematics", 1.0)}{g}</g>)
+        fframes::svgr!(<g>{stage()}{header(4, "An Eigenvector, an Integral", 1.0)}{g}</g>)
     }
 }
 
 impl RobotScene {
     fn draw(&self, frame: &mut Frame, ctx: &FFramesContext, t: f32) -> Svgr<'static> {
         let g = grid(frame, ctx, t, ROBOT, ("3", "0"), "API errors, against the 5.2.0 package");
-        fframes::svgr!(<g>{stage()}{header(4, "Robot Code", 1.0)}{g}</g>)
+        fframes::svgr!(<g>{stage()}{header(5, "Python That Moves Spot", 1.0)}{g}</g>)
     }
 }

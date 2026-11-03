@@ -1,0 +1,17 @@
+[package]
+name = "shared-narration"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "One resolved schedule for a narrated fframes video: scenes, spoken lines, captions and voice tracks from the project's data files, checked"
+
+[dependencies]
+fframes = { workspace = true }
+
+[lib]
+name = "shared_narration"
+path = "src/lib.rs"
+doctest = false
+
+[lints]
+workspace = true
