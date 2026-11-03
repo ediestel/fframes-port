@@ -1,0 +1,78 @@
+# Test of 31 Oct 2026: a farmer turntable generated from pinned keyframes, then a local
+# constant-angle frame set, Brush, and an SVG outline hull. A record only: every file it made
+# has been deleted (disk), the steps below say how to make them again.
+# Verdict: progress on method, not a usable model. The body holds together; the arm, the
+# shield and the goedendag reach far from the axis, so the clip's uneven turn shifts them
+# most and the hull loses or multiplies them.
+
+figure: flemish_farmer
+
+keyframes:
+  # five pictures from the 29 Oct clip 21:35 (cases/2026-10-29T09-47-02_Untitled, action
+  # 1402c79e, md5 2fa0a7e441f8ba60804ecaf69c32a32b) at 0, 1.6, 3.2, 4.8, 6.4 s
+  # (frames 0, 38, 77, 115, 154), normalised to frame 0: body height and sole line measured on
+  # the body only (rows with a run of at least 20 figure pixels, so the tool does not count),
+  # axis = median body centre, background exactly (203, 203, 203)
+  files: [farmer2135_0.0s_000deg.png, farmer2135_1.6s_072deg.png, farmer2135_3.2s_144deg.png,
+          farmer2135_4.8s_216deg.png, farmer2135_6.4s_288deg.png]
+  # comment: a first try on the 30 Oct 14:00 clip failed (the figure runs off the frame in
+  # 155 of 193 frames, a cut at frame 12/13); the 29 Oct 21:30 clip turns a third only
+
+generation:
+  # NTGT, xAI grok_imagine_video_1p5; the five pictures as inputs, the payload text as brief
+  result: "cases/2026-10-31T08-55-52_Untitled/results/actions/0d0ec916-bf53-4144-8e31-e6bc4524a059/out/Farmer_with_normalised_frames_source.mp4"
+  md5: e0f0f3a5237154d1b9b7de36b038e0f4
+  measured: {size: 848x480, frames: 145, seconds: 6.04, background: [187, 187, 187]}
+  # comment: NTGT sent duration 6 s (not 10), resolution default, the inputs in reverse
+  # order; camera level and figure fully in frame in every frame (good); turn speed uneven
+  # (frame-to-frame change 0.3 to 56); last frame not the first view (difference 46)
+
+steps:
+  - name: frames_180
+    # 180 frames evenly over the clip's time; frame j set to 2° · j (frame 0 = 0°)
+    run: ffmpeg -i <clip> -vf "fps=180/(145/24):round=near" -frames:v 180 farmer_180/f%03d.png
+    # comment: the angles are given by this, not measured. An earlier try assigned angles from
+    # the frame-to-frame change (farmer_turn_angles.csv, 2° slots, retimed videos): it sped up
+    # after midway, the change is not proportional to the turn
+
+  - name: brush
+    # Brush 0.3.0 defaults; transforms.json in the farmer's camera form (30 m, focal 6652.94,
+    # image centre 424, 240; camera j at -2° · j); pictures with the figure cut out (background
+    # transparent); starting points 12,109 on a hull carved at the given angles, coloured from
+    # the facing frame
+    run: brush brush_farmer180 --with-viewer --export-path brush_farmer180/export
+    reached: export_30000.ply
+    # comment: Brush 0.3.0 crashes without points3D.ply ("cannot sample empty range"); it has
+    # no camera refinement, so frames that are off their set angle blur the result. A first
+    # run on the uncut frames with a grey cylinder looked very unlike the 29 Oct farmer
+
+  - name: svg_outlines
+    # fframes-vector trace (potrace) of each frame's figure mask (background = left/right
+    # border colour, threshold 24) into one SVG outline per frame: 336 pieces in 180 frames
+    tool: fframes_vector::trace, TraceParams::outlined(1)
+
+  - name: hull
+    # fframes-vector PieceRaster at 2x; a voxel (1.5 px = 6.8 mm) stays when its projected
+    # footprint, widened by 1 px, touches the outline in every frame; no perspective
+    axis_column: 418   # found as the column with the largest common volume (416-420 peak);
+                       # the picture middle 424 lost the legs
+    common_volume_voxels: 497846
+    # nothing dropped: every outline pixel the hull does not cover gets the voxel back on its
+    # line of sight that the fewest frames reject
+    restored_voxels: 43618
+    # removal based on frame 0: every voxel landing outside frame 0's outline removed
+    removed_frame0_voxels: 18564
+    result_voxels: 522900
+    excess_vs_outline_percent: {frame_0: 4.8, frame_45: 31.7, frame_90: 34.1, frame_135: 21.9}
+    # colour: per face the median over the frames facing it within 30° in which it lands
+    # inside the outline (flares and drift drop out)
+    # comment: the restored voxels make the arm (and shield) appear several times side by
+    # side: each frame's arm sits a little elsewhere at the given angles. Peeling grey voxels
+    # by colour also eats grey parts of the figure (iron hat); removal by outline is safer
+
+lessons:
+  - "SVG outlines from fframes-vector are complete and clean; the axis can be found from them without mirroring"
+  - "parts far from the axis (arm, shield, goedendag) need right angles; an uneven clip does not give them"
+  - "next figure: T pose (if the angles are right) or A pose, no tool, no shield; shield and goedendag built separately (plate / lathe), texture as a median over facing frames"
+  - "split the figure into parts in the SVG (torso, arms, legs), fit each part's position over all frames, one hull per part"
+  - "generate the clip with pinned keyframes and a 10 s duration actually sent"

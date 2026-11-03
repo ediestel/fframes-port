@@ -57,6 +57,8 @@ members = [
     "examples/shader-mode",
     "examples/lottie",
     "examples/svg-in-3d",
+    "examples/Korntal/korntal-room-booking",
+    "examples/Klinik/klinik-dokumentation",
 ]
 
 [workspace.lints.rust]

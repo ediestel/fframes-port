@@ -2104,6 +2104,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "klinik-dokumentation"
+version = "0.1.0"
+dependencies = [
+ "fframes",
+ "fframes_native_player",
+ "fframes_skia_renderer",
+]
+
+[[package]]
 name = "konst"
 version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2129,6 +2138,15 @@ name = "konst_proc_macros"
 version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00af7901ba50898c9e545c24d5c580c96a982298134e8037d8978b6594782c07"
+
+[[package]]
+name = "korntal-room-booking"
+version = "0.1.0"
+dependencies = [
+ "fframes",
+ "fframes_native_player",
+ "fframes_skia_renderer",
+]
 
 [[package]]
 name = "kurbo"

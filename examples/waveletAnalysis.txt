@@ -1,0 +1,546 @@
+ #!/usr/bin/env python3
+  # -*- coding: utf-8 -*-
+  """
+  Created on Tue Sep 24 13:07:02 2024
+
+  @author: Elfriede Holstein (e.holstein@dipf.de)
+  """
+
+  #%%
+  import os
+  os.chdir('/Users/elfriede/Desktop/PREDICT/COMMIT/EEG_data')
+
+  os.environ["MKL_THREADING_LAYER"] = "GNU"  # suppresses the MKL warning
+  os.environ["OMP_NUM_THREADS"] = "1"
+
+  #%% Load modules
+  import fnmatch
+  import re
+  import warnings
+  import logging
+
+  import mne
+  import numpy as np
+  import pandas as pd
+  import matplotlib.pyplot as plt
+
+  #%% Path definitions
+  fifDataPath = os.path.abspath('fifData')
+  savePsdPath = os.path.abspath('psdData')
+  encodePath = '/Users/elfriede/Desktop/PREDICT/COMMIT/COMMIT_data/encode'
+
+  #%% settings
+  warnings.filterwarnings("ignore", category=UserWarning)
+  warnings.filterwarnings("ignore", message="Random effects covariance is singular")
+  warnings.filterwarnings("ignore", category=RuntimeWarning)
+  warnings.filterwarnings("ignore", category=FutureWarning)
+  logging.getLogger('mne').setLevel(logging.WARNING)
+
+  #%% File list
+  fifFiles = []
+  for path, subdirs, files in os.walk(fifDataPath):
+      for name in files:
+          if fnmatch.fnmatch(name, "*raw*"):
+              fifFiles.append(os.path.join(path, name))
+  fifFiles.sort()
+
+  #%% Analysis constants
+  EEG_CHANNELS = ['L1', 'L2', 'L3', 'L4',
+                  'L6', 'L7', 'L8', 'L9', 'L10',
+                  'R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8']  # L5 is not used
+  ROI_CHANNELS = ['L3', 'R3']
+
+  # epochs around 'end_anti' (= start of the results phase)
+  EPOCH_TMIN, EPOCH_TMAX = -0.7, 3.5
+  TFR_BASELINE = (-0.5, -0.2)       # pre-stimulus window for dB normalisation
+
+  freqs = np.arange(4, 31, 1)       # theta to beta
+  n_cycles = freqs / 2
+  time_bandwidth = 2.0
+
+  BIN_LABELS = {0: "none", 1: "low", 2: "mid", 3: "high"}
+  CONDITION_KEYS = ['p_none', 'p_low', 'p_mid', 'p_high',
+                    'w_none', 'w_low', 'w_mid', 'w_high']
+
+  #%% pre-allocation
+  noEncData = []        # participants without an encoding file
+  epochs_overview = []  # epoch counts before/after artefact rejection
+  psd_data = {}         # participant -> {condition key: Epochs}
+  trial_map = {}        # participant -> {annotation index: TrialID}
+  pe_map = {}           # participant -> {TrialID: weighted PE}
+
+  #%% Helper functions
+  def artifact_rejection(epoch):
+      """Reject epochs containing amplitude, gradient, or SD-based artifacts.
+      Returns a new Epochs object; the input is not modified.
+      Call this ONCE per participant on all epochs, so that the SD reference
+      is the same for every condition.
+      """
+      epoch = epoch.copy()
+      data = epoch._data  # (n_epochs, n_channels, n_times), in Volts
+
+      # Min/max rejection (|x| > 100 µV)
+      data[np.abs(data) > 1e-4] = np.nan
+
+      # Gradient rejection (> 20 µV between consecutive samples)
+      gradient_mask = np.any(np.abs(np.diff(data, axis=2)) > 2e-5, axis=2)
+      data[gradient_mask, :] = np.nan
+
+      # SD-based rejection: an epoch/channel whose SD deviates > 2 SD from the
+      # across-epoch mean SD of that channel
+      epoch_sds = np.nanstd(data, axis=2)             # (n_epochs, n_channels)
+      mean_sds = np.nanmean(epoch_sds, axis=0)
+      std_sds = np.nanstd(epoch_sds, axis=0)
+      valid = std_sds > 0
+      scaled = np.zeros_like(epoch_sds)
+      scaled[:, valid] = (epoch_sds[:, valid] - mean_sds[valid]) / std_sds[valid]
+      amplitude_mask = np.any(np.abs(scaled) > 2, axis=1)
+      data[amplitude_mask] = np.nan
+
+      # Drop epochs containing any NaN
+      keep = ~np.isnan(data).any(axis=(1, 2))
+      return epoch[keep]
+
+
+  def bin_pe(series):
+      """Quartile labels for one condition's weighted PE; rank-based fallback
+      when the values do not allow four distinct quantile edges."""
+      s = series.dropna()
+      out = pd.Series(np.nan, index=series.index, dtype=object)
+      if len(s) < 4:
+          return out
+      try:
+          b = pd.qcut(s, q=4, labels=False, duplicates='drop')
+      except ValueError:
+          b = pd.qcut(s.rank(method='first'), q=4, labels=False)
+      out.loc[s.index] = b.map(BIN_LABELS)
+      return out
+
+
+  def tfr_db(epochs, average):
+      """Multitaper TFR, baseline-corrected to dB (10*log10(power/baseline))."""
+      power = mne.time_frequency.tfr_multitaper(
+          epochs, freqs=freqs, n_cycles=n_cycles, time_bandwidth=time_bandwidth,
+          return_itc=False, average=average, n_jobs=-1)
+      power.apply_baseline(baseline=TFR_BASELINE, mode='logratio')
+      power.data *= 10.0
+      return power
+
+
+  def roi_power(power):
+      """Mean over the ROI channels; works for AverageTFR and EpochsTFR."""
+      return power.copy().pick(ROI_CHANNELS).data.mean(axis=-3)
+
+  #%% Marker names
+  # The EEG markers only carry the trial number. Triggers of a trial arrive in
+  # a fixed order, so they are renamed positionally.
+  point_markers = ["st_rL", "end_rL", "st_rUp", "end_rUp",
+                   "st_shwR", "end_shwR", "st_rPt", "end_rPt",
+                   "st_shwRPt", "end_shwRPt", "end_anti", "st_rslt",
+                   "end_rslt"]
+
+  wide_markers = ["st_rL", "end_rL", "st_rUp", "end_rUp",
+                  "st_shwR", "end_shwR", "mty_rPt", "mty_rPt",
+                  "st_shwR2", "end_shwR2", "end_anti", "st_rslt",
+                  "end_rslt"]
+  # point prediction triggers are still sent in the wide condition ("mty_rPt")
+
+  #%% Loop over participants
+  for fifFile in fifFiles:
+      raw = mne.io.read_raw_fif(fifFile, preload=True)
+      singleFileName = os.path.basename(fifFile)
+      eeg_id = singleFileName[0:7]
+      print(f"Preprocessing for participant: {eeg_id}")
+
+      # ---- behavioural data ------------------------------------------------
+      enc_file = None
+      for file in sorted(os.listdir(encodePath)):
+          if file.endswith('.csv') and file[0:7] == eeg_id:
+              enc_file = os.path.join(encodePath, file)
+              break
+      if enc_file is None:
+          noEncData.append(eeg_id)
+          continue
+
+      enc_data = pd.read_csv(enc_file)
+      enc_data = enc_data[['TrialID', 'condition', 'result',
+                           'LowerResp', 'UpperResp', 'point_pred']]
+      enc_data = enc_data.dropna(subset=['TrialID', 'condition', 'result'])
+      enc_data = enc_data[enc_data['condition'].isin(['point', 'wide'])].copy()
+      is_point = enc_data['condition'] == 'point'
+
+      # Prediction error
+      enc_data['interval_width'] = np.where(
+          is_point, 0.0, enc_data['UpperResp'] - enc_data['LowerResp'])
+      enc_data['expected'] = np.where(
+          is_point, enc_data['point_pred'],
+          (enc_data['LowerResp'] + enc_data['UpperResp']) / 2)
+      # drop only rows that lack what their own condition needs
+      enc_data = enc_data.dropna(subset=['expected', 'interval_width'])
+      print(f"  behavioural trials per condition: "
+            f"{enc_data['condition'].value_counts().to_dict()}")
+
+      raw_abs_pe = np.abs(enc_data['result'] - enc_data['expected'])
+      # precision-weighted absolute PE; +1 gives point trials the maximum weight
+      enc_data['predErrComb'] = raw_abs_pe / (enc_data['interval_width'] + 1.0)
+      # quartiles WITHIN condition, so bins are not confounded with condition
+      enc_data['absPredErrBinComb'] = (
+          enc_data.groupby('condition', group_keys=False)['predErrComb'].apply(bin_pe))
+
+      pe_map[eeg_id] = dict(zip(enc_data['TrialID'], enc_data['predErrComb']))
+      bin_of_trial = dict(zip(enc_data['TrialID'], enc_data['absPredErrBinComb']))
+
+      # ---- channels and reference ------------------------------------------
+      raw = raw.pick(EEG_CHANNELS)
+      # original reference was the right mastoid: add it as a flat channel and
+      # re-reference to linked mastoids (MR, L4)
+      raw = mne.add_reference_channels(raw, ref_channels=['MR'])
+      raw = raw.set_eeg_reference(ref_channels=['MR', 'L4'], projection=False)
+
+      # ---- rename annotations ----------------------------------------------
+      old_desc = list(raw.annotations.description)
+      new_desc = list(old_desc)
+      for trialID in enc_data['TrialID'].unique():
+          condition = enc_data.loc[enc_data['TrialID'] == trialID, 'condition'].iloc[0]
+          markers = point_markers if condition == 'point' else wide_markers
+          prefix = 'p' if condition == 'point' else 'w'
+          count = 0
+          for idx, desc in enumerate(old_desc):
+              try:
+                  desc_num = float(desc)
+              except ValueError:
+                  continue  # non-numeric marker (e.g. BAD boundary)
+              if desc_num == trialID and count < len(markers):
+                  new_desc[idx] = f"{prefix}{int(trialID)}/{markers[count]}"
+                  count += 1
+      raw.set_annotations(mne.Annotations(
+          onset=raw.annotations.onset, duration=raw.annotations.duration,
+          description=new_desc, orig_time=raw.annotations.orig_time))
+
+      # ---- filter -----------------------------------------------------------
+      raw = raw.filter(0.1, 30, fir_design='firwin')
+
+      # ---- events: one per 'end_anti', coded by annotation index -----------
+      trial_map[eeg_id] = {}
+      event_id_map = {}
+      event_ids = {key: [] for key in CONDITION_KEYS}
+      for idx, desc in enumerate(raw.annotations.description):
+          m = re.match(r'([pw])(\d+)/end_anti$', desc)
+          if not m:
+              continue
+          cond_letter, trial_num = m.group(1), int(m.group(2))
+          bin_label = bin_of_trial.get(trial_num)
+          if bin_label is None or pd.isna(bin_label):
+              continue
+          trial_map[eeg_id][idx] = trial_num
+          event_id_map[desc] = idx
+          event_ids[f"{cond_letter}_{bin_label}"].append(idx)
+
+      if not event_id_map:
+          print(f"  no usable 'end_anti' events for {eeg_id}")
+          continue
+
+      events, _ = mne.events_from_annotations(raw, event_id=event_id_map)
+
+      # ---- epochs: all trials at once, artefact rejection once --------------
+      epochs_all = mne.Epochs(raw, events, tmin=EPOCH_TMIN, tmax=EPOCH_TMAX,
+                              baseline=(None, 0), reject=None,
+                              reject_by_annotation=False, preload=True,
+                              detrend=None, event_repeated='drop')
+      epochs_clean = artifact_rejection(epochs_all)
+
+      epoch_info = {'participant': eeg_id}
+      psd_epochs = {}
+      for key, idx_list in event_ids.items():
+          n_before = int(np.isin(epochs_all.events[:, 2], idx_list).sum())
+          if n_before == 0:
+              continue
+          keep = np.isin(epochs_clean.events[:, 2], idx_list)
+          epoch_info[key] = n_before
+          epoch_info[f"{key}_clean"] = int(keep.sum())
+          if keep.any():
+              psd_epochs[key] = epochs_clean[keep]
+
+      epochs_overview.append(epoch_info)
+      psd_data[eeg_id] = psd_epochs
+
+  print(pd.DataFrame(epochs_overview))
+
+  #%% Grand-average TFR per condition (trial-weighted, pooled over participants)
+  data_by_condition = {}
+  for participant_id, participant_data in psd_data.items():
+      for condition, condition_data in participant_data.items():
+          data_by_condition.setdefault(condition, []).append(condition_data)
+  for condition in list(data_by_condition):
+      data_by_condition[condition] = mne.concatenate_epochs(data_by_condition[condition])
+
+  power_by_condition = {}
+  times = None
+
+  fig, axs = plt.subplots(len(data_by_condition), 1, figsize=(8, 20),
+                          sharex=True, sharey=True, layout="constrained")
+  axs = np.atleast_1d(axs)
+  im = None
+  for ax, (condition, epochs) in zip(axs, data_by_condition.items()):
+      power = tfr_db(epochs, average=True)
+      times = power.times
+      power_data = roi_power(power)
+      power_by_condition[condition] = power_data
+      vext = np.max(np.abs(power_data))
+      im = ax.imshow(power_data, aspect='auto', origin='lower', cmap='RdBu_r',
+                     vmin=-vext, vmax=vext,
+                     extent=[times[0], times[-1], freqs[0], freqs[-1]])
+      ax.axvline(0, color='white', linestyle='--', linewidth=1)
+      ax.set_title(f"TFR for {condition} (L3+R3, dB vs. baseline)")
+      ax.set_ylabel('Frequency (Hz)')
+  axs[-1].set_xlabel('Time (s)')
+  if im is not None:
+      fig.colorbar(im, ax=axs.ravel().tolist(), orientation='horizontal',
+                   label='Power (dB)', shrink=0.8, pad=0.05)
+  plt.show()
+
+  if times is None:
+      raise RuntimeError("No participant had any epochs. Cannot continue.")
+
+  # %% Targeted contrasts for H1
+  contrasts = {}
+  pbc = power_by_condition
+  if 'p_high' in pbc and 'w_high' in pbc:
+      contrasts['IP+P (PE high) − IP (PE high)'] = pbc['p_high'] - pbc['w_high']
+  if 'p_mid' in pbc and 'w_mid' in pbc:
+      contrasts['IP+P (PE mid) − IP (PE mid)'] = pbc['p_mid'] - pbc['w_mid']
+  if all(k in pbc for k in ['p_high', 'p_mid', 'w_high', 'w_mid']):
+      contrasts['IP+P (PE mid+high) − IP (PE mid+high)'] = (
+          (pbc['p_high'] + pbc['p_mid']) / 2 - (pbc['w_high'] + pbc['w_mid']) / 2)
+  if all(k in pbc for k in ['p_high', 'p_none']):
+      contrasts['Within IP+P: PE high − PE none'] = pbc['p_high'] - pbc['p_none']
+  if all(k in pbc for k in ['w_high', 'w_none']):
+      contrasts['Within IP: PE high − PE none'] = pbc['w_high'] - pbc['w_none']
+
+  if contrasts:
+      fig, axs = plt.subplots(len(contrasts), 1, figsize=(9, 3.2 * len(contrasts)),
+                              sharex=True, sharey=True, layout='constrained')
+      axs = np.atleast_1d(axs)
+      for ax, (title, data) in zip(axs, contrasts.items()):
+          vext = np.max(np.abs(data)) * 0.9
+          im = ax.imshow(data, extent=[times[0], times[-1], freqs[0], freqs[-1]],
+                         aspect='auto', origin='lower', cmap='RdBu_r',
+                         vmin=-vext, vmax=vext)
+          ax.set_title(title, fontsize=12, pad=10)
+          ax.axvline(0, color='white', linestyle='--', linewidth=1)
+          ax.set_ylabel('Frequency (Hz)')
+      axs[-1].set_xlabel('Time (s)')
+      fig.colorbar(im, ax=axs.ravel().tolist(), orientation='horizontal',
+                   label='Power difference (dB)', pad=0.08, shrink=0.8)
+      plt.show()
+
+  # %% TRIAL-LEVEL DATASET (theta ROI, and alpha over the whole epoch)
+  print("Building trial-level dataset for lmer...")
+
+  theta_freq_idx = (freqs >= 4) & (freqs <= 8)
+  theta_time_idx = (times >= 0.4) & (times <= 1.2)
+  alpha_freq_idx = (freqs >= 8) & (freqs <= 12)
+  alpha_time_idx = times >= 0.0        # post-stimulus part of the epoch
+
+  key_mapping = {
+      'p_none': ('point', 'none'), 'p_low': ('point', 'low'),
+      'p_mid': ('point', 'mid'),   'p_high': ('point', 'high'),
+      'w_none': ('wide', 'none'),  'w_low': ('wide', 'low'),
+      'w_mid': ('wide', 'mid'),    'w_high': ('wide', 'high'),
+  }
+
+  trial_data = []
+  for subj_id, subj_epochs in psd_data.items():
+      for key, (cond, surprise) in key_mapping.items():
+          if key not in subj_epochs or len(subj_epochs[key]) == 0:
+              continue
+          power = tfr_db(subj_epochs[key], average=False)
+          pow_roi = roi_power(power)                           # (n_trials, n_freqs, 
+  n_times)
+          theta_per_trial = pow_roi[:, theta_freq_idx][:, :,
+  theta_time_idx].mean(axis=(1, 2))
+          alpha_per_trial = pow_roi[:, alpha_freq_idx][:, :,
+  alpha_time_idx].mean(axis=(1, 2))
+          ev = subj_epochs[key].events
+          for i in range(len(ev)):
+              trial_id = trial_map[subj_id][ev[i, 2]]
+              trial_data.append({
+                  'ParticipantID': subj_id,
+                  'condition':     cond,
+                  'TrialID':       trial_id,
+                  'event_sample':  ev[i, 0],                  # recording order
+                  'surprise':      surprise,
+                  'is_high':       surprise == 'high',
+                  'theta_power_dB': theta_per_trial[i],
+                  'alpha_power_dB': alpha_per_trial[i],
+                  'predErrComb':   pe_map[subj_id].get(trial_id, np.nan),
+              })
+
+  df_trials = pd.DataFrame(trial_data)
+  # chronological trial number within participant, from the recording order
+  df_trials = df_trials.sort_values(['ParticipantID',
+  'event_sample']).reset_index(drop=True)
+  df_trials['trialNum'] = df_trials.groupby('ParticipantID').cumcount() + 1
+
+  print(f"Dataset ready: {len(df_trials)} trials from "
+        f"{df_trials.ParticipantID.nunique()} participants")
+  print(df_trials.groupby(['condition', 'surprise'])['theta_power_dB'].count())
+
+  # %% Mixed model — MAIN TEST OF H1
+  import statsmodels.formula.api as smf
+
+  # Note: predErrComb is on different scales in the two conditions (point trials
+  # are divided by 1, wide trials by width+1); the interaction compares those slopes.
+  lmm_cont = smf.mixedlm(
+      "theta_power_dB ~ predErrComb * C(condition, Treatment('point'))",
+      df_trials, groups=df_trials["ParticipantID"],
+  ).fit(method="lbfgs", reml=True)
+  print("=== LMM: Continuous weighted PE × Condition ===")
+  print(lmm_cont.summary())
+
+  lmm_bins = smf.mixedlm(
+      "theta_power_dB ~ C(surprise, Treatment('none')) * C(condition, 
+  Treatment('point'))",
+      df_trials, groups=df_trials["ParticipantID"],
+  ).fit(method="lbfgs", reml=True)
+  print("=== LMM: PE quartile (within condition) × Condition ===")
+  print(lmm_bins.summary())
+
+  # %% save trial-level data for R
+  df_trials.to_csv('/Users/elfriede/Desktop/PREDICT/COMMIT/EEG_data/trial_level_data.csv'
+  ,
+                   index=False)
+  print(df_trials.head())
+
+  # %% GRAND-AVERAGE INTERACTION CONTRAST (subject-weighted)
+  print("Plotting interaction contrast...")
+
+  tf_lists = {'p_high': [], 'p_none': [], 'w_high': [], 'w_none': []}
+  for subj_id, epochs in psd_data.items():
+      for key, arr in tf_lists.items():
+          if key in epochs and len(epochs[key]) > 0:
+              arr.append(roi_power(tfr_db(epochs[key], average=True)))
+
+  def stack_mean(lst):
+      return np.mean(lst, axis=0) if lst else np.zeros((len(freqs), len(times)))
+
+  grand_interaction_tf = ((stack_mean(tf_lists['p_high']) -
+  stack_mean(tf_lists['p_none']))
+                          - (stack_mean(tf_lists['w_high']) -
+  stack_mean(tf_lists['w_none'])))
+
+  fig, ax = plt.subplots(1, 1, figsize=(9, 4.5))
+  vmax = np.max(np.abs(grand_interaction_tf)) * 0.9
+  im = ax.imshow(grand_interaction_tf, extent=[times[0], times[-1], freqs[0], freqs[-1]],
+                 aspect='auto', origin='lower', cmap='RdBu_r', vmin=-vmax, vmax=vmax)
+  ax.axvline(0, color='white', ls='--', lw=1.5)
+  ax.axhline(4, color='gray', ls=':', alpha=0.7)
+  ax.axhline(8, color='gray', ls=':', alpha=0.7)
+  ax.set_xlabel('Time (s)')
+  ax.set_ylabel('Frequency (Hz)')
+  ax.set_title('Interaction Contrast (IP+P high−none − IP high−none)', fontsize=14)
+  fig.colorbar(im, ax=ax, label='Power difference (dB)')
+  plt.tight_layout()
+  plt.show()
+
+  # %% INDIVIDUAL DIFFERENCES — theta surprise effect vs. behavioural precision weighting
+  import scipy.stats as stats
+
+  theta_surprise_effect = []   # point high − point none (dB)
+  subject_ids = []
+  print("Computing individual theta surprise effect (point high − point none)...")
+
+  for subj_id, subj_epochs in psd_data.items():
+      if any(k not in subj_epochs or len(subj_epochs[k]) == 0 for k in ['p_high',
+  'p_none']):
+          continue
+      high_roi = roi_power(tfr_db(subj_epochs['p_high'], average=True))
+      none_roi = roi_power(tfr_db(subj_epochs['p_none'], average=True))
+      theta_high = high_roi[theta_freq_idx][:, theta_time_idx].mean()
+      theta_none = none_roi[theta_freq_idx][:, theta_time_idx].mean()
+      theta_surprise_effect.append(theta_high - theta_none)
+      subject_ids.append(subj_id)
+
+  print("\nLoading behavioral data...")
+  behavioral_precision = []
+  for subj_id in subject_ids:
+      enc_file = next((os.path.join(encodePath, f) for f in
+  sorted(os.listdir(encodePath))
+                       if f.startswith(subj_id) and f.endswith('.csv')), None)
+      if enc_file is None:
+          behavioral_precision.append(np.nan)
+          continue
+      df = pd.read_csv(enc_file)
+      wide = df[df['condition'] == 'wide']
+      mean_width = (wide['UpperResp'] - wide['LowerResp']).mean()   # wide trials only
+      behavioral_precision.append(-mean_width)   # higher = narrower intervals
+
+  theta_arr = np.array(theta_surprise_effect)
+  beh_arr = np.array(behavioral_precision)
+  valid = ~np.isnan(beh_arr) & ~np.isnan(theta_arr)
+  theta_clean, beh_clean = theta_arr[valid], beh_arr[valid]
+  valid_ids = np.array(subject_ids)[valid]
+
+  print(f"\nFinal sample: N = {len(theta_clean)} participants with both EEG + behavioral
+  data")
+  if len(theta_clean) >= 3:
+      r, p_pearson = stats.pearsonr(theta_clean, beh_clean)
+      rho, p_spearman = stats.spearmanr(theta_clean, beh_clean)
+      print(f"Pearson  r({len(theta_clean)-2}) = {r:+.3f}, p = {p_pearson:.3f}")
+      print(f"Spearman ρ = {rho:+.3f}, p = {p_spearman:.3f}")
+
+      plt.figure(figsize=(7, 5.5))
+      plt.scatter(beh_clean, theta_clean, c='steelblue', s=100, alpha=0.8,
+                  edgecolors='k', linewidth=0.5)
+      plt.axhline(0, color='gray', linestyle='--', alpha=0.5)
+      m, b = np.polyfit(beh_clean, theta_clean, 1)
+      xs = np.linspace(beh_clean.min(), beh_clean.max(), 50)
+      plt.plot(xs, m * xs + b, color='red', linewidth=2, alpha=0.9,
+               label=f'r = {r:+.3f}, p = {p_pearson:.3f}')
+      plt.xlabel("Behavioral precision weighting\n(−mean interval width of wide trials)",
+  fontsize=12)
+      plt.ylabel("Frontal theta surprise effect (dB)\n(point PE high − point PE none)",
+  fontsize=12)
+      plt.title("Precision weighting vs. theta surprise response", fontsize=14, pad=20)
+      plt.legend()
+      plt.grid(True, alpha=0.3)
+      plt.tight_layout()
+      plt.show()
+
+  # %% Save theta surprise effect for R
+  theta_df = pd.DataFrame({'ParticipantID': subject_ids,
+                           'theta_surprise_effect_dB': theta_surprise_effect})
+  theta_df.to_csv('/Users/elfriede/Desktop/PREDICT/COMMIT/EEG_data/theta_surprise_effect.
+  csv',
+                  index=False)
+  print(theta_df.head())
+
+  # %% ALPHA POWER OVER TIME — FATIGUE / ENGAGEMENT ANALYSIS
+  # uses the chronological trialNum from df_trials (recording order), not bin order
+  import seaborn as sns
+
+  df_alpha = df_trials[['ParticipantID', 'TrialID', 'trialNum', 'alpha_power_dB']].copy()
+  print(f"Alpha dataset: {len(df_alpha)} trials from {df_alpha.ParticipantID.nunique()}
+  participants")
+
+  plt.figure(figsize=(9, 5))
+  sns.lineplot(data=df_alpha, x='trialNum', y='alpha_power_dB', hue='ParticipantID',
+               legend=False, alpha=0.3, linewidth=1)
+  df_avg = df_alpha.groupby('trialNum')['alpha_power_dB'].mean().reset_index()
+  plt.plot(df_avg['trialNum'], df_avg['alpha_power_dB'], color='black', linewidth=3,
+           label='Average')
+  plt.xlabel('Trial progression (recording order)')
+  plt.ylabel('Mean alpha power (dB)')
+  plt.title('Alpha power over time-on-task')
+  plt.grid(True, alpha=0.3)
+  plt.legend()
+  plt.show()
+
+  lmm_alpha = smf.mixedlm("alpha_power_dB ~ trialNum", df_alpha,
+                          groups=df_alpha["ParticipantID"]).fit(method='lbfgs')
+  print(lmm_alpha.summary())
+
+  Two points to confirm against the data before running: the recording must have at least
+  0.7 s before each result onset for the extended epoch, and trial numbers in the
+  behavioural file must be whole numbers so the annotation match on float(desc) == 
+  trialID holds.

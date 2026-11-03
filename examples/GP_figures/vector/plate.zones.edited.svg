@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="960" viewBox="0 0 1920 960">
+<!-- Zones: earlier shapes win where they overlap. -->
+<path data-group="feet" fill="none" stroke="red" d="M685.34 517.48L683.62 608.46L775.82 612.87L775.54 513.56L686.47 514.78Z"/>
+<path data-group="headleft" fill="none" stroke="red" d="M412.17 258.36L517.92 294.28L511.14 344.45L467.97 398.26L404.13 360.27L409.21 260.25L410.99 256.07Z"/>
+</svg>
