@@ -1,8 +1,9 @@
-//! "AI and language models in professional work": film of the deck
-//! `examples/AMDG/AMDG_Engineers.pptx` (November 2026), in the style of the
-//! MD and coding-audit films: dark pages, captions, no sound. Slides 9, 10,
-//! 12, 13 and 14 reworked for clarity (model names, concrete values from the
-//! published tests, a real excerpt of an adjudication record).
+//! "KI und Sprachmodelle in der professionellen Arbeit": Video nach der
+//! Präsentation `examples/AMDG/AMDG_Engineers.pptx` (November 2026), auf
+//! Deutsch, in der Reihe der AMDG-Videos (Klinik, Kodierprüfung, MD): dunkle
+//! Seiten, Untertitel, ohne Ton, "Präsentiert von AMDG Engineers", nach
+//! "Warum AMDG Engineers" die Quellen als vorletzte Seite. Die Folien 9, 10 und 12 der Präsentation
+//! sind nicht enthalten.
 
 pub mod narration;
 pub mod scenes;
@@ -18,24 +19,22 @@ include_media_dir!(pub struct AmdgMedia, "examples/AMDG/amdg-video/media");
 pub const FPS: usize = 30;
 pub const WIDTH: usize = 1920;
 pub const HEIGHT: usize = 1080;
-pub const N: usize = 15;
+pub const N: usize = 13;
 
 pub const NAMES: [&str; N] = [
-    "Introduction",
-    "Current uses",
-    "Adoption and value",
-    "Current limits",
-    "Reliability today",
+    "Einleitung",
+    "Heutige Anwendungen",
+    "Verbreitung und Wert",
+    "Heutige Grenzen",
+    "Zuverlässigkeit heute",
     "AMDG Engineers",
-    "Single shot",
-    "What the reader receives",
-    "Paired test results",
-    "The UR5e comparison",
-    "High-risk applications",
-    "The economics",
-    "The record of adjudication",
-    "Sources",
-    "Closing",
+    "Eine Anfrage",
+    "Was der Leser erhält",
+    "Anwendungsfelder",
+    "Das Prüfprotokoll",
+    "Warum AMDG Engineers",
+    "Quellen",
+    "Abschluss",
 ];
 
 pub fn gsec(frame: &Frame) -> f32 {
@@ -196,7 +195,7 @@ fn header(t: f32) -> Svgr<'static> {
                 <text x="156" y="125" font-family={SANS} font-size="25" font-weight="500" fill={INK}>{name}</text>
             </g>
             <g opacity={credit_o}>
-                <text x="1824" y="124" font-family={SANS} font-size="22" font-weight="400" fill={MUTED} text-anchor="end">"Presented by "<tspan font-weight="500" fill={INK}>"AMDG Engineers"</tspan></text>
+                <text x="1824" y="124" font-family={SANS} font-size="22" font-weight="400" fill={MUTED} text-anchor="end">"Präsentiert von "<tspan font-weight="500" fill={INK}>"AMDG Engineers"</tspan></text>
             </g>
         </g>
     )

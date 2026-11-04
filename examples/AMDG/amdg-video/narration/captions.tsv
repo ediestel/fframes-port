@@ -1,25 +1,21 @@
-a01_1	Artificial intelligence is already part of professional work. Its economic value is measurable; its factual reliability remains a central engineering problem.
-a02_1	Language models draft and summarise documents, answer questions over internal material, assist service staff and write code.
-a02_2	These uses range from work that is easy to inspect to decisions where one unsupported assertion has serious consequences.
-a03_1	In 2025, 88 percent of surveyed organisations used AI, and US private AI investment reached 285.9 billion dollars.
-a03_2	In a study of 5,172 support agents, issues resolved per hour rose by 15 percent on average.
-a04_1	The central limit: a fluent answer can contain an unsupported claim, an invented fact, citation or technical detail.
-a04_2	An answer can depend on inputs the request never supplied, and earlier conversation can influence later answers.
-a05_1	Today, reliability is addressed by retrieval, external tools, validation of outputs and citations, and professional review.
-a05_2	AMDG places the adjudication of each claim at the centre of the response itself.
-a06_1	AMDG Engineers uses a proprietary modulation of a frontier language model; the underlying model remains unchanged.
-a06_2	Every assertion is evaluated and commented on. Only whole claims pass as established.
-a07_1	The service is single shot: one complete request, a standing start, no conversational carryover.
-a07_2	Within the request, the modulation loop adjudicates every claim; unsettled claims remain identified. One final response carries a verdict and commentary for every assertion.
-a08_1	The reader receives each claim with its outcome: established, missing a constituent, unsettled, or outside the scope of what the system can examine.
-a09_1	Paired tests: the same model, grok-4.7, the same query in each pair, one response per condition, checked afterwards against the document, the mathematics and the published package.
-a09_2	grok-4.7 made six checked errors and named none of them. grok-4.7+modulation made none and named what it could not establish.
-a10_1	Asked to return a UR5e arm to a safe home pose, grok-4.7 invented the robot address and a home pose, and called the pose safe.
-a10_2	grok-4.7+modulation required the actual address and a home pose verified for this mounting, tool and cell, and withheld action until both were supplied.
-a11_1	The intended field is professional work in which an unsupported claim carries a substantial cost: legal, insurance and hospitals.
-a11_2	Each claim has a visible outcome before the responsible professional acts.
-a12_1	The total cost of a professional answer includes what happens after the model responds: review, correction, and errors that reach decisions.
-a12_2	With adjudication, review starts at the named open points instead of at every sentence.
-a13_1	The final response is a record of adjudication: the verdict attaches to the individual assertion.
-a13_2	An excerpt from the site report test: what the text states is established; what it does not establish is named.
-a14_1	External sources were accessed on 3 November 2026.
+g01_1	Künstliche Intelligenz ist bereits Teil professioneller Arbeit. Ihr wirtschaftlicher Wert ist messbar; ihre sachliche Zuverlässigkeit bleibt ein zentrales technisches Problem.
+g02_1	Sprachmodelle entwerfen und fassen Dokumente zusammen, beantworten Fragen zu internem Material, unterstützen Servicemitarbeitende und schreiben Code.
+g02_2	Die Anwendungen reichen von leicht prüfbarer Arbeit bis zu Entscheidungen, bei denen eine einzige unbelegte Aussage schwere Folgen hat.
+g03_1	2025 nutzten 88 Prozent der befragten Organisationen KI; die privaten KI-Investitionen in den USA erreichten 285,9 Milliarden Dollar.
+g03_2	In einer Studie mit 5.172 Servicemitarbeitenden stieg die Zahl der gelösten Anliegen pro Stunde im Mittel um 15 Prozent.
+g04_1	Die zentrale Grenze: Eine flüssige Antwort kann eine unbelegte Aussage enthalten, eine erfundene Tatsache, ein erfundenes Zitat oder ein technisches Detail.
+g04_2	Eine Antwort kann von Angaben abhängen, die die Anfrage nie enthielt, und frühere Gesprächsteile können spätere Antworten beeinflussen.
+g05_1	Heute wird Zuverlässigkeit über Retrieval, externe Werkzeuge, die Validierung von Ausgaben und Zitaten und die fachliche Prüfung angestrebt.
+g06_0	Der Kern jeder Antwort ist die kritische Prüfung jeder einzelnen Aussage.
+g06_1	AMDG Engineers nutzt eine proprietäre Modulation eines führenden Sprachmodells; das zugrunde liegende Modell bleibt unverändert.
+g06_2	Alle notwendigen Schritte und Prüfungen sind in die Modulation integriert: in die Schleife, die über jede Aussage läuft und über sie entscheidet.
+g06_3	Der Beweis für die Qualität der Leistung von AMDG Engineers ist die Antwort selbst. Anders lässt es sich nicht beweisen, und anders muss es nicht bewiesen werden.
+g06_4	Beurteilt wird es an der Qualität der Antwort.
+g07_1	Ein Beispiel dafür, wie AMDG Engineers eine Anfrage bearbeitet.
+g07_2	Innerhalb der Anfrage prüft die Modulationsschleife jede Aussage; offene Aussagen bleiben gekennzeichnet. Die abschließende Antwort trägt zu jeder Aussage ein Urteil und einen Kommentar.
+g08_1	Der Leser erhält die Aussagen mit ihren Ergebnissen: belegt, mit fehlenden Bestandteilen, offen oder außerhalb dessen, was das System prüfen kann.
+g09_1	„High-Stakes-Domänen“ sind Bereiche, in denen äußerst viel von der Verlässlichkeit von Daten und Informationen abhängt.
+g09_2	Jedes Detail einer Antwort hat Konsequenzen.
+g10_1	Die abschließende Antwort ist ein Prüfprotokoll: Das Urteil gilt der einzelnen Aussage.
+g10_2	Ein Beispiel aus dem Test mit einem Begehungsbericht: Was der Text angibt, ist belegt; was er nicht belegt, wird benannt.
+g11_1	Die externen Quellen wurden am 3. November 2026 abgerufen.
