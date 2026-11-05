@@ -13,15 +13,17 @@
 //! ```
 
 pub mod figure;
+pub mod labels;
 pub mod lines;
 pub mod stages;
 
 use std::collections::HashMap;
 
 use fframes::vector::{PieceDocument, PieceTree};
-use fframes::{AudioMap, Color, Duration, FFramesContext, Frame, Svgr, Video};
+use fframes::{AudioMap, Color, Duration, FFramesContext, FontQuery, Frame, Svgr, Video};
 
 use figure::{Figure, Kind, Trace, is_svg};
+use labels::Labels;
 
 pub const WIDTH: usize = 1920;
 pub const HEIGHT: usize = 1080;
@@ -41,6 +43,8 @@ pub struct FigureVideo {
     lines: Vec<lines::Line>,
     /// Path data of the colour pieces large enough to contour, when a layer shows them.
     contours: Vec<String>,
+    /// The lettering set as text, when a layer shows it.
+    labels: Option<Labels>,
 }
 
 impl std::fmt::Debug for FigureVideo {
@@ -81,6 +85,17 @@ impl FigureVideo {
         } else {
             Vec::new()
         };
+        let labels = if figure.uses_labels() {
+            match Labels::load(&figure.labels_path()) {
+                Ok(labels) => Some(labels),
+                Err(e) => {
+                    problems.push(format!("{e}; run the ocr stage first"));
+                    None
+                }
+            }
+        } else {
+            None
+        };
         let mut traced = HashMap::new();
         let mut svgs = HashMap::new();
         for layer in &figure.layers {
@@ -113,7 +128,7 @@ impl FigureVideo {
             }
         }
         if problems.is_empty() {
-            Ok(FigureVideo { figure, trace, traced, svgs, lines, contours })
+            Ok(FigureVideo { figure, trace, traced, svgs, lines, contours, labels })
         } else {
             Err(problems)
         }
@@ -124,9 +139,46 @@ impl FigureVideo {
         self.svgs.iter()
     }
 
-    fn layer<'a>(&'a self, layer: &'a figure::Layer, ctx: &FFramesContext<'a, '_>) -> Svgr<'a> {
+    /// The labels as text on the canvas. A label keeps the size its lettering had in the
+    /// picture and shrinks to its box when the font sets it wider.
+    fn labels<'a>(&'a self, frame: &mut Frame, ctx: &FFramesContext<'a, '_>) -> Svgr<'a> {
+        let Some(labels) = &self.labels else {
+            return Svgr::empty();
+        };
+        let scale = self.figure.scale as f32;
+        let texts: Vec<Svgr<'a>> = labels
+            .labels
+            .iter()
+            .filter(|label| label.show && !label.text.trim().is_empty())
+            .map(|label| {
+                let weight: u16 = if label.bold { 700 } else { 500 };
+                let mut size = label.size as f32 * scale;
+                let query = FontQuery {
+                    family: labels.font.as_str(),
+                    size: size.round().max(1.0) as usize,
+                    weight,
+                    ..Default::default()
+                };
+                if let Some(width) = frame.text_width(ctx, query, label.text.as_str()) {
+                    let room = label.w as f32 * scale;
+                    // Only a label far wider than its place shrinks; small differences stay,
+                    // so the sizes remain even.
+                    if width as f32 > 1.2 * room && width > 0 {
+                        size *= room / width as f32;
+                    }
+                }
+                fframes::svgr!(
+                    <text x={label.x as f32 * scale} y={label.baseline as f32 * scale} font-family={labels.font.as_str()} font-size={size} font-weight={weight} fill={label.color.as_str()}>{label.text.as_str()}</text>
+                )
+            })
+            .collect();
+        fframes::svgr!(<g>{texts}</g>)
+    }
+
+    fn layer<'a>(&'a self, layer: &'a figure::Layer, frame: &mut Frame, ctx: &FFramesContext<'a, '_>) -> Svgr<'a> {
         let (w, h) = (self.figure.width, self.figure.height);
         let body: Svgr<'a> = match &layer.kind {
+            Kind::Labels => self.labels(frame, ctx),
             Kind::Source => match ctx.get_image(&self.figure.source) {
                 Some(image) => fframes::svgr!(<image href={image.href()} width={w} height={h} />),
                 None => Svgr::empty(),
@@ -190,11 +242,12 @@ impl Video for FigureVideo {
         AudioMap::none()
     }
 
-    fn render_frame<'a>(&'a self, _frame: Frame, ctx: &FFramesContext<'a, '_>) -> Svgr<'a> {
+    fn render_frame<'a>(&'a self, mut frame: Frame, ctx: &FFramesContext<'a, '_>) -> Svgr<'a> {
         let (w, h) = (self.figure.width as f32, self.figure.height as f32);
         let s = (WIDTH as f32 / w).min(HEIGHT as f32 / h);
         let (x, y) = ((WIDTH as f32 - w * s) / 2.0, (HEIGHT as f32 - h * s) / 2.0);
-        let layers: Vec<Svgr<'a>> = self.figure.layers.iter().map(|layer| self.layer(layer, ctx)).collect();
+        let layers: Vec<Svgr<'a>> =
+            self.figure.layers.iter().map(|layer| self.layer(layer, &mut frame, ctx)).collect();
         fframes::svgr!(
             <svg xmlns="http://www.w3.org/2000/svg" width={WIDTH} height={HEIGHT} viewBox="0 0 1920 1080">
                 <rect width="1920" height="1080" fill={PAPER} />

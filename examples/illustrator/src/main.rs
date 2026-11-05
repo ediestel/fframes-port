@@ -14,7 +14,7 @@ use std::process::ExitCode;
 fn main() -> ExitCode {
     let mut args: Vec<String> = std::env::args().collect();
     if args.len() < 3 {
-        eprintln!("usage: illustrator <figure folder> trace|export|import|all | <fframes command>");
+        eprintln!("usage: illustrator <figure folder> ocr|trace|export|import|all | <fframes command>");
         return ExitCode::FAILURE;
     }
     let root = args.remove(1);
@@ -27,6 +27,7 @@ fn main() -> ExitCode {
     };
 
     let stage = match args[1].as_str() {
+        "ocr" => Some(stages::ocr(&figure)),
         "trace" => Some(stages::trace(&figure)),
         "export" => Some(stages::export(&figure)),
         "import" => Some(stages::import(&figure)),

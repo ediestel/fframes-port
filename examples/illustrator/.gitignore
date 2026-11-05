@@ -1,3 +1,5 @@
 # What the stages write; `illustrator <figure> all` makes them again in seconds.
-figures/*/trace/
-figures/*/export/
+figures/**/trace/
+figures/**/export/
+# the rendered figure (`frame 0 -o <figure>/print`)
+figures/**/print/

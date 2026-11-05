@@ -9,7 +9,7 @@
 //!
 //! [[layers]]                      # bottom to top
 //! name = "photo"
-//! kind = "source"                 # source | trace-pieces | trace-outlines | file
+//! kind = "source"                 # source | trace-pieces | trace-outlines | trace-lines | trace-contours | labels | file
 //! opacity = 0.4
 //!
 //! [[layers]]
@@ -156,6 +156,8 @@ pub enum Kind {
     TraceContours,
     /// A PNG or SVG the artist drew, by file name.
     File { file: String, trace: Trace },
+    /// The lettering of `labels.toml` set as text (`labels.rs`).
+    Labels,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -222,6 +224,7 @@ impl Figure {
                 "trace-outlines" => Kind::TraceOutlines,
                 "trace-lines" => Kind::TraceLines,
                 "trace-contours" => Kind::TraceContours,
+                "labels" => Kind::Labels,
                 "file" => {
                     let Some(file) = entry.file.clone() else {
                         problems.push(format!("layer {}: kind file needs a file", index + 1));
@@ -242,7 +245,7 @@ impl Figure {
                 }
                 other => {
                     problems.push(format!(
-                        "layer {}: kind \"{other}\" is not source, trace-pieces, trace-outlines or file",
+                        "layer {}: kind \"{other}\" is not source, trace-pieces, trace-outlines, trace-lines, trace-contours, labels or file",
                         index + 1
                     ));
                     continue;
@@ -335,6 +338,21 @@ impl Figure {
     /// The trace of an artist's PNG, written at import.
     pub fn artist_trace_path(&self, file: &str) -> PathBuf {
         self.trace_dir().join(format!("{}.json", stem(file)))
+    }
+
+    /// The lettering of the source picture (`labels.rs`), the author's file.
+    pub fn labels_path(&self) -> PathBuf {
+        self.root.join("labels.toml")
+    }
+
+    /// The source picture with the lettering erased, what the trace stage traces.
+    pub fn clean_path(&self) -> PathBuf {
+        self.trace_dir().join("clean.png")
+    }
+
+    /// The layers that need the labels.
+    pub fn uses_labels(&self) -> bool {
+        self.layers.iter().any(|layer| layer.kind == Kind::Labels)
     }
 
     /// The centrelines of the source trace.

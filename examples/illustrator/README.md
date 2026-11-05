@@ -24,11 +24,12 @@ The stages, from the repository root (`F=examples/illustrator/figures/dix_hallpi
 
 | command | what |
 | --- | --- |
-| `cargo run --release -p illustrator -- $F trace` | the picture to vector pieces with fframes-vector (potrace) at `scale`, and the centrelines of its outlines |
+| `cargo run --release -p illustrator -- $F ocr` | the lettering of the picture to `labels.toml` (tesseract), once; then it is the author's file (see Labels) |
+| `cargo run --release -p illustrator -- $F trace` | the picture to vector pieces with fframes-vector (potrace) at `scale`, and the centrelines of its outlines; with a `labels.toml`, the lettering is erased first (`trace/clean.png`) |
 | `... $F export` | the layers as PNGs at the canvas size, and the README for the artist |
 | the artist draws | layers on top, exported as PNG files (Procreate: Share, PNG files) or SVG, copied into the folder |
 | `... $F import` | the artist's PNGs that a layer asks to trace become vector pieces; every file is checked (size, type) |
-| `... $F all` | trace, export, import |
+| `... $F all` | trace, export, import; first ocr when a `labels` layer has no `labels.toml` yet |
 | `... $F frame 0`, `render`, `inspect`, `preview` | the stack, one `<g id="name" opacity>` per layer, fitted into 1920 x 1080 on cream paper |
 
 ## Layers
@@ -51,6 +52,30 @@ keeps every colour but the transparent background, `none` keeps the pixels. An S
 drawn once at the canvas size and used like a PNG of the artist's (the renderer draws images,
 not foreign SVG trees). A listed file that is missing, a PNG that is not the canvas size, or a
 trace without a previous `import` stops the command with the list of problems.
+
+## Labels
+
+A picture with lettering in it (an AI figure with labels) keeps its words as text: the layer
+kind `labels` sets `labels.toml` on top, one font, sharp at any size, and the trace stage
+erases the lettering underneath first, so the traced picture carries none.
+
+`ocr` writes `labels.toml` with tesseract (`brew install tesseract`; an external program, nothing
+linked). The picture is read at 3x in grey with the contrast stretched, so coloured and
+white-on-colour lettering reads too. Words of one line become one `[[label]]`; shapes read as
+letters (short words of middling confidence) and icons read as signs are left out. Every label
+has `text`, its box `x y w h` and `size` and `baseline` in source pixels, `color`, `bold`,
+`erase` (paint the lettering over before tracing), `show` (set the text), `conf` (the OCR's
+confidence) and optionally `fill`, the colour to paint over with when the colour around the box
+is not the one behind the text (white text in a small coloured box).
+
+One rule for every figure: headings in capitals are bold, the rest medium, and labels within a
+quarter of the median size of their kind take that size. A label shrinks only when the font sets
+it more than a fifth wider than its box. Erasing paints over the strokes of the lettering only,
+inside a box that hugs it, so arrows and drawings beside the text stay.
+
+The file is the author's after the first `ocr`: correct a text, set `show = false` to drop a
+label (its lettering stays erased), or add a `[[label]]` by hand for lettering the OCR missed.
+`ocr` never overwrites it; a new reading goes to `trace/ocr.toml`.
 
 ## Settings
 

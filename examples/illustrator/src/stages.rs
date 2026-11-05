@@ -24,16 +24,37 @@ use crate::figure::{Figure, Kind, Trace, is_png};
 pub const OUTLINES: &str = "outlines";
 pub const PIECES: &str = "pieces";
 
-/// Stage 1: the source picture to pieces.
+/// Stage 0: the lettering of the source picture to `labels.toml` (`labels.rs`). An existing
+/// `labels.toml` is the author's and stays; the reading then goes to `trace/ocr.toml`.
+pub fn ocr(fig: &Figure) -> Result<String, String> {
+    let dir = fig.trace_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let labels = crate::labels::ocr(&load_rgb(&fig.root.join(&fig.source))?, &dir)?;
+    let target = if fig.labels_path().is_file() {
+        dir.join("ocr.toml")
+    } else {
+        fig.labels_path()
+    };
+    labels.save(&target)?;
+    Ok(format!("ocr: {} labels in {}", labels.labels.len(), target.display()))
+}
+
+/// Stage 1: the source picture to pieces; with a `labels.toml`, the picture with its
+/// lettering erased (`trace/clean.png`).
 pub fn trace(fig: &Figure) -> Result<String, String> {
-    let source = load_rgb(&fig.root.join(&fig.source))?;
+    let dir = fig.trace_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let mut source = load_rgb(&fig.root.join(&fig.source))?;
+    if fig.labels_path().is_file() {
+        let labels = crate::labels::Labels::load(&fig.labels_path())?;
+        source = crate::labels::erase(&source, &labels);
+        source.save(fig.clean_path()).map_err(|e| format!("clean.png: {e}"))?;
+    }
     let params = fig.trace.params(fig.scale);
     let mut doc = vectorize(&source, &params)?;
     for piece in &mut doc.pieces {
         piece.group = if piece.color == 0 { OUTLINES } else { PIECES }.to_owned();
     }
-    let dir = fig.trace_dir();
-    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     doc.save(fig.pieces_path()).map_err(|e| format!("pieces.json: {e}"))?;
     std::fs::write(dir.join("trace.svg"), doc.to_svg_grouped()).map_err(|e| format!("trace.svg: {e}"))?;
     let flat = flat_image(&source, &params);
@@ -147,7 +168,7 @@ pub fn export(fig: &Figure) -> Result<String, String> {
             Kind::TraceOutlines => "03_outlines.png",
             Kind::TraceLines => "04_lines.png",
             Kind::TraceContours => "05_contours.png",
-            Kind::File { .. } => continue,
+            Kind::File { .. } | Kind::Labels => continue,
         };
         psd.args(["(", file, "-alpha", "set", "-channel", "A", "-evaluate", "multiply"])
             .arg(format!("{}", layer.opacity))
@@ -234,9 +255,14 @@ pub fn import(fig: &Figure) -> Result<String, String> {
     Ok(report.trim_end().to_owned())
 }
 
-/// Stages 1, 2 and 4 in a row.
+/// Stages 1, 2 and 4 in a row, after stage 0 when a labels layer has no `labels.toml` yet.
 pub fn all(fig: &Figure) -> Result<String, String> {
-    Ok([trace(fig)?, export(fig)?, import(fig)?].join("\n"))
+    let mut report = Vec::new();
+    if fig.uses_labels() && !fig.labels_path().is_file() {
+        report.push(ocr(fig)?);
+    }
+    report.extend([trace(fig)?, export(fig)?, import(fig)?]);
+    Ok(report.join("\n"))
 }
 
 /// The source trace, or the advice to run the stage.

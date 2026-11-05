@@ -1,0 +1,30 @@
+# GP handbook, chapter 43 (D3_Ch43-2), the Grok picture of 3 Nov as a layered figure.
+# From the repository root:
+#   cargo run --release -p illustrator -- examples/illustrator/figures/d3_ch43_2 all
+#   cargo run --release -p illustrator -- examples/illustrator/figures/d3_ch43_2 --scale 3 frame 0
+#
+#
+# `all` reads the lettering into labels.toml (once; then it is the author's file to correct),
+# erases it from the picture, traces the picture underneath and sets the labels as text.
+# The canvas is the picture at `scale`: 1280 x 720 px times 3 = 3840 x 2160 px.
+
+source = "source.png"
+scale = 3
+
+[trace]
+colors = 128
+tol = 20.0
+# small, so the dashes of dashed arrows stay
+min_piece = 3
+
+[[layers]]
+name = "colour"
+kind = "trace-pieces"
+
+[[layers]]
+name = "outlines"
+kind = "trace-outlines"
+
+[[layers]]
+name = "labels"
+kind = "labels"

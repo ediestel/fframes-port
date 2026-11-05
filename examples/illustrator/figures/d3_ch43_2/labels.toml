@@ -1,0 +1,1110 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "FEVER + PELVIC PAIN"
+x = 97.0
+y = 11.7
+w = 139.3
+h = 12.3
+size = 16.7
+baseline = 24.0
+color = "#171717"
+bold = true
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "CERVICAL MOTION TENDERNESS"
+x = 96.7
+y = 30.0
+w = 215.7
+h = 12.0
+size = 16.7
+baseline = 42.0
+color = "#151514"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "RECURRENT CANDIDA"
+x = 541.0
+y = 20.7
+w = 156.0
+h = 13.0
+size = 16.7
+baseline = 33.7
+color = "#461C6F"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "RECURRENT BV"
+x = 936.3
+y = 20.7
+w = 109.0
+h = 13.0
+size = 16.7
+baseline = 33.7
+color = "#224289"
+bold = true
+erase = true
+show = true
+conf = 95.0
+
+[[label]]
+text = "PID: treat now."
+x = 39.3
+y = 62.3
+w = 151.0
+h = 17.7
+size = 24.5
+baseline = 80.0
+color = "#C5191C"
+bold = false
+erase = true
+show = true
+conf = 96.0
+
+[[label]]
+text = "WHAT CHANGES"
+x = 403.0
+y = 77.0
+w = 101.0
+h = 11.7
+size = 16.7
+baseline = 88.7
+color = "#BA1F20"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "HOW CHANGE ACTS"
+x = 696.3
+y = 77.0
+w = 122.3
+h = 12.0
+size = 16.7
+baseline = 89.0
+color = "#BC1F21"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "CLINICAL FINDING"
+x = 936.7
+y = 77.3
+w = 112.0
+h = 11.7
+size = 16.7
+baseline = 89.0
+color = "#B72023"
+bold = true
+erase = true
+show = false
+conf = 95.9
+
+[[label]]
+text = "ANATOMY / PHYSIOLOGY"
+x = 82.0
+y = 86.7
+w = 144.3
+h = 12.0
+size = 16.7
+baseline = 98.7
+color = "#B32729"
+bold = true
+erase = true
+show = true
+conf = 94.0
+
+[[label]]
+text = "Inflammation"
+x = 680.7
+y = 103.7
+w = 72.3
+h = 11.7
+size = 16.5
+baseline = 115.3
+color = "#232322"
+bold = false
+erase = true
+show = true
+conf = 93.3
+
+[[label]]
+text = "SEVERE"
+x = 1170.7
+y = 112.3
+w = 42.7
+h = 11.7
+size = 16.7
+baseline = 124.0
+color = "#AE2527"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Ascending"
+x = 567.7
+y = 124.7
+w = 58.0
+h = 14.7
+size = 16.5
+baseline = 136.0
+color = "#1A1919"
+bold = false
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "tissue damage"
+x = 680.0
+y = 120.0
+w = 80.3
+h = 15.3
+size = 16.5
+baseline = 131.9
+color = "#1D1C1C"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "DISEASE OR"
+x = 1170.7
+y = 130.0
+w = 65.0
+h = 12.0
+size = 16.7
+baseline = 142.0
+color = "#A72727"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "infection"
+x = 568.0
+y = 141.0
+w = 48.0
+h = 12.0
+size = 16.5
+baseline = 153.0
+color = "#1F1F1F"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "PREGNANCY"
+x = 1170.7
+y = 148.0
+w = 67.3
+h = 12.0
+size = 16.7
+baseline = 160.0
+color = "#B22524"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Cervix"
+x = 281.0
+y = 189.0
+w = 35.3
+h = 12.0
+size = 16.5
+baseline = 201.0
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "Spread to"
+x = 493.3
+y = 196.0
+w = 53.3
+h = 15.0
+size = 16.5
+baseline = 207.6
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Cervical motion"
+x = 796.0
+y = 204.0
+w = 85.3
+h = 11.7
+size = 16.5
+baseline = 215.7
+color = "#1B1A1B"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "endometrium"
+x = 485.7
+y = 212.7
+w = 73.3
+h = 11.7
+size = 16.5
+baseline = 224.3
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 79.8
+
+[[label]]
+text = "tenderness"
+x = 807.7
+y = 220.3
+w = 61.0
+h = 12.0
+size = 16.5
+baseline = 232.3
+color = "#1E1E1D"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "Fever, pelvic pain, cervical"
+x = 920.3
+y = 213.3
+w = 142.7
+h = 15.3
+size = 16.5
+baseline = 225.2
+color = "#212121"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "ADMISSION"
+x = 1138.0
+y = 208.0
+w = 79.3
+h = 13.7
+size = 16.7
+baseline = 221.7
+color = "#B22223"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "tubes, ovaries"
+x = 485.0
+y = 229.0
+w = 77.0
+h = 12.0
+size = 16.5
+baseline = 238.3
+color = "#131314"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "motion tenderness"
+x = 940.0
+y = 230.0
+w = 102.3
+h = 11.7
+size = 16.5
+baseline = 241.7
+color = "#181919"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "Recurrent candida: confirm, check glucose"
+x = 39.7
+y = 267.7
+w = 369.3
+h = 21.3
+size = 22.9
+baseline = 284.2
+color = "#2F1840"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "HOW CHANGE ACTS"
+x = 822.0
+y = 269.0
+w = 120.0
+h = 11.3
+size = 16.7
+baseline = 280.3
+color = "#401C6B"
+bold = true
+erase = true
+show = true
+conf = 96.1
+
+[[label]]
+text = "CLINICAL FINDING"
+x = 1051.0
+y = 269.0
+w = 109.7
+h = 11.3
+size = 16.7
+baseline = 280.3
+color = "#431F6D"
+bold = true
+erase = true
+show = false
+conf = 96.4
+
+[[label]]
+text = "NORMAL COMPARATOR"
+x = 52.7
+y = 293.3
+w = 123.7
+h = 10.7
+size = 16.7
+baseline = 304.0
+color = "#3F1D6A"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "CANDIDA RECURRENCE"
+x = 284.7
+y = 294.7
+w = 132.3
+h = 11.0
+size = 16.7
+baseline = 305.7
+color = "#411E6A"
+bold = true
+erase = true
+show = true
+conf = 95.3
+
+[[label]]
+text = "WHAT CHANGES"
+x = 537.0
+y = 286.0
+w = 98.7
+h = 23.7
+size = 32.9
+baseline = 309.7
+color = "#41166E"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Recurrent symptoms"
+x = 851.7
+y = 291.0
+w = 112.0
+h = 15.0
+size = 16.5
+baseline = 302.6
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "after treatment"
+x = 851.3
+y = 321.0
+w = 83.0
+h = 12.0
+size = 16.5
+baseline = 333.0
+color = "#181717"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Lactobacillus"
+x = 158.3
+y = 331.3
+w = 70.3
+h = 12.0
+size = 16.5
+baseline = 343.3
+color = "#191918"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Biofilm"
+x = 697.3
+y = 333.7
+w = 38.0
+h = 12.0
+size = 16.5
+baseline = 345.7
+color = "#161615"
+bold = false
+erase = true
+show = true
+conf = 91.6
+
+[[label]]
+text = "dominant"
+x = 158.0
+y = 348.0
+w = 51.7
+h = 12.0
+size = 16.5
+baseline = 360.0
+color = "#201F1F"
+bold = false
+erase = true
+show = true
+conf = 96.0
+
+[[label]]
+text = "epithelial"
+x = 697.0
+y = 350.7
+w = 50.0
+h = 19.7
+size = 16.5
+baseline = 365.9
+color = "#1D1C1C"
+bold = false
+erase = true
+show = true
+conf = 70.0
+
+[[label]]
+text = "pH 3.8-4.5"
+x = 158.7
+y = 365.3
+w = 61.3
+h = 15.0
+size = 16.5
+baseline = 376.9
+color = "#1A1A19"
+bold = false
+erase = true
+show = true
+conf = 90.1
+
+[[label]]
+text = "invasion"
+x = 697.0
+y = 367.7
+w = 45.3
+h = 12.3
+size = 23.3
+baseline = 380.0
+color = "#121212"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "Glucose promotes"
+x = 891.3
+y = 365.7
+w = 97.7
+h = 15.3
+size = 16.5
+baseline = 377.5
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "yeast growth"
+x = 891.0
+y = 382.3
+w = 70.3
+h = 15.0
+size = 16.5
+baseline = 393.9
+color = "#1D1D1C"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Itch, thick white discharge,"
+x = 1035.7
+y = 382.0
+w = 147.0
+h = 15.0
+size = 16.5
+baseline = 393.6
+color = "#1B1A1B"
+bold = false
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "vulvar erythema"
+x = 1062.7
+y = 398.3
+w = 89.3
+h = 15.3
+size = 16.5
+baseline = 410.2
+color = "#1F1E1F"
+bold = false
+erase = true
+show = true
+conf = 96.1
+
+[[label]]
+text = "Recurrent BV: suppression is temporary."
+x = 39.7
+y = 430.0
+w = 330.3
+h = 20.7
+size = 22.2
+baseline = 446.0
+color = "#14284C"
+bold = false
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "WHAT CHANGES"
+x = 538.7
+y = 434.3
+w = 100.3
+h = 11.7
+size = 16.7
+baseline = 446.0
+color = "#1C3C88"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "HOW CHANGE ACTS"
+x = 822.3
+y = 432.7
+w = 120.7
+h = 11.7
+size = 16.7
+baseline = 444.3
+color = "#213E88"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "CLINICAL FINDING"
+x = 1051.0
+y = 432.0
+w = 109.7
+h = 12.0
+size = 16.7
+baseline = 444.0
+color = "#1D3A84"
+bold = true
+erase = true
+show = false
+conf = 96.2
+
+[[label]]
+text = "NORMAL COMPARATOR"
+x = 52.7
+y = 454.3
+w = 123.3
+h = 10.3
+size = 16.7
+baseline = 464.7
+color = "#20377F"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "BV RECURRENCE"
+x = 295.0
+y = 455.0
+w = 95.0
+h = 11.0
+size = 16.7
+baseline = 466.0
+color = "#1D357F"
+bold = true
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "Lactobacillus"
+x = 712.0
+y = 477.3
+w = 71.3
+h = 12.0
+size = 16.5
+baseline = 489.3
+color = "#232323"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "after treatment"
+x = 847.3
+y = 484.0
+w = 83.7
+h = 12.0
+size = 16.5
+baseline = 496.0
+color = "#161615"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "depletion"
+x = 711.7
+y = 494.3
+w = 51.3
+h = 15.0
+size = 16.5
+baseline = 505.9
+color = "#201F1F"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "pH 3.8-4.5"
+x = 152.7
+y = 501.0
+w = 61.0
+h = 14.7
+size = 16.5
+baseline = 512.4
+color = "#E1F5FB"
+bold = false
+erase = true
+show = true
+conf = 81.5
+
+[[label]]
+text = "pH rises"
+x = 712.0
+y = 511.3
+w = 45.0
+h = 15.0
+size = 16.5
+baseline = 522.9
+color = "#1D1D1D"
+bold = false
+erase = true
+show = true
+conf = 94.6
+
+[[label]]
+text = "Biofilm persists"
+x = 849.3
+y = 518.7
+w = 84.7
+h = 15.3
+size = 16.5
+baseline = 530.5
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 95.2
+
+[[label]]
+text = "Thin discharge, fishy"
+x = 1040.3
+y = 523.7
+w = 117.0
+h = 16.5
+size = 16.5
+baseline = 536.6
+color = "#0F0E0D"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "fishy"
+x = 1130.7
+y = 525.0
+w = 26.3
+h = 15.0
+size = 16.5
+baseline = 536.6
+color = "#222222"
+bold = false
+erase = true
+show = false
+conf = 96.9
+
+[[label]]
+text = "odour, clue cells"
+x = 1053.3
+y = 541.7
+w = 90.3
+h = 13.7
+size = 16.5
+baseline = 552.2
+color = "#1D1C1C"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "CLINICAL FINDING"
+x = 798.7
+y = 574.0
+w = 112.3
+h = 11.3
+size = 16.7
+baseline = 585.3
+color = "#215E25"
+bold = true
+erase = true
+show = false
+conf = 96.0
+
+[[label]]
+text = "LICHEN SCLEROSUS is not on either track."
+x = 39.3
+y = 572.0
+w = 366.7
+h = 22.3
+size = 31.0
+baseline = 594.3
+color = "#155A1D"
+bold = false
+erase = true
+show = true
+conf = 95.4
+
+[[label]]
+text = "CHANGE"
+x = 497.7
+y = 578.7
+w = 51.7
+h = 11.7
+size = 16.7
+baseline = 590.3
+color = "#1F6125"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Chronic"
+x = 643.7
+y = 605.0
+w = 42.3
+h = 12.0
+size = 16.5
+baseline = 617.0
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "NOT INFECTIOUS"
+x = 1106.7
+y = 595.0
+w = 102.3
+h = 11.3
+size = 16.7
+baseline = 606.3
+color = "#1C5820"
+bold = true
+erase = true
+show = true
+conf = 90.8
+
+[[label]]
+text = "SKIN"
+x = 46.0
+y = 615.7
+w = 38.3
+h = 13.3
+size = 16.7
+baseline = 629.0
+color = "#225B26"
+bold = true
+erase = true
+show = true
+conf = 92.8
+
+[[label]]
+text = "Itch, white patches,"
+x = 899.3
+y = 605.7
+w = 105.7
+h = 15.0
+size = 16.5
+baseline = 617.3
+color = "#222222"
+bold = false
+erase = true
+show = true
+conf = 95.6
+
+[[label]]
+text = "NOT TREATED WITH"
+x = 1106.7
+y = 612.3
+w = 117.7
+h = 11.7
+size = 16.7
+baseline = 624.0
+color = "#19551E"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "MUCOSA"
+x = 38.7
+y = 633.7
+w = 53.3
+h = 12.0
+size = 16.7
+baseline = 645.7
+color = "#1D5822"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "inflammation"
+x = 644.0
+y = 621.7
+w = 71.0
+h = 12.3
+size = 16.5
+baseline = 634.0
+color = "#222222"
+bold = false
+erase = true
+show = true
+conf = 80.9
+
+[[label]]
+text = "scarring, no"
+x = 899.0
+y = 626.0
+w = 64.3
+h = 12.0
+size = 16.5
+baseline = 634.6
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "ANTIFUNGALS OR"
+x = 1106.0
+y = 629.7
+w = 108.0
+h = 12.0
+size = 16.7
+baseline = 641.7
+color = "#1E5521"
+bold = true
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "scarring"
+x = 656.0
+y = 642.7
+w = 44.3
+h = 11.7
+size = 16.5
+baseline = 651.0
+color = "#242423"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "discharge"
+x = 898.7
+y = 639.7
+w = 53.3
+h = 15.3
+size = 16.5
+baseline = 651.5
+color = "#181817"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "SUPPRESSANTS"
+x = 1106.3
+y = 647.0
+w = 96.0
+h = 12.0
+size = 16.7
+baseline = 659.0
+color = "#18501C"
+bold = true
+erase = true
+show = true
+conf = 92.6
+
+[[label]]
+text = "Do not wait when the cervix hurts and the patient is febrile"
+x = 62.3
+y = 693.0
+w = 348.7
+h = 16.3
+size = 16.5
+baseline = 705.6
+color = "#1C1B1B"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Causal link"
+x = 883.7
+y = 693.3
+w = 64.3
+h = 12.7
+size = 16.5
+baseline = 706.0
+color = "#1B1C1C"
+bold = false
+erase = true
+show = true
+conf = 95.9
+
+[[label]]
+text = "Proposed / uncertain link"
+x = 1049.0
+y = 693.0
+w = 149.7
+h = 16.0
+size = 16.5
+baseline = 705.4
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 94.9
+
+# Set by hand: lettering the OCR could not read. The candida value is corrected from the
+# picture's "pH > 4.5": candida keeps a normal vaginal pH, a raised pH points to BV.
+[[label]]
+text = "pH ≤ 4.5"
+x = 423.0
+y = 354.0
+w = 52.0
+h = 15.0
+size = 16.5
+baseline = 366.0
+color = "#FFFFFF"
+bold = false
+erase = true
+show = true
+conf = 0.0
+fill = "#7D30A4"
+
+[[label]]
+text = "pH > 4.5"
+x = 425.0
+y = 499.0
+w = 46.0
+h = 14.0
+size = 16.5
+baseline = 510.0
+color = "#FFFFFF"
+bold = false
+erase = true
+show = true
+conf = 0.0
+
+[[label]]
+text = "Recurrence"
+x = 858.8
+y = 467.7
+w = 61.3
+h = 11.7
+size = 16.5
+baseline = 479.4
+color = "#1E1E1E"
+bold = false
+erase = true
+show = true
+conf = 0.0
