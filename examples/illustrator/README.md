@@ -60,9 +60,15 @@ kind `labels` sets `labels.toml` on top, one font, sharp at any size, and the tr
 erases the lettering underneath first, so the traced picture carries none.
 
 `ocr` writes `labels.toml` with tesseract (`brew install tesseract`; an external program, nothing
-linked). The picture is read at 3x in grey with the contrast stretched, so coloured and
-white-on-colour lettering reads too. Words of one line become one `[[label]]`; shapes read as
-letters (short words of middling confidence) and icons read as signs are left out. Every label
+linked). The picture is read twice at 3x, in grey with the contrast stretched (coloured and
+white-on-colour lettering) and in colour (thin dark lettering), and again in tiles a third wide
+and half high, overlapping by half a tile: tesseract skips lettering inside boxes and panels when
+it lays out a whole busy figure and reads it in a piece. Where readings overlap, the one with the
+most letters stays, then the more confident. A short value (%, ≥2) is kept at high confidence,
+and a label without letters takes the weight of its neighbour on the same line. Words of one
+line become one `[[label]]`, sized by the lower middle of
+its words, so a word whose box took in a line or an icon beside it does not decide; shapes read
+as letters (short words of middling confidence) and icons read as signs are left out. Every label
 has `text`, its box `x y w h` and `size` and `baseline` in source pixels, `color`, `bold`,
 `erase` (paint the lettering over before tracing), `show` (set the text), `conf` (the OCR's
 confidence) and optionally `fill`, the colour to paint over with when the colour around the box

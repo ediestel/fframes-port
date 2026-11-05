@@ -119,16 +119,39 @@ pub fn ocr(picture: &RgbImage, work: &Path) -> Result<Labels, String> {
     grey_stretched(&big).save(&grey).map_err(|e| format!("{}: {e}", grey.display()))?;
     let colour = work.join("ocr_colour.png");
     big.save(&colour).map_err(|e| format!("{}: {e}", colour.display()))?;
-    let mut found = read(&grey, picture)?;
-    found.extend(read(&colour, picture)?);
+    let mut found = read(&grey, picture, (0.0, 0.0))?;
+    found.extend(read(&colour, picture, (0.0, 0.0))?);
+    // Tesseract skips lettering inside boxes and panels when it lays out a whole busy figure;
+    // it reads it in a piece of the figure. Tiles a third wide and half high, overlapping by
+    // half a tile (5 x 3), in colour and in grey.
+    let (bw, bh) = (big.width(), big.height());
+    let (tw, th) = (bw / 3, bh / 2);
+    let greyed = image::DynamicImage::ImageLuma8(grey_stretched(&big)).to_rgb8();
+    for row in 0..3 {
+        for col in 0..5 {
+            let x0 = (tw / 2 * col).min(bw - tw);
+            let y0 = (th / 2 * row).min(bh - th);
+            let origin = (x0 as f32 / OCR_SCALE as f32, y0 as f32 / OCR_SCALE as f32);
+            let tile = work.join("ocr_tile.png");
+            for source in [&big, &greyed] {
+                image::imageops::crop_imm(source, x0, y0, tw, th)
+                    .to_image()
+                    .save(&tile)
+                    .map_err(|e| format!("{}: {e}", tile.display()))?;
+                found.extend(read(&tile, picture, origin)?);
+            }
+        }
+    }
     let mut labels = merge(found);
     uniform_sizes(&mut labels);
     Ok(Labels { font: default_font(), labels })
 }
 
-/// The more confident of overlapping readings, in reading order.
+/// Of overlapping readings the one with the most letters (a tile cuts a line short), then the
+/// more confident; in reading order.
 fn merge(mut found: Vec<Label>) -> Vec<Label> {
-    found.sort_by(|a, b| b.conf.total_cmp(&a.conf).then(b.text.len().cmp(&a.text.len())));
+    let letters = |l: &Label| l.text.chars().filter(|c| c.is_alphanumeric()).count();
+    found.sort_by(|a, b| letters(b).cmp(&letters(a)).then(b.conf.total_cmp(&a.conf)));
     let mut kept: Vec<Label> = Vec::new();
     for label in found {
         let overlaps = kept.iter().any(|k| {
@@ -145,7 +168,7 @@ fn merge(mut found: Vec<Label>) -> Vec<Label> {
 }
 
 /// One tesseract reading of the enlarged picture at `input`, as labels on `picture`.
-fn read(input: &Path, picture: &RgbImage) -> Result<Vec<Label>, String> {
+fn read(input: &Path, picture: &RgbImage, origin: (f32, f32)) -> Result<Vec<Label>, String> {
     let out = Command::new("tesseract")
         .arg(input)
         .args(["-", "--psm", "11", "tsv"])
@@ -176,8 +199,8 @@ fn read(input: &Path, picture: &RgbImage) -> Result<Vec<Label>, String> {
         let n = |i: usize| c[i].parse::<f32>().unwrap_or(0.0) / OCR_SCALE as f32;
         words.push(Word {
             key: (id(2), id(3), id(4)),
-            left: n(6),
-            top: n(7),
+            left: n(6) + origin.0,
+            top: n(7) + origin.1,
             width: n(8),
             height: n(9),
             conf,
@@ -203,7 +226,7 @@ fn read(input: &Path, picture: &RgbImage) -> Result<Vec<Label>, String> {
     for mut line in lines {
         // Signs at the ends of a line are drawings next to it (a dashed arrow read as "---"),
         // and so is a single tall sign before it (a warning triangle read as "A").
-        let lettered = |w: &Word| w.text.chars().any(char::is_alphanumeric);
+        let lettered = |w: &Word| w.text.chars().any(|c| c.is_alphanumeric() || c == '%');
         while line.last().is_some_and(|w| !lettered(w)) {
             line.pop();
         }
@@ -226,7 +249,11 @@ fn read(input: &Path, picture: &RgbImage) -> Result<Vec<Label>, String> {
             .map(|w| w.text.chars().filter(|c| c.is_alphanumeric()).count())
             .max()
             .unwrap_or(0);
-        if conf < 70.0 || longest < 2 || (longest < 3 && conf < 90.0) {
+        // A short value (%, ≥2, 7d) is kept when it is read with high confidence.
+        let value = text.chars().any(|c| c.is_ascii_digit() || c == '%')
+            && text.chars().all(|c| c.is_ascii_alphanumeric() || "%≥≤<>+-–.,/ °".contains(c));
+        let short_value = value && conf >= 90.0;
+        if conf < 70.0 || (!short_value && (longest < 2 || (longest < 3 && conf < 90.0))) {
             continue;
         }
         let x = line.iter().map(|w| w.left).fold(f32::MAX, f32::min);
@@ -270,6 +297,22 @@ fn read(input: &Path, picture: &RgbImage) -> Result<Vec<Label>, String> {
 /// median size of its kind takes that median, so the lettering is even across the figure.
 /// Titles clearly larger than the rest keep their size. The baseline stays where it was read.
 fn uniform_sizes(labels: &mut [Label]) {
+    // A label without letters (%, ≥2) has no case to tell its weight: it takes the weight of
+    // the nearest lettered label on the same line, so it matches its neighbours.
+    for i in 0..labels.len() {
+        if labels[i].text.chars().any(char::is_alphabetic) {
+            continue;
+        }
+        let (b, x) = (labels[i].baseline, labels[i].x);
+        let near = labels
+            .iter()
+            .filter(|l| l.text.chars().any(char::is_alphabetic) && (l.baseline - b).abs() < 4.0)
+            .min_by(|p, q| (p.x - x).abs().total_cmp(&(q.x - x).abs()))
+            .map(|l| l.bold);
+        if let Some(bold) = near {
+            labels[i].bold = bold;
+        }
+    }
     for bold in [true, false] {
         let mut sizes: Vec<f64> = labels.iter().filter(|l| l.bold == bold).map(|l| l.size).collect();
         if sizes.is_empty() {
@@ -366,7 +409,8 @@ pub fn erase(picture: &RgbImage, labels: &Labels) -> RgbImage {
     let mut clean = picture.clone();
     for label in labels.labels.iter().filter(|l| l.erase) {
         let (x, y, w, h) = (label.x as f32, label.y as f32, label.w as f32, label.h as f32);
-        let pad = 1.5;
+        // the soft edge of bold lettering reaches past the box the OCR gives
+        let pad = 2.5;
         let bg = label
             .fill
             .as_deref()
