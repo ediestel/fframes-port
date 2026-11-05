@@ -143,6 +143,14 @@ pub fn ocr(picture: &RgbImage, work: &Path) -> Result<Labels, String> {
         }
     }
     let mut labels = merge(found);
+    // A drawing read as letters comes out far larger or smaller than the lettering of the
+    // figure ("CNC" over a person icon, "wall t" in a hatching): out it goes, before its erase
+    // would take the drawing with it.
+    let mut sizes: Vec<f64> = labels.iter().map(|l| l.size).collect();
+    sizes.sort_by(f64::total_cmp);
+    if let Some(&median) = sizes.get(sizes.len() / 2) {
+        labels.retain(|l| l.size <= 2.5 * median && l.size >= 0.45 * median);
+    }
     uniform_sizes(&mut labels);
     Ok(Labels { font: default_font(), labels })
 }
@@ -252,7 +260,8 @@ fn read(input: &Path, picture: &RgbImage, origin: (f32, f32)) -> Result<Vec<Labe
         // A short value (%, ≥2, 7d) is kept when it is read with high confidence.
         let value = text.chars().any(|c| c.is_ascii_digit() || c == '%')
             && text.chars().all(|c| c.is_ascii_alphanumeric() || "%≥≤<>+-–.,/ °".contains(c));
-        let short_value = value && conf >= 90.0;
+        // a lone digit is too often a shape; % is the one single sign kept
+        let short_value = value && conf >= 90.0 && (text.chars().count() >= 2 || text == "%");
         if conf < 70.0 || (!short_value && (longest < 2 || (longest < 3 && conf < 90.0))) {
             continue;
         }

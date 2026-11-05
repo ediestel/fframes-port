@@ -161,9 +161,9 @@ impl FigureVideo {
                 };
                 if let Some(width) = frame.text_width(ctx, query, label.text.as_str()) {
                     let room = label.w as f32 * scale;
-                    // Only a label far wider than its place shrinks; small differences stay,
-                    // so the sizes remain even.
-                    if width as f32 > 1.2 * room && width > 0 {
+                    // A label wider than its place shrinks to it (white text past the edge of
+                    // its banner disappears); a few per cent are let pass, so sizes stay even.
+                    if width as f32 > 1.05 * room && width > 0 {
                         size *= room / width as f32;
                     }
                 }
