@@ -185,8 +185,10 @@ After every change:
    shape is which.
 5. `$R onion "Intro@0..Intro@1s" -n 6` blends frames into one image (`onion.png`) to show the
    path and spacing of a movement: easing, overshoot, stagger.
-6. `$R preview Intro` opens a real-time window with sound for the user to watch (space
-   play/pause, h/l seek a second, j/k step a frame, q quit). It blocks until closed, so start
+6. `$R preview Intro` opens a real-time window with sound for the user to watch: the video
+   with a studio timeline (time ruler, scenes, film strip, audio lanes) to scrub by dragging
+   (space play/pause, h/l seek a second, j/k or ,/. step a frame, [/] previous/next scene,
+   t timeline on/off, q quit). It blocks until closed, so start
    it in the background when running it for the user. Show the command and offer to launch
    it as described above; after edits, use a specific second near the change.
 
@@ -223,7 +225,7 @@ times with commas.
 | `frame TIMES [-o dir] [--svg] [--crop x,y,w,h] [--zoom N] [--ids]` | full-size PNGs (and the laid-out SVG) of chosen frames, sharp crops, labelled elements |
 | `onion RANGE -n N` | see a movement's trajectory and easing |
 | `svg TIME` | read a frame's final SVG as text (positions, text, colors) |
-| `preview [TIME] [--paused] [--mute]` | real-time window with sound, for the user |
+| `preview [TIME] [--paused] [--mute] [--no-loop] [--software-decode] [--backend B]` | real-time window with sound and a scrubbable timeline, for the user |
 | `render [RANGE] [-o out.mp4] [--draft] [--fail-on error\|warning\|never]` | encode the video or a part of it (audio cut to match); inspects the range first and stops with exit code 2 on an error finding (`--fail-on never` skips the check) |
 | `audio analyze [RANGE] [--waveform w.png]` | loudness (LUFS), true peak, clipping, silence, per scene |
 | `audio at TIMES` | which sounds play at a moment, where in their file and how loud |

@@ -172,13 +172,13 @@ fn s01<'a>(_f: &mut Frame, _ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
 /// 2 · Heutige Anwendungen von Sprachmodellen.
 fn s02<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     let items = [
-        ("Dokumente", "Entwerfen, Zusammenfassen, Übersetzen und Extrahieren"),
-        ("Wissensarbeit", "Fragen zu Akten, Richtlinien und technischem Material"),
-        ("Kundenservice", "Antwortentwürfe und Unterstützung für Servicemitarbeitende"),
-        ("Software", "Code erzeugen, erklären und Fehler beheben"),
+        ("Dokumente", "Sprachmodelle entwerfen und übersetzen Texte, fassen sie zusammen und werten Dokumente aus."),
+        ("Wissensarbeit", "Sie beantworten Fragen zu Akten, Richtlinien und technischen Unterlagen."),
+        ("Kundenservice", "Sie formulieren Antworten vor und unterstützen Servicemitarbeiter."),
+        ("Software", "Sie schreiben und erklären Code und helfen bei der Fehlerbehebung."),
     ];
     let body = fframes::svgr!(<g>
-        {lead(t, "Sprachmodelle sind ein Teil des weiten Felds der KI.")}
+        {lead(t, "Sprachmodelle sind ein Teilgebiet der künstlichen Intelligenz.")}
         {cards4(f, ctx, t, 310.0, &items, 1.4, 1.6, BLUE)}
     </g>);
     page(t, "Heutige Anwendungen von Sprachmodellen", "NIST AI 600-1, Generative Artificial Intelligence Profile, Juli 2024.", body)
@@ -187,14 +187,14 @@ fn s02<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
 /// 3 · KI-Verbreitung und wirtschaftlicher Wert.
 fn s03<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     let body = fframes::svgr!(<g>
-        {rise_in(t, 1.2, big(f, ctx, 130.0, 420.0, 480, "88 %", "der befragten Organisationen nutzten 2025 KI", AMBER))}
-        {rise_in(t, 2.8, big(f, ctx, 690.0, 420.0, 480, "285,9 Mrd. $", "private KI-Investitionen in den USA 2025", AMBER))}
-        {rise_in(t, at("g03_2"), big(f, ctx, 1250.0, 420.0, 500, "15 %", "mehr gelöste Anliegen pro Stunde in einer Kundenservice-Studie", GREEN))}
+        {rise_in(t, 1.2, big(f, ctx, 130.0, 420.0, 480, "88 %", "der befragten Organisationen setzten 2025 KI ein", AMBER))}
+        {rise_in(t, 2.8, big(f, ctx, 690.0, 420.0, 480, "285,9 Mrd. $", "private Investitionen in KI in den USA im Jahr 2025", AMBER))}
+        {rise_in(t, at("g03_2"), big(f, ctx, 1250.0, 420.0, 500, "15 %", "mehr gelöste Anliegen pro Stunde in einer Studie im Kundenservice", GREEN))}
     </g>);
     page(
         t,
-        "KI-Verbreitung und wirtschaftlicher Wert",
-        "Verbreitung und Investitionen: Stanford AI Index 2026. Produktivität: Brynjolfsson, Li und Raymond, QJE 2025, 5.172 Servicemitarbeitende.",
+        "Verbreitung und wirtschaftlicher Nutzen von KI",
+        "Verbreitung und Investitionen: Stanford AI Index 2026. Produktivität: Brynjolfsson, Li und Raymond, QJE 2025, 5.172 Servicemitarbeiter.",
         body,
     )
 }
@@ -202,31 +202,31 @@ fn s03<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
 /// 4 · Heutige Grenzen.
 fn s04<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     let items = [
-        ("KI-Fehler", "Erfundene Fakten, Zitate oder technische Details"),
-        ("Fehlende Voraussetzungen", "Eine Antwort kann von Angaben abhängen, die die Anfrage nie enthielt"),
-        ("Kontextabhängigkeit", "Frühere Gesprächsteile können spätere Antworten beeinflussen"),
+        ("KI-Fehler", "Antworten können erfundene Fakten, Zitate oder technische Details enthalten."),
+        ("Fehlende Voraussetzungen", "Antworten können auf Angaben beruhen, die in der Anfrage nicht enthalten sind."),
+        ("Kontextabhängigkeit", "Frühere Teile eines Gesprächs können spätere Antworten beeinflussen."),
     ];
     let body = fframes::svgr!(<g>
-        {lead(t, "Eine flüssige Antwort kann eine unbelegte Aussage enthalten.")}
+        {lead(t, "Auch eine flüssig formulierte Antwort kann unbelegte Aussagen enthalten.")}
         {cards3(f, ctx, t, 330.0, 400.0, &items, 1.6, 2.4, RED)}
     </g>);
-    page(t, "Heutige Grenzen", "NIST AI 600-1, Juli 2024, Abschnitte 2.2 und 3.", body)
+    page(t, "Grenzen heutiger Sprachmodelle", "NIST AI 600-1, Juli 2024, Abschnitte 2.2 und 3.", body)
 }
 
 /// 5 · Wie Zuverlässigkeit heute erreicht wird.
 fn s05<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     let items = [
-        ("Retrieval", "Relevante Dokumente in den Kontext des Modells bringen"),
-        ("Externe Werkzeuge", "Berechnungen, Datenbanken und Softwareausführung nutzen"),
-        ("Validierung", "Ausgaben testen und Zitate an ihren Quellen prüfen"),
-        ("Fachliche Prüfung", "Fachliches Urteil vor einer folgenreichen Verwendung"),
+        ("Retrieval", "Dem Modell werden die für die Anfrage relevanten Dokumente bereitgestellt."),
+        ("Externe Werkzeuge", "Rechenprogramme, Datenbanken und andere Software werden eingebunden."),
+        ("Validierung", "Ausgaben werden getestet und Zitate anhand ihrer Quellen geprüft."),
+        ("Fachliche Prüfung", "Fachleute beurteilen das Ergebnis, bevor es verwendet wird."),
     ];
     let body = cards4(f, ctx, t, 258.0, &items, 1.4, 1.6, BLUE);
-    page(t, "Wie Zuverlässigkeit heute erreicht wird", "NIST AI 600-1, Generative Artificial Intelligence Profile, Juli 2024, Abschnitte 2.2 und 3.", body)
+    page(t, "Wie Zuverlässigkeit heute erreicht werden soll", "NIST AI 600-1, Generative Artificial Intelligence Profile, Juli 2024, Abschnitte 2.2 und 3.", body)
 }
 
-/// 6 · AMDG Engineers: alle Schritte und Prüfungen in der Schleife über jede
-/// Aussage; der Beweis ist die Antwort.
+/// 6 · AMDG-Modulation: das Prinzip einmal, dann wie (Abzeichen, Schleife),
+/// wann, warum, Wirkung und Nachweis je einmal.
 fn s06<'a>(_f: &mut Frame, _ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     // die Schleife läuft über die fünf Aussagen und entscheidet über jede
     let t_loop = at("g06_2");
@@ -272,32 +272,42 @@ fn s06<'a>(_f: &mut Frame, _ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
             <circle cx={x0 + k * span} cy="558" r="6" fill={VIOLET} />
         </g>),
     );
+    // Zeitpunkt, Zweck, Wirkung, Nachweis: je ein Satz
+    let rows = [
+        ("Zeitpunkt", "Die Beurteilung ist abgeschlossen, bevor die Antwort fachlich durchgesehen wird.", at("g06_2") + 1.0, VIOLET),
+        ("Zweck", "Unbelegte Aussagen fallen in einer flüssig formulierten Antwort sonst nicht auf.", at("g06_3"), AMBER),
+        ("Wirkung", "Die Durchsicht beginnt bei den offenen Aussagen, statt jeden Satz neu zu prüfen.", at("g06_3") + 8.0, GREEN),
+        ("Nachweis", "Die Leistungsfähigkeit lässt sich an den Ergebnissen, also an den Antworten, nachweisen.", at("g06_4"), GREEN),
+    ];
+    let mut facts = Vec::new();
+    for (i, (label, s, at_i, color)) in rows.iter().enumerate() {
+        let y = 724.0 + i as f32 * 38.0;
+        facts.push(rise_in(t, *at_i, fframes::svgr!(<g>
+            {text(130.0, y, 24.0, 500, color, "start", label)}
+            {text(290.0, y, 24.0, 400, INK, "start", s)}
+        </g>)));
+    }
     let body = fframes::svgr!(<g>
-        {lead(t, "Der Kern jeder Antwort ist die kritische Prüfung jeder einzelnen Aussage.")}
-        {rise_in(t, at("g06_1") + 0.6, badge(130.0, 330.0, "PROPRIETÄRE MODULATION EINES FÜHRENDEN SPRACHMODELLS", VIOLET, VIOLET_BG, 18.0))}
+        {lead(t, "Prüfungen, die andere außerhalb des Sprachmodells vornehmen, erledigt AMDG Engineers innerhalb einer Modulation.")}
+        {rise_in(t, at("g06_1") + 0.6, badge(130.0, 330.0, "PROPRIETÄRES VERFAHREN · FÜHRENDES SPRACHMODELL", VIOLET, VIOLET_BG, 18.0))}
         {rise_in(t, at("g06_1") + 3.0, badge(130.0, 384.0, "DAS ZUGRUNDE LIEGENDE MODELL BLEIBT UNVERÄNDERT", BLUE, BLUE_BG, 18.0))}
         {rise_in(t, t_loop, fframes::svgr!(<g>
             {card(130.0, 436.0, 1660.0, 236.0, Some(VIOLET), PANEL, LINE)}
-            {text(166.0, 488.0, 28.0, 500, VIOLET, "start", "Die Schleife über jede Aussage")}
-            {text(166.0, 530.0, 24.0, 400, INK, "start", "Alle notwendigen Schritte und Prüfungen sind in die Modulation integriert.")}
+            {text(166.0, 488.0, 28.0, 500, VIOLET, "start", "Jede Aussage wird einzeln beurteilt")}
             {chips}
             {scan}
         </g>))}
-        {rise_in(t, at("g06_3"), fframes::svgr!(<g>
-            {check(150.0, 734.0, 20.0, prog(t, at("g06_3") + 0.3, at("g06_3") + 1.0), GREEN)}
-            {text(190.0, 748.0, 40.0, 500, GREEN, "start", "Der Beweis für die Qualität der Leistung von AMDG Engineers ist die Antwort selbst.")}
-        </g>))}
-        {rise_in(t, at("g06_4"), text(190.0, 800.0, 26.0, 400, MUTED, "start", "Beurteilt an der Qualität der Antwort."))}
+        {facts}
     </g>);
-    page(t, "AMDG Engineers", "AMDG-Quelle: Eckhart Diestel, Broschüre, November 2026.", body)
+    page(t, "AMDG-Modulation", "AMDG-Quelle: Eckhart Diestel, Broschüre, November 2026.", body)
 }
 
 /// 7 · Eine Anfrage mit interner Prüfung.
 fn s07<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     let boxes = [
         ("Eine Anfrage", "", BLUE, 1.0),
-        ("Die Modulationsschleife", "Jede Aussage wird geprüft · offene Aussagen bleiben gekennzeichnet", VIOLET, at("g07_2")),
-        ("Eine abschließende Antwort", "Mit Urteil und Kommentar zu jeder Aussage", GREEN, at("g07_2") + 5.0),
+        ("Modulierte Antwort", "Jede Aussage der Antwort wird beurteilt; was offen bleibt, wird gekennzeichnet.", VIOLET, at("g07_2")),
+        ("Die abschließende Antwort", "In der Antwort steht zu jeder Aussage das Urteil und ein Kommentar, der es begründet.", GREEN, at("g07_2") + 5.0),
     ];
     let mut out = Vec::new();
     for (i, (title, body, color, at_i)) in boxes.iter().enumerate() {
@@ -325,8 +335,8 @@ fn s07<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     );
     page(
         t,
-        "Beispiel: So bearbeitet AMDG Engineers eine Anfrage",
-        "Die Seite beschreibt die Leistung des Dienstes, nicht seine Umsetzung.",
+        "Beispiel: Wie AMDG Engineers eine Anfrage bearbeitet",
+        "Beschrieben wird, was der Dienst leistet, nicht, wie er umgesetzt ist.",
         fframes::svgr!(<g>{out}{ring}</g>),
     )
 }
@@ -334,13 +344,13 @@ fn s07<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
 /// 8 · Was der Leser erhält.
 fn s08<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     let rows: [&[&str]; 4] = [
-        &["Belegt", "Die vollständigen Aussagen und ihre Prüfung"],
-        &["Fehlende Bestandteile", "Die Mängel und was fehlt"],
+        &["Belegt", "Die belegten Aussagen und ihre Prüfung"],
+        &["Fehlende Bestandteile", "Die Mängel und die fehlenden Angaben"],
         &["Offen", "Die ungeklärten Punkte und was noch zu prüfen ist"],
-        &["Außerhalb des Umfangs", "Die Grenzen dessen, was das System prüfen kann"],
+        &["Außerhalb des Prüfumfangs", "Die Grenzen dessen, was das System prüfen kann"],
     ];
     let tab = table(f, ctx, t, 258.0, &[(160.0, 560.0), (760.0, 1000.0)], &["Ergebnis der Prüfung", "Was in der Antwort steht"], &rows, 30, 1.6, 1.4);
-    let note = rise_in(t, 9.0, text(160.0, 790.0, 28.0, 500, GREEN, "start", "Jede Aussage trägt ihr Ergebnis und ihren Kommentar."));
+    let note = rise_in(t, 9.0, text(160.0, 790.0, 28.0, 500, GREEN, "start", "In der Antwort steht bei jeder Aussage das Ergebnis der Prüfung und ein Kommentar, der es begründet."));
     page(t, "Was der Leser erhält", "AMDG-Quelle: Eckhart Diestel, Broschüre, November 2026.", fframes::svgr!(<g>{tab}{note}</g>))
 }
 
@@ -375,22 +385,22 @@ fn s09<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     }
     let body = fframes::svgr!(<g>
         {tiles}
-        {rise_in(t, at("g09_2"), text(160.0, 760.0, 30.0, 500, GREEN, "start", "Jedes Detail einer Antwort hat Konsequenzen."))}
+        {rise_in(t, at("g09_2"), text(160.0, 760.0, 30.0, 500, GREEN, "start", "In diesen Bereichen kann jedes Detail einer Antwort Folgen haben."))}
     </g>);
-    page(t, "„High-Stakes-Domänen“", "Von AMDG beschriebene Einsatzfelder, keine abgeschlossenen Einführungen oder Zertifizierungen.", body)
+    page(t, "„High-Stakes-Domänen“", "Auswahl von Bereichen; keine abgeschlossenen Einführungen oder Zertifizierungen.", body)
 }
 
 /// 10 · Das Prüfprotokoll: ein Auszug aus dem Test mit einem Begehungsbericht,
 /// ins Deutsche übertragen.
 fn s10<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     let established = [
-        "Der Text gibt an, dass die Dachinspektion am 3. März 2026 stattfand.",
-        "Der Text gibt an, dass Mosers Bericht die Inspektion vom 5. März 2026 festhält.",
-        "Der Text gibt an, dass der Eigentümer den Bericht am 9. März 2026 annahm.",
+        "Laut Text fand die Dachinspektion am 3. März 2026 statt.",
+        "Laut Text hält Mosers Bericht die Inspektion vom 5. März 2026 fest.",
+        "Laut Text nahm der Eigentümer den Bericht am 9. März 2026 an.",
     ];
     let open = [
-        "Er belegt kein einheitliches Datum der Inspektion.",
-        "Er belegt nicht, dass der vorgelegte Text Mosers Bericht ist.",
+        "Ein eindeutiges Datum der Inspektion ist nicht belegt.",
+        "Nicht belegt ist, dass der vorgelegte Text Mosers Bericht ist.",
     ];
     let a2 = at("g10_2");
     let mut items = Vec::new();
@@ -416,14 +426,14 @@ fn s10<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
         a2,
         fframes::svgr!(<g>
             {card(130.0, 258.0, 1000.0, 520.0, Some(GREEN), PANEL, LINE)}
-            {mono(166.0, 304.0, 16.0, GREEN, "start", "BEISPIEL · BEGEHUNGSBERICHT · GROK-4.7+MODULATION · ÜBERTRAGEN")}
+            {mono(166.0, 304.0, 16.0, GREEN, "start", "BEISPIEL · BEGEHUNGSBERICHT · GROK-4.7+MODULATION · ÜBERSETZT")}
             {text(166.0, 344.0, 20.0, 500, MUTED, "start", "belegt")}
-            {text(166.0, 548.0, 20.0, 500, MUTED, "start", "als nicht belegt benannt")}
+            {text(166.0, 548.0, 20.0, 500, MUTED, "start", "nicht belegt")}
             {items}
         </g>),
     );
     let side = [
-        ("Präzision", "Das Urteil gilt der einzelnen Aussage."),
+        ("Präzision", "Jedes Urteil bezieht sich auf eine einzelne Aussage."),
         ("Verantwortlichkeit", "Das Protokoll weist belegte und offene Aussagen aus."),
         ("Prüfung", "Der Leser sieht, was noch zu prüfen ist."),
     ];
@@ -439,7 +449,7 @@ fn s10<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     page(
         t,
         "Beispiel: Das Prüfprotokoll",
-        "Beispiel aus dem Begehungsbericht-Test der Paarvergleiche vom 3. November 2026, ins Deutsche übertragen.",
+        "Beispiel aus dem Begehungsbericht-Test der Paarvergleiche vom 3. November 2026, ins Deutsche übersetzt.",
         fframes::svgr!(<g>{cards}{excerpt}</g>),
     )
 }
@@ -495,10 +505,13 @@ fn s13<'a>(_f: &mut Frame, _ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     let rule = enter(t, 1.4, 0.9);
     let pre = enter(t, 2.0, 0.8);
     fframes::svgr!(<g>
-        <g opacity={c1} transform={tr(0.0, (1.0 - c1) * 24.0)}>{text(960.0, 470.0, 84.0, 500, AMBER, "middle", "Jede Aussage trägt ihr Urteil.")}</g>
-        <rect x={960.0 - 110.0 * rule} y="560" width={(220.0 * rule).max(0.5)} height="4" rx="2" fill="url(#amberBar)" opacity={rule} />
+        <g opacity={c1} transform={tr(0.0, (1.0 - c1) * 24.0)}>
+            {text(960.0, 400.0, 84.0, 500, AMBER, "middle", "AMDG-Modulation:")}
+            {text(960.0, 510.0, 84.0, 500, AMBER, "middle", "Jede Aussage wird einzeln beurteilt.")}
+        </g>
+        <rect x={960.0 - 110.0 * rule} y="590" width={(220.0 * rule).max(0.5)} height="4" rx="2" fill="url(#amberBar)" opacity={rule} />
         <g opacity={pre} transform={tr(0.0, (1.0 - pre) * 16.0)}>
-            <text x="960" y="650" font-family={SANS} font-size="32" font-weight="400" fill={MUTED} text-anchor="middle">"Präsentiert von "<tspan font-weight="500" fill={INK}>"AMDG Engineers"</tspan></text>
+            <text x="960" y="680" font-family={SANS} font-size="32" font-weight="400" fill={MUTED} text-anchor="middle">"Präsentiert von "<tspan font-weight="500" fill={INK}>"AMDG Engineers"</tspan></text>
         </g>
     </g>)
 }

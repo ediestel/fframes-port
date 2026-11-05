@@ -504,6 +504,7 @@ lets scenes cross-fade; `ctx.get_scene_info(&scene)` gives the resolved frame ra
 let Some(video_frame) = frame.get_synced_video_frame(ctx, "clip.mp4", &fframes::SyncVideoFrameInput {
     start_from: 0.,
     looping: false,
+    speed: 1.5, // 1.5x from start_from on; 0.5 for slow motion, default 1.0
     editor_fallback_image: ctx.get_image("clip_poster.jpg"),
 }) else { return Svgr::empty() };
 let image = video_frame.into_image(); // <image href={image.href()} .../>
@@ -870,7 +871,7 @@ See `examples/teej-podcast/src/main.rs`; `cargo fframes new` generates the same 
 | `timeline` | size, fps, scenes with frame and second ranges, audio tracks |
 | `inspect [RANGE] [--every 0.25s] [--pops]` | missing media/fonts/glyphs, text cut by the canvas edge, NaN transforms, panics, and the video's own checks (`fframes::diagnostics::error("name", detail)` / `::warning` called in `render_frame`, grouped by name across frames); exit code 2 on errors. `--pops` also renders every frame small and warns about pops: parts that change in one frame between still frames (an element appearing, vanishing or jumping in front of another) |
 | `audio render/analyze/at` | WAV of the mix, loudness report and waveform, tracks playing at a time |
-| `preview [TIME] [--paused] [--mute]` | real-time GPU window (`fframes_native_player`), blocks until closed |
+| `preview [TIME] [--paused] [--mute] [--no-loop] [--software-decode] [--backend B]` | real-time GPU window (`fframes_native_player`) with a studio timeline below the video (left of portrait videos): time ruler, scenes, film strip and audio lanes; drag to scrub, click a scene to jump to it, `[`/`]` previous/next scene, `,`/`.` one frame, `t` timeline on/off; blocks until closed |
 
 Global flags: `--json` (one JSON document on stdout, JSON progress events on stderr),
 `--scale 0.5`, `--renderer cpu|skia-cpu|gpu` (another backend for this run, see below).

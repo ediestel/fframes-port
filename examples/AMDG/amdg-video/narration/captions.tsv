@@ -1,21 +1,21 @@
-g01_1	Künstliche Intelligenz ist bereits Teil professioneller Arbeit. Ihr wirtschaftlicher Wert ist messbar; ihre sachliche Zuverlässigkeit bleibt ein zentrales technisches Problem.
-g02_1	Sprachmodelle entwerfen und fassen Dokumente zusammen, beantworten Fragen zu internem Material, unterstützen Servicemitarbeitende und schreiben Code.
-g02_2	Die Anwendungen reichen von leicht prüfbarer Arbeit bis zu Entscheidungen, bei denen eine einzige unbelegte Aussage schwere Folgen hat.
-g03_1	2025 nutzten 88 Prozent der befragten Organisationen KI; die privaten KI-Investitionen in den USA erreichten 285,9 Milliarden Dollar.
-g03_2	In einer Studie mit 5.172 Servicemitarbeitenden stieg die Zahl der gelösten Anliegen pro Stunde im Mittel um 15 Prozent.
-g04_1	Die zentrale Grenze: Eine flüssige Antwort kann eine unbelegte Aussage enthalten, eine erfundene Tatsache, ein erfundenes Zitat oder ein technisches Detail.
-g04_2	Eine Antwort kann von Angaben abhängen, die die Anfrage nie enthielt, und frühere Gesprächsteile können spätere Antworten beeinflussen.
-g05_1	Heute wird Zuverlässigkeit über Retrieval, externe Werkzeuge, die Validierung von Ausgaben und Zitaten und die fachliche Prüfung angestrebt.
-g06_0	Der Kern jeder Antwort ist die kritische Prüfung jeder einzelnen Aussage.
-g06_1	AMDG Engineers nutzt eine proprietäre Modulation eines führenden Sprachmodells; das zugrunde liegende Modell bleibt unverändert.
-g06_2	Alle notwendigen Schritte und Prüfungen sind in die Modulation integriert: in die Schleife, die über jede Aussage läuft und über sie entscheidet.
-g06_3	Der Beweis für die Qualität der Leistung von AMDG Engineers ist die Antwort selbst. Anders lässt es sich nicht beweisen, und anders muss es nicht bewiesen werden.
-g06_4	Beurteilt wird es an der Qualität der Antwort.
-g07_1	Ein Beispiel dafür, wie AMDG Engineers eine Anfrage bearbeitet.
-g07_2	Innerhalb der Anfrage prüft die Modulationsschleife jede Aussage; offene Aussagen bleiben gekennzeichnet. Die abschließende Antwort trägt zu jeder Aussage ein Urteil und einen Kommentar.
-g08_1	Der Leser erhält die Aussagen mit ihren Ergebnissen: belegt, mit fehlenden Bestandteilen, offen oder außerhalb dessen, was das System prüfen kann.
-g09_1	„High-Stakes-Domänen“ sind Bereiche, in denen äußerst viel von der Verlässlichkeit von Daten und Informationen abhängt.
-g09_2	Jedes Detail einer Antwort hat Konsequenzen.
-g10_1	Die abschließende Antwort ist ein Prüfprotokoll: Das Urteil gilt der einzelnen Aussage.
-g10_2	Ein Beispiel aus dem Test mit einem Begehungsbericht: Was der Text angibt, ist belegt; was er nicht belegt, wird benannt.
+g01_1	Künstliche Intelligenz gehört längst zum Berufsalltag. Ihr wirtschaftlicher Nutzen lässt sich messen; die sachliche Richtigkeit ihrer Aussagen ist jedoch nach wie vor ein zentrales technisches Problem.
+g02_1	Sprachmodelle verfassen Texte und fassen Dokumente zusammen, beantworten Fragen zu internen Unterlagen, helfen im Kundenservice und schreiben Programmcode.
+g02_2	Die Einsatzgebiete reichen von leicht überprüfbaren Arbeiten bis zu Entscheidungen, bei denen schon eine einzige unbelegte Aussage schwere Folgen hat.
+g03_1	2025 setzten 88 Prozent der befragten Organisationen KI ein; die privaten Investitionen in KI beliefen sich in den USA auf 285,9 Milliarden Dollar.
+g03_2	In einer Studie mit 5.172 Servicemitarbeitern lösten diese mit KI-Unterstützung im Schnitt 15 Prozent mehr Anliegen pro Stunde.
+g04_1	Die wichtigste Grenze besteht darin, dass auch eine flüssig formulierte Antwort unbelegte Aussagen enthalten kann, etwa erfundene Tatsachen, Zitate oder technische Details.
+g04_2	Eine Antwort kann auf Angaben beruhen, die in der Anfrage gar nicht enthalten waren, und frühere Teile eines Gesprächs können spätere Antworten beeinflussen.
+g05_1	Heute versucht man, Zuverlässigkeit auf mehreren Wegen zu erreichen, nämlich mit Retrieval, mit externen Werkzeugen, durch die Validierung von Ausgaben und Zitaten sowie durch fachliche Prüfung.
+g06_0	Prüfungen, die andere Lösungen außerhalb des Sprachmodells vornehmen, erledigt AMDG Engineers innerhalb einer Modulation.
+g06_1	Grundlage ist ein führendes Sprachmodell, das AMDG Engineers mit einem proprietären Verfahren betreibt, ohne das Modell selbst zu verändern.
+g06_2	Die Modulation geht die Aussagen der Antwort nacheinander durch und beurteilt jede einzelne; erst danach wird die Antwort fachlich durchgesehen.
+g06_3	Weil eine unbelegte Aussage in einer flüssig formulierten Antwort sonst nicht auffällt, wird für jede Aussage ausgewiesen, ob sie belegt ist oder offen bleibt. Die fachliche Durchsicht kann deshalb bei den offenen Aussagen beginnen, statt jeden Satz neu zu prüfen.
+g06_4	Die Leistungsfähigkeit des Verfahrens lässt sich an seinen Ergebnissen nachweisen, also an den Antworten selbst.
+g07_1	Das folgende Beispiel zeigt, wie AMDG Engineers eine Anfrage bearbeitet.
+g07_2	Auf die Anfrage hin entsteht eine modulierte Antwort: Jede ihrer Aussagen wird beurteilt, und was offen bleibt, wird gekennzeichnet. In der abschließenden Antwort steht zu jeder Aussage das Urteil und ein Kommentar, der dieses Urteil begründet.
+g08_1	Der Leser erhält alle Aussagen mit ihrem jeweiligen Ergebnis: belegt, mit fehlenden Bestandteilen, offen oder außerhalb des Prüfumfangs.
+g09_1	„High-Stakes-Domänen“ sind Bereiche, in denen sehr viel davon abhängt, dass Daten und Informationen verlässlich sind.
+g09_2	In diesen Bereichen kann jedes Detail einer Antwort Folgen haben.
+g10_1	Die abschließende Antwort ist ein Prüfprotokoll, in dem sich jedes Urteil auf eine einzelne Aussage bezieht.
+g10_2	Das folgende Beispiel stammt aus einem Test mit einem Begehungsbericht. Was im Text steht, gilt als belegt; was der Text nicht belegt, wird ausdrücklich benannt.
 g11_1	Die externen Quellen wurden am 3. November 2026 abgerufen.
