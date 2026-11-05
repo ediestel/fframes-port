@@ -3,19 +3,25 @@ g02_1	Sprachmodelle verfassen Texte und fassen Dokumente zusammen, beantworten F
 g02_2	Die Einsatzgebiete reichen von leicht überprüfbaren Arbeiten bis zu Entscheidungen, bei denen schon eine einzige unbelegte Aussage schwere Folgen hat.
 g03_1	2025 setzten 88 Prozent der befragten Organisationen KI ein; die privaten Investitionen in KI beliefen sich in den USA auf 285,9 Milliarden Dollar.
 g03_2	In einer Studie mit 5.172 Servicemitarbeitern lösten diese mit KI-Unterstützung im Schnitt 15 Prozent mehr Anliegen pro Stunde.
+g03b_1	Wenn die Nacharbeit an KI-Ergebnissen entfällt, gewinnt jede Fachkraft bis zu 4,5 Stunden pro Woche zurück, und die 37 Prozent der durch KI gewonnenen Zeit, die heute verloren gehen, bleiben erhalten.
+g03b_2	Weltweit kann generative KI nach Schätzung von McKinsey jährlich 2,6 bis 4,4 Billionen Dollar an Wertschöpfung erbringen. Davon gehen heute rund 37 Prozent, also 1,0 bis 1,6 Billionen Dollar, für die Schadensbegrenzung durch Nacharbeit verloren; validierte KI verringert diesen Aufwand ganz erheblich.
+g03c_1	Juristische Recherchesysteme wie Lexis+ AI lieferten im Test der Stanford University bei mehr als 17 Prozent der Anfragen falsche Angaben. Steigt beim Medizinischen Dienst der Anteil der zu Recht geminderten Krankenhausrechnungen um einen Prozentpunkt, ergibt das rechnerisch 25,3 Millionen Euro im Jahr. Heute stehen je Fall im Schnitt rund 77 Minuten gutachterliche Arbeitszeit zur Verfügung, zu wenig für eine eingehende Prüfung; mit der AMDG-Modulation wird sie mit demselben Personal möglich.
+g03c_2	Alle Institutionen in High-Risk-Domänen können mit der AMDG-Modulation erhebliche Kosten einsparen; weltweit wäre die Wirkung enorm.
 g04_1	Die wichtigste Grenze besteht darin, dass auch eine flüssig formulierte Antwort unbelegte Aussagen enthalten kann, etwa erfundene Tatsachen, Zitate oder technische Details.
 g04_2	Eine Antwort kann auf Angaben beruhen, die in der Anfrage gar nicht enthalten waren, und frühere Teile eines Gesprächs können spätere Antworten beeinflussen.
 g05_1	Heute versucht man, Zuverlässigkeit auf mehreren Wegen zu erreichen, nämlich mit Retrieval, mit externen Werkzeugen, durch die Validierung von Ausgaben und Zitaten sowie durch fachliche Prüfung.
 g06_0	Prüfungen, die andere Lösungen außerhalb des Sprachmodells vornehmen, erledigt AMDG Engineers innerhalb einer Modulation.
-g06_1	Grundlage ist ein führendes Sprachmodell, das AMDG Engineers mit einem proprietären Verfahren betreibt, ohne das Modell selbst zu verändern.
-g06_2	Die Modulation geht die Aussagen der Antwort nacheinander durch und beurteilt jede einzelne; erst danach wird die Antwort fachlich durchgesehen.
-g06_3	Weil eine unbelegte Aussage in einer flüssig formulierten Antwort sonst nicht auffällt, wird für jede Aussage ausgewiesen, ob sie belegt ist oder offen bleibt. Die fachliche Durchsicht kann deshalb bei den offenen Aussagen beginnen, statt jeden Satz neu zu prüfen.
-g06_4	Die Leistungsfähigkeit des Verfahrens lässt sich an seinen Ergebnissen nachweisen, also an den Antworten selbst.
+g06_1	Führende Sprachmodelle werden zur Bearbeitung der Aufgaben verwendet.
+g06_2	Die Modulation geht die Aussagen der Antwort nacheinander durch und beurteilt jede einzelne. Alle Kernaussagen sind für den Leser erkennbar gekennzeichnet.
+g06_3	Auch Aussagen, die von der Modulation nicht gesondert geprüft worden sind, sind als solche erkennbar. Die Fachkraft kann gekennzeichnete Aussagen gezielt überprüfen.
+g06_4	Die Leistungsfähigkeit der AMDG-Modulation lässt sich an der Qualität der gelieferten Antworten nachweisen.
 g07_1	Das folgende Beispiel zeigt, wie AMDG Engineers eine Anfrage bearbeitet.
-g07_2	Auf die Anfrage hin entsteht eine modulierte Antwort: Jede ihrer Aussagen wird beurteilt, und was offen bleibt, wird gekennzeichnet. In der abschließenden Antwort steht zu jeder Aussage das Urteil und ein Kommentar, der dieses Urteil begründet.
-g08_1	Der Leser erhält alle Aussagen mit ihrem jeweiligen Ergebnis: belegt, mit fehlenden Bestandteilen, offen oder außerhalb des Prüfumfangs.
+g07_2	Jede Anfrage wird für sich bearbeitet, nicht als Teil eines Gesprächs. Deshalb beeinflusst oder verändert ein Gesprächsverlauf die Antwort nicht.
+g07_3	Die Modulation entfernt KI-Fehler aus der Antwort und kennzeichnet, was offen bleibt. In der abschließenden Antwort steht zu jeder Aussage das Urteil und ein Kommentar, der es begründet.
+g07_4	Drift und Halluzinationen können auf diese Art in den Antworten vermieden werden.
 g09_1	„High-Stakes-Domänen“ sind Bereiche, in denen sehr viel davon abhängt, dass Daten und Informationen verlässlich sind.
 g09_2	In diesen Bereichen kann jedes Detail einer Antwort Folgen haben.
+g09_3	Die AMDG-Modulation bietet hier entscheidende Vorteile.
 g10_1	Die abschließende Antwort ist ein Prüfprotokoll, in dem sich jedes Urteil auf eine einzelne Aussage bezieht.
 g10_2	Das folgende Beispiel stammt aus einem Test mit einem Begehungsbericht. Was im Text steht, gilt als belegt; was der Text nicht belegt, wird ausdrücklich benannt.
-g11_1	Die externen Quellen wurden am 3. November 2026 abgerufen.
+g11_1	Die externen Quellen wurden am 3. und 5. November 2026 abgerufen.

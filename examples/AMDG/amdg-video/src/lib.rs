@@ -6,6 +6,7 @@
 //! sind nicht enthalten.
 
 pub mod narration;
+pub mod qr;
 pub mod scenes;
 pub mod ui;
 
@@ -19,7 +20,7 @@ include_media_dir!(pub struct AmdgMedia, "examples/AMDG/amdg-video/media");
 pub const FPS: usize = 30;
 pub const WIDTH: usize = 1920;
 pub const HEIGHT: usize = 1080;
-pub const N: usize = 13;
+pub const N: usize = 15;
 
 pub const NAMES: [&str; N] = [
     "Einleitung",
@@ -29,10 +30,12 @@ pub const NAMES: [&str; N] = [
     "Zuverlässigkeit heute",
     "AMDG-Modulation",
     "Beispiel: eine Anfrage",
+    "Beispiel eines Prüfprotokolls",
     "Was der Leser erhält",
-    "High-Stakes-Domänen",
-    "Beispiel: Prüfprotokoll",
-    "Warum AMDG Engineers",
+    "High-Risk-Domänen und AMDG",
+    "Wirtschaftlicher Nutzen der AMDG-Modulation",
+    "Beispiele aus High-Risk-Domänen",
+    "AMDG Engineers",
     "Quellen",
     "Abschluss",
 ];
