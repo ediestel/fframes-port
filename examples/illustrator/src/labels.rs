@@ -108,16 +108,46 @@ struct Word {
 const OCR_SCALE: u32 = 3;
 
 /// The lines of lettering in `picture`, with box, size, colour and weight. `work` is a
-/// folder for the enlarged picture tesseract reads.
+/// folder for the enlarged pictures tesseract reads.
+///
+/// Two readings, merged: the picture in grey with the contrast stretched (coloured and
+/// white-on-colour lettering) and in colour (thin dark lettering the stretch blurs). Where two
+/// readings overlap, the more confident one stays.
 pub fn ocr(picture: &RgbImage, work: &Path) -> Result<Labels, String> {
-    // Grey, with the contrast stretched: coloured and white-on-colour lettering reads as well
-    // as black on white.
-    let input = work.join("ocr_input.png");
-    grey_stretched(&fframes_vector::upscale(picture, OCR_SCALE))
-        .save(&input)
-        .map_err(|e| format!("{}: {e}", input.display()))?;
+    let big = fframes_vector::upscale(picture, OCR_SCALE);
+    let grey = work.join("ocr_input.png");
+    grey_stretched(&big).save(&grey).map_err(|e| format!("{}: {e}", grey.display()))?;
+    let colour = work.join("ocr_colour.png");
+    big.save(&colour).map_err(|e| format!("{}: {e}", colour.display()))?;
+    let mut found = read(&grey, picture)?;
+    found.extend(read(&colour, picture)?);
+    let mut labels = merge(found);
+    uniform_sizes(&mut labels);
+    Ok(Labels { font: default_font(), labels })
+}
+
+/// The more confident of overlapping readings, in reading order.
+fn merge(mut found: Vec<Label>) -> Vec<Label> {
+    found.sort_by(|a, b| b.conf.total_cmp(&a.conf).then(b.text.len().cmp(&a.text.len())));
+    let mut kept: Vec<Label> = Vec::new();
+    for label in found {
+        let overlaps = kept.iter().any(|k| {
+            let w = (label.x + label.w).min(k.x + k.w) - label.x.max(k.x);
+            let h = (label.y + label.h).min(k.y + k.h) - label.y.max(k.y);
+            w > 0.0 && h > 0.0 && w * h > 0.3 * (label.w * label.h).min(k.w * k.h)
+        });
+        if !overlaps {
+            kept.push(label);
+        }
+    }
+    kept.sort_by(|a, b| (a.y.round(), a.x).partial_cmp(&(b.y.round(), b.x)).unwrap_or(std::cmp::Ordering::Equal));
+    kept
+}
+
+/// One tesseract reading of the enlarged picture at `input`, as labels on `picture`.
+fn read(input: &Path, picture: &RgbImage) -> Result<Vec<Label>, String> {
     let out = Command::new("tesseract")
-        .arg(&input)
+        .arg(input)
         .args(["-", "--psm", "11", "tsv"])
         .output()
         .map_err(|e| format!("tesseract: {e} (install it: brew install tesseract)"))?;
@@ -200,11 +230,19 @@ pub fn ocr(picture: &RgbImage, work: &Path) -> Result<Labels, String> {
             continue;
         }
         let x = line.iter().map(|w| w.left).fold(f32::MAX, f32::min);
-        let y = line.iter().map(|w| w.top).fold(f32::MAX, f32::min);
         let right = line.iter().map(|w| w.left + w.width).fold(0.0, f32::max);
-        let bottom = line.iter().map(|w| w.top + w.height).fold(0.0, f32::max);
+        // Size and baseline by word, the lower middle of them: a word whose box took in a line
+        // or an icon beside it reads too large and does not decide. The box is then clipped to
+        // the lettering at that size, so erasing leaves the line or icon alone.
+        let mut estimates: Vec<(f32, f32)> =
+            line.iter().map(|w| size_and_baseline(&w.text, w.top, w.height)).collect();
+        estimates.sort_by(|a, b| a.0.total_cmp(&b.0));
+        let (size, baseline) = estimates[(estimates.len() - 1) / 2];
+        let top = line.iter().map(|w| w.top).fold(f32::MAX, f32::min);
+        let low = line.iter().map(|w| w.top + w.height).fold(0.0, f32::max);
+        let y = top.max(baseline - 0.8 * size);
+        let bottom = low.min(baseline + 0.3 * size);
         let (w, h) = (right - x, bottom - y);
-        let (size, baseline) = size_and_baseline(&text, y, h);
         let color = ink(picture, x, y, w, h);
         // One rule for the whole book: headings in capitals are bold, the rest medium.
         let bold = text.chars().filter(|c| c.is_alphabetic()).count() >= 2
@@ -225,8 +263,7 @@ pub fn ocr(picture: &RgbImage, work: &Path) -> Result<Labels, String> {
             fill: None,
         });
     }
-    uniform_sizes(&mut labels);
-    Ok(Labels { font: default_font(), labels })
+    Ok(labels)
 }
 
 /// One size for the headings and one for the rest: every label within a quarter of the
