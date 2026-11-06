@@ -1,5 +1,5 @@
 //! The captions of the AMDG film: one sentence per cue (`narration/captions.tsv`), no voice.
-//! Each sentence stays up for its reading time (about 15 characters a
+//! Each sentence stays up for its reading time (about 20 characters a
 //! second, at least 3 s) and starts at its cue or just after the sentence
 //! before it, whichever is later. Scenes ask `at(id)` when a sentence starts,
 //! so their motion follows the captions. Captions show at most two lines.
@@ -11,13 +11,13 @@ use fframes::{FFramesContext, FontQuery, Frame, Svgr};
 use crate::ui::*;
 
 /// Start of every scene in seconds.
-pub const SCENE_START: [f32; 15] = [0.0, 16.0, 39.0, 61.0, 85.0, 105.0, 162.0, 197.0, 221.0, 243.0, 263.0, 296.0, 338.0, 362.0, 378.0];
-pub const TOTAL: f32 = 390.0;
+pub const SCENE_START: [f32; 15] = [0.0, 13.0, 31.0, 48.0, 67.0, 84.0, 131.0, 158.0, 178.0, 194.0, 210.0, 235.0, 267.0, 287.0, 302.0];
+pub const TOTAL: f32 = 314.0;
 
 const CAPTIONS_TSV: &str = include_str!("../narration/captions.tsv");
 
 /// Characters read per second.
-const READ_CPS: f32 = 15.0;
+const READ_CPS: f32 = 20.0;
 
 /// (caption id, scene, cue in seconds into the scene)
 const CUES: &[(&str, usize, f32)] = &[
