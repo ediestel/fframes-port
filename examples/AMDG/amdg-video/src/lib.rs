@@ -1,7 +1,7 @@
 //! "KI und Sprachmodelle in der professionellen Arbeit": Video nach der
 //! Präsentation `examples/AMDG/AMDG_Engineers.pptx` (November 2026), auf
 //! Deutsch, in der Reihe der AMDG-Videos (Klinik, Kodierprüfung, MD): dunkle
-//! Seiten, Untertitel, ohne Ton, "Präsentiert von AMDG Engineers", nach
+//! Seiten, ohne Untertitel, ohne Ton, "Präsentiert von AMDG Engineers", nach
 //! "Warum AMDG Engineers" die Quellen als vorletzte Seite. Die Folien 9, 10 und 12 der Präsentation
 //! sind nicht enthalten.
 
@@ -12,7 +12,7 @@ pub mod ui;
 
 use fframes::{AudioMap, Color, Duration, FFramesContext, Frame, Scene, Scenes, Svgr, Video, include_media_dir};
 
-use narration::{SCENE_START, TOTAL, captions};
+use narration::{SCENE_START, TOTAL};
 use ui::*;
 
 include_media_dir!(pub struct AmdgMedia, "examples/AMDG/amdg-video/media");
@@ -107,7 +107,7 @@ impl Video for AmdgVideo {
         Duration::Auto
     }
 
-    /// No sound: the captions carry every sentence.
+    /// No sound.
     fn audio(&self) -> AudioMap<'_> {
         AudioMap::none()
     }
@@ -116,9 +116,8 @@ impl Video for AmdgVideo {
         Scenes::from(self.parts.iter().map(|p| p as &dyn Scene).collect::<Vec<_>>())
     }
 
-    fn render_frame<'a>(&'a self, mut frame: Frame, ctx: &FFramesContext<'a, '_>) -> Svgr<'a> {
+    fn render_frame<'a>(&'a self, frame: Frame, ctx: &FFramesContext<'a, '_>) -> Svgr<'a> {
         let t = gsec(&frame);
-        let caps = captions(&mut frame, ctx, t);
         fframes::svgr!(
             <svg xmlns="http://www.w3.org/2000/svg" width={WIDTH} height={HEIGHT} viewBox="0 0 1920 1080">
                 <defs>
@@ -137,7 +136,6 @@ impl Video for AmdgVideo {
                 {backdrop(t)}
                 {ctx.render_scenes(&frame)}
                 {header(t)}
-                {caps}
             </svg>
         )
     }
