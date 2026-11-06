@@ -266,7 +266,17 @@ fn read(input: &Path, picture: &RgbImage, origin: (f32, f32)) -> Result<Vec<Labe
             && text.chars().all(|c| c.is_ascii_alphanumeric() || "%≥≤<>+-–.,/ °".contains(c));
         // a lone digit is too often a shape; % is the one single sign kept
         let short_value = value && conf >= 90.0 && (text.chars().count() >= 2 || text == "%");
-        if conf < 70.0 || (!short_value && (longest < 2 || (longest < 3 && conf < 90.0))) {
+        // cross marks (a calendar of ✗) read as "XXX"
+        let crosses = text.chars().filter(|c| c.is_alphanumeric()).all(|c| c == 'X' || c == 'x');
+        // A short single word read from a texture or a chart ("Ned", "Ade", "NG", "EES", water
+        // drops as "6006") comes at 72 to 90 confidence; a real short label (CRP, QT, C6, MRI) at
+        // 92 and more. A value with a sign (≥2, 0.9%, V1-V2) is not held to it.
+        let short_word = line.len() == 1 && longest <= 4 && !text.chars().any(|c| "≥≤<>%.°-–/:".contains(c));
+        if conf < 70.0
+            || crosses
+            || (short_word && conf < 91.0)
+            || (!short_value && (longest < 2 || (longest < 3 && conf < 90.0)))
+        {
             continue;
         }
         let x = line.iter().map(|w| w.left).fold(f32::MAX, f32::min);
@@ -285,7 +295,9 @@ fn read(input: &Path, picture: &RgbImage, origin: (f32, f32)) -> Result<Vec<Labe
         let (w, h) = (right - x, bottom - y);
         let color = ink(picture, x, y, w, h);
         // One rule for the whole book: headings in capitals are bold, the rest medium.
-        let bold = text.chars().filter(|c| c.is_alphabetic()).count() >= 2
+        // (B12 and 25-OH-D count as capitals; a lone R or L does not)
+        let bold = (text.chars().filter(|c| c.is_alphabetic()).count() >= 2
+            || (text.chars().any(char::is_uppercase) && text.chars().any(|c| c.is_ascii_digit())))
             && !text.chars().any(char::is_lowercase);
         labels.push(Label {
             text,
