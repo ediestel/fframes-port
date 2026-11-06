@@ -1,0 +1,323 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "PILL + ENERGY DEFICIT PERSISTS"
+x = 158.0
+y = 13.3
+w = 348.0
+h = 19.3
+size = 24.1
+baseline = 32.7
+color = "#12204E"
+bold = true
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "MORE FOOD, LESS TRAINING"
+x = 871.0
+y = 13.3
+w = 303.0
+h = 22.7
+size = 24.1
+baseline = 32.3
+color = "#1D6821"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "PATH 1"
+x = 60.0
+y = 13.7
+w = 68.7
+h = 18.7
+size = 24.1
+baseline = 32.0
+color = "#11204D"
+bold = true
+erase = true
+show = true
+conf = 93.5
+
+[[label]]
+text = "PATH 2"
+x = 768.7
+y = 13.7
+w = 73.7
+h = 18.7
+size = 24.1
+baseline = 32.3
+color = "#1F6923"
+bold = true
+erase = true
+show = true
+conf = 94.0
+
+[[label]]
+text = "SCHEDULED BLEED"
+x = 281.7
+y = 134.7
+w = 146.7
+h = 14.0
+size = 24.1
+baseline = 148.7
+color = "#481676"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "AFTER >6"
+x = 548.7
+y = 136.3
+w = 102.3
+h = 18.7
+size = 24.1
+baseline = 153.7
+color = "#0E0E0E"
+bold = true
+erase = true
+show = true
+conf = 91.5
+
+[[label]]
+text = "MONTHS"
+x = 661.3
+y = 139.3
+w = 67.3
+h = 14.7
+size = 24.1
+baseline = 154.0
+color = "#121212"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "HER OWN HORMONE CYCLE RETURNS"
+x = 841.3
+y = 228.0
+w = 300.7
+h = 14.7
+size = 24.1
+baseline = 242.7
+color = "#1C5E1E"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "kcal"
+x = 62.0
+y = 228.7
+w = 39.0
+h = 17.7
+size = 24.5
+baseline = 246.3
+color = "#0E0E0F"
+bold = false
+erase = true
+show = true
+conf = 95.9
+
+[[label]]
+text = "DXA"
+x = 604.3
+y = 265.3
+w = 59.0
+h = 20.7
+size = 24.1
+baseline = 286.0
+color = "#EEF5FA"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "LH PULSE"
+x = 1090.7
+y = 297.0
+w = 59.0
+h = 21.3
+size = 24.1
+baseline = 318.3
+color = "#191919"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "ESTROGEN"
+x = 826.3
+y = 306.3
+w = 65.3
+h = 12.0
+size = 16.7
+baseline = 318.3
+color = "#151515"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "PROGESTERONE"
+x = 940.7
+y = 306.3
+w = 98.3
+h = 19.3
+size = 24.1
+baseline = 325.7
+color = "#171717"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "STRESS FRACTURE"
+x = 563.7
+y = 418.0
+w = 144.3
+h = 14.0
+size = 24.1
+baseline = 432.0
+color = "#A91D1D"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "<40"
+x = 637.0
+y = 464.7
+w = 63.0
+h = 27.7
+size = 38.4
+baseline = 492.3
+color = "#AF0F12"
+bold = false
+erase = true
+show = true
+conf = 93.2
+
+[[label]]
+text = "SLOW PULSE"
+x = 628.0
+y = 497.7
+w = 91.3
+h = 13.7
+size = 24.1
+baseline = 511.3
+color = "#141414"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "BONE BAR RECOVERS"
+x = 900.7
+y = 550.0
+w = 171.7
+h = 30.3
+size = 40.7
+baseline = 580.3
+color = "#1E591F"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "BONE-DENSITY BAR FALLS"
+x = 146.7
+y = 560.3
+w = 209.3
+h = 15.0
+size = 24.1
+baseline = 575.3
+color = "#131B50"
+bold = true
+erase = true
+show = true
+conf = 95.2
+
+[[label]]
+text = "CARDIAC"
+x = 646.0
+y = 579.3
+w = 64.7
+h = 13.3
+size = 24.1
+baseline = 592.7
+color = "#AE1C1D"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "MONITORING"
+x = 636.3
+y = 596.7
+w = 90.0
+h = 13.3
+size = 24.1
+baseline = 610.0
+color = "#A61F21"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "TRAINING LOG"
+x = 246.0
+y = 651.0
+w = 136.0
+h = 18.0
+size = 24.1
+baseline = 669.0
+color = "#121C4E"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "DXA SCANNER"
+x = 1011.0
+y = 653.0
+w = 141.3
+h = 18.3
+size = 24.1
+baseline = 671.0
+color = "#111C4E"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "BATHROOM SCALE"
+x = 546.0
+y = 682.0
+w = 178.3
+h = 17.3
+size = 24.1
+baseline = 699.3
+color = "#101C4B"
+bold = true
+erase = true
+show = true
+conf = 96.7

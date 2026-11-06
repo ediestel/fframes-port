@@ -1,0 +1,15 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "50"
+x = 672.3
+y = 507.0
+w = 27.7
+h = 21.0
+size = 29.2
+baseline = 528.0
+color = "#383838"
+bold = false
+erase = true
+show = true
+conf = 96.8

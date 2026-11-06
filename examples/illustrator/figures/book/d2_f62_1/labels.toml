@@ -1,0 +1,183 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "Awake"
+x = 146.3
+y = 26.0
+w = 85.7
+h = 21.7
+size = 25.8
+baseline = 47.7
+color = "#F0FAF2"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Asleep"
+x = 535.7
+y = 26.0
+w = 87.0
+h = 27.0
+size = 25.8
+baseline = 46.9
+color = "#EEF8FB"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Asleep + Sedative & Alcohol"
+x = 867.0
+y = 26.0
+w = 347.7
+h = 30.2
+size = 25.8
+baseline = 47.3
+color = "#643D95"
+bold = false
+erase = true
+show = true
+conf = 95.2
+
+[[label]]
+text = "sedative"
+x = 1152.3
+y = 199.3
+w = 81.3
+h = 18.7
+size = 25.8
+baseline = 218.0
+color = "#4F237F"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "alcohol"
+x = 1158.0
+y = 368.0
+w = 69.3
+h = 18.3
+size = 25.8
+baseline = 386.3
+color = "#562683"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "arousal jolt"
+x = 635.7
+y = 422.3
+w = 109.0
+h = 23.7
+size = 25.8
+baseline = 440.7
+color = "#C31C1E"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "lower tone, longe"
+x = 891.7
+y = 438.3
+w = 175.0
+h = 24.0
+size = 25.8
+baseline = 456.9
+color = "#562A81"
+bold = false
+erase = true
+show = true
+conf = 94.2
+
+[[label]]
+text = "falling"
+x = 430.0
+y = 439.0
+w = 61.3
+h = 23.3
+size = 25.8
+baseline = 457.1
+color = "#1C4A9E"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "CPAP"
+x = 88.0
+y = 650.7
+w = 57.7
+h = 19.3
+size = 26.9
+baseline = 670.0
+color = "#278534"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "weight loss"
+x = 250.0
+y = 651.0
+w = 112.0
+h = 23.7
+size = 25.8
+baseline = 669.3
+color = "#288036"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "side sleeping"
+x = 440.3
+y = 651.0
+w = 127.0
+h = 23.7
+size = 25.8
+baseline = 669.3
+color = "#297F35"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "no evening drink"
+x = 623.7
+y = 651.0
+w = 160.3
+h = 23.7
+size = 25.8
+baseline = 670.0
+color = "#268034"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "tapering sedative"
+x = 822.0
+y = 651.0
+w = 166.7
+h = 23.7
+size = 25.8
+baseline = 669.4
+color = "#2A8037"
+bold = false
+erase = true
+show = true
+conf = 96.8

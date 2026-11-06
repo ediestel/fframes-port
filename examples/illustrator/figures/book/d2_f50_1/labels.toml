@@ -1,0 +1,393 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "Raised permeability"
+x = 709.0
+y = 30.3
+w = 192.0
+h = 23.7
+size = 21.5
+baseline = 48.7
+color = "#C4191D"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "Blocked lymph outflow"
+x = 1022.0
+y = 30.3
+w = 218.3
+h = 23.7
+size = 21.5
+baseline = 49.0
+color = "#561A83"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "Low oncotic pressure"
+x = 392.0
+y = 30.7
+w = 207.0
+h = 23.3
+size = 21.5
+baseline = 49.0
+color = "#18429D"
+bold = false
+erase = true
+show = true
+conf = 94.3
+
+[[label]]
+text = "Liver"
+x = 364.0
+y = 174.0
+w = 36.0
+h = 28.0
+size = 38.9
+baseline = 202.0
+color = "#16181B"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Kidney"
+x = 453.3
+y = 173.7
+w = 50.3
+h = 28.3
+size = 30.5
+baseline = 195.6
+color = "#16171A"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Food"
+x = 558.3
+y = 173.7
+w = 35.0
+h = 15.0
+size = 21.5
+baseline = 188.7
+color = "#181717"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Calcium-channel"
+x = 750.7
+y = 266.0
+w = 130.3
+h = 15.7
+size = 21.5
+baseline = 281.7
+color = "#BD2021"
+bold = false
+erase = true
+show = true
+conf = 92.2
+
+[[label]]
+text = "blocker"
+x = 751.7
+y = 288.0
+w = 56.7
+h = 15.3
+size = 21.5
+baseline = 303.3
+color = "#C12122"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Non-pitting"
+x = 1154.0
+y = 289.7
+w = 89.3
+h = 23.0
+size = 21.5
+baseline = 307.5
+color = "#4A1A75"
+bold = false
+erase = true
+show = true
+conf = 91.8
+
+[[label]]
+text = "Low"
+x = 568.3
+y = 297.7
+w = 31.7
+h = 16.3
+size = 21.5
+baseline = 314.0
+color = "#1A3283"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "oncotic"
+x = 556.0
+y = 322.3
+w = 58.0
+h = 14.7
+size = 21.5
+baseline = 337.0
+color = "#19348E"
+bold = false
+erase = true
+show = true
+conf = 92.6
+
+[[label]]
+text = "Switch or reduce"
+x = 721.0
+y = 342.0
+w = 132.7
+h = 15.7
+size = 21.5
+baseline = 357.7
+color = "#BD2324"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "pressure"
+x = 553.7
+y = 348.0
+w = 65.7
+h = 15.3
+size = 21.5
+baseline = 359.0
+color = "#19328B"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Hydrostatic pressure"
+x = 60.3
+y = 398.3
+w = 162.7
+h = 19.7
+size = 21.5
+baseline = 413.7
+color = "#1F6D23"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "pushing out"
+x = 60.0
+y = 421.1
+w = 93.0
+h = 20.3
+size = 21.5
+baseline = 437.0
+color = "#1C6F1F"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Furosemide"
+x = 735.7
+y = 437.7
+w = 88.3
+h = 15.7
+size = 21.5
+baseline = 453.3
+color = "#C31D1E"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Consequence cascade"
+x = 689.0
+y = 466.3
+w = 188.3
+h = 21.7
+size = 21.5
+baseline = 483.3
+color = "#CC1E20"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Fluid"
+x = 214.0
+y = 485.0
+w = 38.0
+h = 16.0
+size = 21.5
+baseline = 501.0
+color = "#1F7321"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "pushed"
+x = 206.0
+y = 507.7
+w = 56.0
+h = 20.0
+size = 21.5
+baseline = 523.2
+color = "#1E6E20"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "out"
+x = 221.7
+y = 530.7
+w = 26.0
+h = 14.3
+size = 21.5
+baseline = 545.0
+color = "#1B761F"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Rising"
+x = 737.7
+y = 606.0
+w = 35.7
+h = 16.3
+size = 21.5
+baseline = 618.6
+color = "#B82023"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Falling"
+x = 810.7
+y = 606.0
+w = 38.0
+h = 16.7
+size = 21.5
+baseline = 618.9
+color = "#381D5D"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Fall"
+x = 892.3
+y = 606.0
+w = 19.7
+h = 13.3
+size = 21.5
+baseline = 619.3
+color = "#1C1C1C"
+bold = false
+erase = true
+show = true
+conf = 95.4
+
+[[label]]
+text = "Dizziness"
+x = 657.0
+y = 606.7
+w = 53.3
+h = 12.7
+size = 21.5
+baseline = 619.3
+color = "#1E1E1E"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Less pull, more"
+x = 395.0
+y = 615.0
+w = 125.3
+h = 21.3
+size = 21.5
+baseline = 631.5
+color = "#173188"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "creatinine potassium"
+x = 726.7
+y = 624.7
+w = 132.3
+h = 16.3
+size = 21.5
+baseline = 637.4
+color = "#6C1D3E"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "fluid stays out"
+x = 397.3
+y = 640.3
+w = 119.3
+h = 21.7
+size = 21.5
+baseline = 657.5
+color = "#17328D"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "Furosemide"
+x = 1076.7
+y = 658.3
+w = 88.7
+h = 15.7
+size = 21.5
+baseline = 674.0
+color = "#272727"
+bold = false
+erase = true
+show = true
+conf = 96.6

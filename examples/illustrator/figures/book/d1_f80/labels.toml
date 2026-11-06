@@ -1,0 +1,71 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "lens"
+x = 213.7
+y = 606.0
+w = 35.3
+h = 18.0
+size = 25.4
+baseline = 624.0
+color = "#23232B"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "nervus opticus"
+x = 577.7
+y = 606.3
+w = 130.3
+h = 22.3
+size = 25.4
+baseline = 623.6
+color = "#1C1C23"
+bold = false
+erase = true
+show = true
+conf = 92.3
+
+[[label]]
+text = "lens"
+x = 147.0
+y = 650.0
+w = 38.3
+h = 19.3
+size = 25.4
+baseline = 669.3
+color = "#1E1D25"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "nervus opticus"
+x = 497.0
+y = 650.3
+w = 143.0
+h = 23.7
+size = 25.4
+baseline = 668.7
+color = "#202029"
+bold = false
+erase = true
+show = true
+conf = 92.9
+
+[[label]]
+text = "macula"
+x = 947.7
+y = 650.0
+w = 69.3
+h = 19.3
+size = 25.4
+baseline = 669.3
+color = "#21202B"
+bold = false
+erase = true
+show = true
+conf = 96.8

@@ -1,0 +1,323 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "nowhere"
+x = 49.7
+y = 96.0
+w = 74.3
+h = 17.3
+size = 21.8
+baseline = 113.3
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "hCG"
+x = 455.0
+y = 100.7
+w = 37.3
+h = 17.7
+size = 21.8
+baseline = 118.3
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "gut"
+x = 223.0
+y = 146.7
+w = 28.7
+h = 20.7
+size = 21.8
+baseline = 162.7
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "fear"
+x = 533.3
+y = 261.3
+w = 34.7
+h = 18.0
+size = 21.8
+baseline = 279.3
+color = "#B41F20"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "vestibular"
+x = 151.3
+y = 315.3
+w = 71.7
+h = 23.7
+size = 32.9
+baseline = 339.0
+color = "#182660"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "organ"
+x = 166.7
+y = 342.7
+w = 40.7
+h = 15.3
+size = 21.8
+baseline = 353.6
+color = "#1C285E"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "area"
+x = 338.0
+y = 373.0
+w = 31.3
+h = 13.0
+size = 21.8
+baseline = 386.0
+color = "#100B14"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "area"
+x = 434.0
+y = 377.7
+w = 34.0
+h = 13.0
+size = 21.8
+baseline = 390.7
+color = "#140E0B"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "amplifier"
+x = 517.3
+y = 393.2
+w = 95.3
+h = 23.2
+size = 21.8
+baseline = 411.5
+color = "#B81D1E"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "postrema"
+x = 405.3
+y = 399.0
+w = 75.7
+h = 20.0
+size = 21.8
+baseline = 414.5
+color = "#17120F"
+bold = false
+erase = true
+show = true
+conf = 76.2
+
+[[label]]
+text = "volume"
+x = 896.7
+y = 419.3
+w = 54.7
+h = 16.0
+size = 21.8
+baseline = 435.3
+color = "#192B6E"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "standing"
+x = 1025.3
+y = 419.3
+w = 65.0
+h = 20.0
+size = 21.8
+baseline = 434.8
+color = "#B72323"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "same-day"
+x = 1161.7
+y = 419.0
+w = 73.3
+h = 20.0
+size = 21.8
+baseline = 434.5
+color = "#1B3072"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "fluids not"
+x = 761.7
+y = 425.7
+w = 70.0
+h = 15.7
+size = 21.8
+baseline = 441.3
+color = "#1C2D6D"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "falling"
+x = 901.0
+y = 441.7
+w = 45.7
+h = 20.0
+size = 21.8
+baseline = 457.2
+color = "#152664"
+bold = false
+erase = true
+show = true
+conf = 93.1
+
+[[label]]
+text = "pressure"
+x = 1026.0
+y = 446.0
+w = 64.3
+h = 15.7
+size = 21.8
+baseline = 457.2
+color = "#A72222"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "care"
+x = 1181.7
+y = 446.0
+w = 31.7
+h = 11.3
+size = 21.8
+baseline = 457.3
+color = "#152A6A"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "kept down"
+x = 759.3
+y = 448.0
+w = 76.7
+h = 19.7
+size = 21.8
+baseline = 463.2
+color = "#172B6B"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "drop"
+x = 1041.0
+y = 463.7
+w = 34.7
+h = 19.7
+size = 21.8
+baseline = 478.9
+color = "#AC2625"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "vomiting"
+x = 318.0
+y = 489.7
+w = 60.0
+h = 24.3
+size = 21.8
+baseline = 508.5
+color = "#C6BCCC"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "centre"
+x = 326.0
+y = 515.0
+w = 44.0
+h = 13.7
+size = 21.8
+baseline = 528.7
+color = "#E6DFEA"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "cortex"
+x = 186.7
+y = 545.7
+w = 53.3
+h = 15.7
+size = 21.8
+baseline = 561.3
+color = "#121212"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "ketone strip alone decides nothing"
+x = 785.7
+y = 586.0
+w = 298.0
+h = 22.0
+size = 21.8
+baseline = 603.7
+color = "#484848"
+bold = false
+erase = true
+show = true
+conf = 96.6

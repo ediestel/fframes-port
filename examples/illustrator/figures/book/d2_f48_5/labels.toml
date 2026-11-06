@@ -1,0 +1,169 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "same-day hand surgery"
+x = 992.7
+y = 88.7
+w = 234.7
+h = 23.0
+size = 21.8
+baseline = 106.5
+color = "#0F0F0F"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "flexed resting"
+x = 62.3
+y = 168.3
+w = 116.7
+h = 20.0
+size = 21.8
+baseline = 183.9
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "tenderness"
+x = 482.3
+y = 168.7
+w = 96.0
+h = 15.7
+size = 21.8
+baseline = 184.3
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "pain as an examiner"
+x = 663.0
+y = 168.7
+w = 169.7
+h = 19.7
+size = 21.8
+baseline = 184.3
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "sausage"
+x = 291.0
+y = 172.7
+w = 70.0
+h = 15.7
+size = 21.8
+baseline = 183.9
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "swelling"
+x = 291.7
+y = 192.7
+w = 68.7
+h = 19.7
+size = 21.8
+baseline = 207.9
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "along the sheath"
+x = 460.7
+y = 192.7
+w = 140.3
+h = 19.7
+size = 21.8
+baseline = 208.3
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "gently extends"
+x = 685.0
+y = 192.7
+w = 124.0
+h = 19.7
+size = 21.8
+baseline = 207.9
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "posture"
+x = 88.7
+y = 194.0
+w = 64.3
+h = 18.3
+size = 21.8
+baseline = 208.2
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "the finger"
+x = 705.7
+y = 216.7
+w = 82.7
+h = 20.3
+size = 21.8
+baseline = 232.7
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "tube"
+x = 1087.0
+y = 537.0
+w = 20.3
+h = 11.3
+size = 15.7
+baseline = 548.3
+color = "#282828"
+bold = false
+erase = true
+show = true
+conf = 94.7
+
+[[label]]
+text = "vagina tendinis"
+x = 463.7
+y = 625.2
+w = 123.7
+h = 29.1
+size = 21.8
+baseline = 647.2
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 95.0

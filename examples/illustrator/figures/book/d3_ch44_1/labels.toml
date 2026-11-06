@@ -1,0 +1,253 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "SUPINE (HOGRE LIGGANDE)"
+x = 222.7
+y = 25.7
+w = 283.3
+h = 23.7
+size = 22.2
+baseline = 44.0
+color = "#12234B"
+bold = true
+erase = true
+show = true
+conf = 92.6
+
+[[label]]
+text = "STAENDE + PRESS (LAGRE LIGGANDE)"
+x = 757.0
+y = 25.6
+w = 386.0
+h = 23.7
+size = 22.2
+baseline = 46.0
+color = "#12234A"
+bold = true
+erase = true
+show = true
+conf = 93.5
+
+[[label]]
+text = "vesica"
+x = 114.0
+y = 129.3
+w = 52.0
+h = 15.3
+size = 29.6
+baseline = 144.7
+color = "#F4ECF8"
+bold = false
+erase = true
+show = true
+conf = 91.7
+
+[[label]]
+text = "urinaria"
+x = 108.7
+y = 150.0
+w = 63.3
+h = 15.7
+size = 29.6
+baseline = 165.7
+color = "#F6ECFA"
+bold = false
+erase = true
+show = true
+conf = 91.5
+
+[[label]]
+text = "vesica"
+x = 680.3
+y = 159.3
+w = 51.3
+h = 15.3
+size = 29.6
+baseline = 174.7
+color = "#F5EDF7"
+bold = false
+erase = true
+show = true
+conf = 93.0
+
+[[label]]
+text = "urinaria"
+x = 675.0
+y = 180.0
+w = 63.3
+h = 16.0
+size = 29.6
+baseline = 196.0
+color = "#F8EEFB"
+bold = false
+erase = true
+show = true
+conf = 92.1
+
+[[label]]
+text = "uteri"
+x = 376.0
+y = 338.3
+w = 40.3
+h = 19.7
+size = 29.6
+baseline = 358.0
+color = "#F9E4E2"
+bold = false
+erase = true
+show = true
+conf = 94.9
+
+[[label]]
+text = "ix uteri"
+x = 910.7
+y = 339.0
+w = 58.7
+h = 22.0
+size = 29.6
+baseline = 358.0
+color = "#F9E9E6"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "cervix"
+x = 320.0
+y = 340.3
+w = 52.0
+h = 16.0
+size = 29.6
+baseline = 356.3
+color = "#FAE7E5"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "cerv"
+x = 872.0
+y = 345.0
+w = 37.7
+h = 18.0
+size = 29.6
+baseline = 363.0
+color = "#B91E20"
+bold = false
+erase = true
+show = true
+conf = 92.1
+
+[[label]]
+text = "vesica"
+x = 108.3
+y = 476.0
+w = 51.7
+h = 15.7
+size = 29.6
+baseline = 491.7
+color = "#F6ECFA"
+bold = false
+erase = true
+show = true
+conf = 92.6
+
+[[label]]
+text = "vesica"
+x = 682.0
+y = 478.3
+w = 51.0
+h = 15.3
+size = 29.6
+baseline = 493.7
+color = "#F7ECFA"
+bold = false
+erase = true
+show = true
+conf = 92.3
+
+[[label]]
+text = "urinaria"
+x = 103.0
+y = 497.0
+w = 63.3
+h = 15.7
+size = 29.6
+baseline = 512.7
+color = "#F4ECF9"
+bold = false
+erase = true
+show = true
+conf = 92.7
+
+[[label]]
+text = "urinaria"
+x = 676.3
+y = 499.3
+w = 63.3
+h = 15.7
+size = 29.6
+baseline = 515.0
+color = "#F4E9F8"
+bold = false
+erase = true
+show = true
+conf = 90.7
+
+[[label]]
+text = "FORESLAGEN/"
+x = 738.7
+y = 665.3
+w = 89.3
+h = 16.0
+size = 22.2
+baseline = 681.3
+color = "#1C1D20"
+bold = true
+erase = true
+show = true
+conf = 92.2
+
+[[label]]
+text = "ORSAKSPIL"
+x = 465.0
+y = 667.7
+w = 71.3
+h = 12.7
+size = 22.2
+baseline = 680.3
+color = "#1B1B1F"
+bold = true
+erase = true
+show = true
+conf = 92.8
+
+[[label]]
+text = "OSAKER LANK"
+x = 738.0
+y = 683.7
+w = 89.7
+h = 15.0
+size = 22.2
+baseline = 698.7
+color = "#17181B"
+bold = true
+erase = true
+show = true
+conf = 92.9
+
+[[label]]
+text = "(ETABLERAD MEKANISM)"
+x = 464.7
+y = 685.3
+w = 146.7
+h = 16.0
+size = 22.2
+baseline = 697.8
+color = "#1C1D20"
+bold = true
+erase = true
+show = true
+conf = 92.5

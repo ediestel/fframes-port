@@ -1,0 +1,29 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = ">20 mmHg"
+x = 191.0
+y = 250.7
+w = 95.3
+h = 19.7
+size = 21.9
+baseline = 265.9
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 93.8
+
+[[label]]
+text = "pulse deficit"
+x = 82.7
+y = 567.0
+w = 103.0
+h = 20.3
+size = 21.9
+baseline = 582.7
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 96.6

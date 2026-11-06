@@ -1,0 +1,155 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "ECG"
+x = 657.7
+y = 93.0
+w = 39.0
+h = 16.0
+size = 22.2
+baseline = 109.0
+color = "#141414"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "BP both arms"
+x = 634.0
+y = 226.3
+w = 114.3
+h = 15.7
+size = 19.4
+baseline = 242.0
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 96.1
+
+[[label]]
+text = "Embolism assessment"
+x = 785.0
+y = 361.4
+w = 159.0
+h = 13.0
+size = 19.4
+baseline = 374.3
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 94.7
+
+[[label]]
+text = "(ambulance if unstable)"
+x = 781.3
+y = 379.0
+w = 168.7
+h = 17.0
+size = 19.4
+baseline = 392.2
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "ECG (assessed after)"
+x = 576.0
+y = 450.3
+w = 157.7
+h = 17.7
+size = 19.4
+baseline = 464.0
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Diabetes"
+x = 578.7
+y = 668.3
+w = 65.3
+h = 14.0
+size = 19.4
+baseline = 682.3
+color = "#171718"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "ECG"
+x = 870.3
+y = 669.0
+w = 35.3
+h = 15.3
+size = 22.2
+baseline = 684.3
+color = "#131313"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "Troponin"
+x = 1050.0
+y = 671.0
+w = 72.0
+h = 19.0
+size = 19.4
+baseline = 685.7
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "Older adults"
+x = 330.7
+y = 682.0
+w = 95.3
+h = 15.0
+size = 19.4
+baseline = 697.0
+color = "#121212"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "Women"
+x = 141.0
+y = 682.7
+w = 59.3
+h = 14.3
+size = 19.4
+baseline = 697.0
+color = "#141515"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "(breathlessness, nausea or fatigue)"
+x = 501.7
+y = 685.0
+w = 227.7
+h = 16.7
+size = 19.4
+baseline = 698.3
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.6

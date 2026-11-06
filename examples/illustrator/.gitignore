@@ -3,3 +3,7 @@ figures/**/trace/
 figures/**/export/
 # the rendered figure (`frame 0 -o <figure>/print`)
 figures/**/print/
+# The GP handbook figures: figure.toml and labels.toml are kept; the source pictures are the
+# Grok images of the NTGT case (about 130 MB) and stay out, like the overview sheets.
+figures/book/*/source.png
+figures/book_overview/

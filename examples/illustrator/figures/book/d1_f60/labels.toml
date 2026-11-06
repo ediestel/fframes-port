@@ -1,0 +1,29 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "steroid"
+x = 1014.0
+y = 583.7
+w = 54.0
+h = 15.7
+size = 21.8
+baseline = 599.3
+color = "#181819"
+bold = false
+erase = true
+show = true
+conf = 96.0
+
+[[label]]
+text = "drop"
+x = 1023.0
+y = 604.0
+w = 36.7
+h = 18.7
+size = 21.8
+baseline = 618.5
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.2

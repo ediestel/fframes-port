@@ -1,0 +1,15 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "Candida."
+x = 29.7
+y = 653.0
+w = 169.0
+h = 35.0
+size = 48.6
+baseline = 688.0
+color = "#0E0E0E"
+bold = false
+erase = true
+show = true
+conf = 96.3

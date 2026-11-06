@@ -1,0 +1,113 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "calcaneus"
+x = 21.0
+y = 265.7
+w = 93.0
+h = 21.7
+size = 29.6
+baseline = 287.3
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "calcaneus"
+x = 646.0
+y = 266.0
+w = 93.3
+h = 21.3
+size = 29.6
+baseline = 287.3
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "aponeurosis plantaris"
+x = 232.7
+y = 498.3
+w = 204.3
+h = 28.0
+size = 29.6
+baseline = 520.0
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 94.6
+
+[[label]]
+text = "aponeurosis plantaris"
+x = 840.7
+y = 498.7
+w = 204.0
+h = 27.7
+size = 29.6
+baseline = 520.1
+color = "#181819"
+bold = false
+erase = true
+show = true
+conf = 94.4
+
+[[label]]
+text = "capita ossium"
+x = 493.7
+y = 500.0
+w = 129.0
+h = 26.3
+size = 29.6
+baseline = 520.4
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 92.9
+
+[[label]]
+text = "capita ossium"
+x = 1085.7
+y = 499.7
+w = 129.3
+h = 26.7
+size = 29.6
+baseline = 520.4
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 92.9
+
+[[label]]
+text = "metatarsi"
+x = 513.0
+y = 531.0
+w = 89.7
+h = 20.0
+size = 29.6
+baseline = 551.0
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 92.9
+
+[[label]]
+text = "metatarsi"
+x = 1105.3
+y = 531.0
+w = 89.7
+h = 20.0
+size = 29.6
+baseline = 551.0
+color = "#161617"
+bold = false
+erase = true
+show = true
+conf = 92.8

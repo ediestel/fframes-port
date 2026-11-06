@@ -1,0 +1,29 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "AB"
+x = 874.7
+y = 244.3
+w = 66.7
+h = 39.0
+size = 54.2
+baseline = 283.3
+color = "#29435A"
+bold = true
+erase = true
+show = true
+conf = 95.1
+
+[[label]]
+text = "≥50"
+x = 958.3
+y = 552.0
+w = 81.7
+h = 37.0
+size = 51.4
+baseline = 589.0
+color = "#3D3A33"
+bold = false
+erase = true
+show = true
+conf = 96.5

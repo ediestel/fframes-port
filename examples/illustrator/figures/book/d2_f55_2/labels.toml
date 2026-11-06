@@ -1,0 +1,169 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "Heel pain,"
+x = 109.0
+y = 247.7
+w = 100.3
+h = 23.7
+size = 25.8
+baseline = 266.3
+color = "#16171B"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Pain eased by"
+x = 902.7
+y = 266.0
+w = 125.7
+h = 22.3
+size = 25.8
+baseline = 283.7
+color = "#17181B"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "plantar fasciopathy"
+x = 76.0
+y = 276.0
+w = 193.3
+h = 24.3
+size = 25.8
+baseline = 294.9
+color = "#14151A"
+bold = false
+erase = true
+show = true
+conf = 92.9
+
+[[label]]
+text = "hanging the foot"
+x = 890.7
+y = 292.7
+w = 149.7
+h = 22.3
+size = 25.8
+baseline = 310.0
+color = "#151618"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "over the bed edge"
+x = 883.3
+y = 319.0
+w = 164.7
+h = 22.3
+size = 25.8
+baseline = 337.0
+color = "#131418"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Arterial rest pain"
+x = 885.7
+y = 366.7
+w = 157.3
+h = 22.7
+size = 25.8
+baseline = 384.7
+color = "#141517"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "Load pain after"
+x = 133.7
+y = 596.3
+w = 146.0
+h = 23.7
+size = 25.8
+baseline = 615.0
+color = "#151619"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "short morning stiffness"
+x = 102.7
+y = 624.3
+w = 221.0
+h = 23.7
+size = 25.8
+baseline = 643.0
+color = "#161619"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Sudden night pain:"
+x = 779.3
+y = 627.0
+w = 179.0
+h = 23.3
+size = 25.8
+baseline = 645.7
+color = "#141517"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "MTP"
+x = 1075.0
+y = 651.3
+w = 49.3
+h = 20.7
+size = 28.7
+baseline = 672.0
+color = "#10141B"
+bold = true
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "red, hot first MTP joint"
+x = 767.0
+y = 657.0
+w = 213.0
+h = 23.3
+size = 25.8
+baseline = 675.1
+color = "#121214"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Joint disease"
+x = 143.0
+y = 661.7
+w = 138.7
+h = 20.3
+size = 25.8
+baseline = 682.0
+color = "#141721"
+bold = false
+erase = true
+show = true
+conf = 96.3

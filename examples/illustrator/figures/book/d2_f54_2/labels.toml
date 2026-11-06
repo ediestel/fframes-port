@@ -1,0 +1,43 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "10g"
+x = 400.3
+y = 113.7
+w = 40.0
+h = 22.3
+size = 23.3
+baseline = 131.0
+color = "#110C0A"
+bold = false
+erase = true
+show = true
+conf = 95.8
+
+[[label]]
+text = "10g"
+x = 482.3
+y = 394.7
+w = 38.0
+h = 21.0
+size = 23.3
+baseline = 410.9
+color = "#120603"
+bold = false
+erase = true
+show = true
+conf = 95.8
+
+[[label]]
+text = "10g"
+x = 318.7
+y = 568.7
+w = 37.7
+h = 21.7
+size = 23.3
+baseline = 585.4
+color = "#111111"
+bold = false
+erase = true
+show = true
+conf = 96.5

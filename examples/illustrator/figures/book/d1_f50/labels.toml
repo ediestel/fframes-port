@@ -1,0 +1,15 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "uvula"
+x = 239.7
+y = 263.7
+w = 44.0
+h = 15.7
+size = 21.8
+baseline = 279.3
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 93.1

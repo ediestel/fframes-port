@@ -1,0 +1,15 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "250"
+x = 757.7
+y = 220.0
+w = 76.7
+h = 33.3
+size = 46.3
+baseline = 253.3
+color = "#0E0E0E"
+bold = false
+erase = true
+show = true
+conf = 94.7

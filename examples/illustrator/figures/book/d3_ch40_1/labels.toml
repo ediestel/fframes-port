@@ -1,0 +1,575 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "COLONOSCOPY"
+x = 308.0
+y = 41.7
+w = 129.0
+h = 15.3
+size = 16.7
+baseline = 57.0
+color = "#121212"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "G SOUR"
+x = 789.0
+y = 43.7
+w = 61.7
+h = 14.3
+size = 16.7
+baseline = 58.0
+color = "#FAEDEB"
+bold = true
+erase = true
+show = true
+conf = 94.9
+
+[[label]]
+text = ">45"
+x = 32.3
+y = 59.0
+w = 55.7
+h = 26.3
+size = 36.6
+baseline = 85.3
+color = "#0C0C0C"
+bold = false
+erase = true
+show = true
+conf = 92.3
+
+[[label]]
+text = ">45"
+x = 1013.3
+y = 62.3
+w = 53.7
+h = 26.0
+size = 36.1
+baseline = 88.3
+color = "#0B0B0B"
+bold = false
+erase = true
+show = true
+conf = 92.1
+
+[[label]]
+text = "or alarm"
+x = 31.0
+y = 95.0
+w = 61.0
+h = 15.0
+size = 20.8
+baseline = 110.0
+color = "#0C0C0C"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "features"
+x = 31.0
+y = 117.0
+w = 60.3
+h = 15.0
+size = 20.8
+baseline = 132.0
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "faecal test tube"
+x = 943.0
+y = 350.0
+w = 95.0
+h = 13.0
+size = 15.7
+baseline = 363.0
+color = "#1D1D1C"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "crossed out for"
+x = 943.7
+y = 370.0
+w = 92.3
+h = 13.3
+size = 15.7
+baseline = 383.3
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "visible bleeding"
+x = 943.0
+y = 390.7
+w = 94.3
+h = 16.7
+size = 15.7
+baseline = 403.6
+color = "#191A19"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "ding"
+x = 640.0
+y = 463.0
+w = 28.3
+h = 17.7
+size = 15.7
+baseline = 476.7
+color = "#171817"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "Visible bleedin"
+x = 752.0
+y = 462.7
+w = 101.3
+h = 14.3
+size = 15.7
+baseline = 477.0
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "ANATOMY"
+x = 353.7
+y = 540.0
+w = 63.3
+h = 12.0
+size = 16.7
+baseline = 552.0
+color = "#161615"
+bold = true
+erase = true
+show = true
+conf = 93.3
+
+[[label]]
+text = "WHAT GOES"
+x = 522.7
+y = 540.3
+w = 75.3
+h = 12.0
+size = 16.7
+baseline = 552.3
+color = "#161616"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "MECHANISM TO"
+x = 673.0
+y = 540.3
+w = 98.0
+h = 12.0
+size = 16.7
+baseline = 552.0
+color = "#171717"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "CLINICAL"
+x = 844.7
+y = 540.7
+w = 57.7
+h = 11.7
+size = 16.7
+baseline = 552.3
+color = "#181818"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "PHYSIOLOGY"
+x = 349.7
+y = 558.0
+w = 80.3
+h = 22.0
+size = 30.6
+baseline = 580.0
+color = "#151414"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "WRONG"
+x = 536.0
+y = 558.3
+w = 48.7
+h = 12.0
+size = 16.7
+baseline = 570.3
+color = "#161616"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "SYMPTOM"
+x = 690.7
+y = 558.7
+w = 62.7
+h = 11.7
+size = 16.7
+baseline = 570.3
+color = "#181818"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "FINDING"
+x = 848.0
+y = 558.7
+w = 51.7
+h = 12.0
+size = 16.7
+baseline = 570.7
+color = "#151515"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "MASSIVE"
+x = 1015.7
+y = 583.7
+w = 64.3
+h = 13.3
+size = 16.7
+baseline = 597.0
+color = "#B72021"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Ulcer / vessel"
+x = 561.7
+y = 586.0
+w = 63.7
+h = 12.7
+size = 15.7
+baseline = 597.3
+color = "#1B1A1A"
+bold = false
+erase = true
+show = true
+conf = 94.1
+
+[[label]]
+text = "Blood enters"
+x = 709.7
+y = 586.0
+w = 61.0
+h = 11.0
+size = 15.7
+baseline = 597.0
+color = "#1A1B1B"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "Hematochezia"
+x = 861.0
+y = 586.0
+w = 69.0
+h = 11.3
+size = 15.7
+baseline = 597.3
+color = "#1E1D1D"
+bold = false
+erase = true
+show = true
+conf = 92.5
+
+[[label]]
+text = "Mucosal"
+x = 393.0
+y = 592.7
+w = 41.0
+h = 11.3
+size = 15.7
+baseline = 604.0
+color = "#222221"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "short mark showing"
+x = 110.0
+y = 600.3
+w = 123.3
+h = 16.7
+size = 15.7
+baseline = 613.3
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "erosion"
+x = 561.7
+y = 604.0
+w = 36.3
+h = 11.0
+size = 20.8
+baseline = 615.0
+color = "#1F1E1D"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "lumen visible"
+x = 709.0
+y = 603.7
+w = 74.3
+h = 11.0
+size = 15.7
+baseline = 614.7
+color = "#212121"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "(bright red"
+x = 861.0
+y = 604.0
+w = 51.7
+h = 14.0
+size = 15.7
+baseline = 614.8
+color = "#222222"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "UNSTABLE BLEED"
+x = 986.0
+y = 605.0
+w = 123.3
+h = 13.3
+size = 16.7
+baseline = 618.3
+color = "#B42121"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "vessels, stable"
+x = 392.3
+y = 610.7
+w = 70.3
+h = 13.0
+size = 15.7
+baseline = 620.7
+color = "#212121"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "finger reach in the"
+x = 114.0
+y = 621.3
+w = 115.0
+h = 16.7
+size = 15.7
+baseline = 634.2
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "bleeding"
+x = 709.0
+y = 621.3
+w = 41.7
+h = 14.0
+size = 15.7
+baseline = 632.2
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "disrupts"
+x = 561.3
+y = 621.7
+w = 40.3
+h = 13.7
+size = 15.7
+baseline = 632.2
+color = "#1B1B1C"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "rectal"
+x = 861.0
+y = 621.7
+w = 27.3
+h = 11.0
+size = 15.7
+baseline = 632.7
+color = "#1E1E1E"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "AMBULANCE"
+x = 1010.0
+y = 627.0
+w = 92.0
+h = 13.7
+size = 16.7
+baseline = 640.7
+color = "#B31F20"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "clotting"
+x = 392.3
+y = 628.3
+w = 37.0
+h = 14.3
+size = 15.7
+baseline = 639.4
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "bleeding)"
+x = 861.0
+y = 639.0
+w = 45.7
+h = 14.0
+size = 15.7
+baseline = 649.8
+color = "#1F1F1F"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "per rectum"
+x = 709.0
+y = 640.3
+w = 54.0
+h = 12.7
+size = 15.7
+baseline = 650.3
+color = "#1D1D1D"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "mucosa"
+x = 561.7
+y = 642.0
+w = 37.7
+h = 8.3
+size = 15.7
+baseline = 650.3
+color = "#222222"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "rectum"
+x = 150.0
+y = 643.7
+w = 43.3
+h = 11.3
+size = 15.7
+baseline = 655.0
+color = "#1F1F20"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "(not clinic)"
+x = 1012.0
+y = 648.3
+w = 72.0
+h = 17.7
+size = 15.7
+baseline = 661.8
+color = "#B62424"
+bold = false
+erase = true
+show = true
+conf = 96.9

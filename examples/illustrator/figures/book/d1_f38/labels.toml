@@ -1,0 +1,127 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "CRP"
+x = 370.3
+y = 41.0
+w = 75.7
+h = 30.0
+size = 40.3
+baseline = 71.0
+color = "#0B245B"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "ALT"
+x = 369.7
+y = 113.3
+w = 68.7
+h = 29.0
+size = 40.3
+baseline = 142.3
+color = "#0E265D"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "GGT"
+x = 370.3
+y = 183.0
+w = 78.7
+h = 29.7
+size = 40.3
+baseline = 212.7
+color = "#0D245B"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "TSH"
+x = 370.0
+y = 251.0
+w = 56.7
+h = 30.3
+size = 40.3
+baseline = 281.3
+color = "#0E275E"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "ferritin"
+x = 370.0
+y = 382.7
+w = 133.0
+h = 32.3
+size = 44.9
+baseline = 415.0
+color = "#B12427"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "25-OH-D"
+x = 371.0
+y = 453.3
+w = 158.7
+h = 28.7
+size = 40.3
+baseline = 482.0
+color = "#616162"
+bold = true
+erase = true
+show = true
+conf = 91.3
+
+[[label]]
+text = "B12"
+x = 372.0
+y = 515.7
+w = 60.7
+h = 28.3
+size = 40.3
+baseline = 544.0
+color = "#646465"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "coeliac serology"
+x = 370.7
+y = 574.7
+w = 278.3
+h = 35.0
+size = 44.9
+baseline = 601.8
+color = "#616161"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "CT"
+x = 371.0
+y = 638.0
+w = 46.3
+h = 29.0
+size = 40.3
+baseline = 667.0
+color = "#656666"
+bold = true
+erase = true
+show = true
+conf = 95.6

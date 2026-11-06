@@ -1,0 +1,85 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "BMI"
+x = 341.0
+y = 104.3
+w = 62.0
+h = 28.3
+size = 39.4
+baseline = 132.7
+color = "#0C3679"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "TOTAL"
+x = 934.0
+y = 171.7
+w = 88.3
+h = 22.0
+size = 39.4
+baseline = 193.7
+color = "#525456"
+bold = true
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "BMI"
+x = 341.0
+y = 310.7
+w = 62.0
+h = 29.0
+size = 39.4
+baseline = 339.7
+color = "#1F612C"
+bold = true
+erase = true
+show = true
+conf = 95.8
+
+[[label]]
+text = "MUST"
+x = 328.0
+y = 514.0
+w = 94.3
+h = 29.0
+size = 39.4
+baseline = 543.0
+color = "#51317C"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "MUST"
+x = 754.7
+y = 653.0
+w = 80.3
+h = 23.7
+size = 39.4
+baseline = 676.7
+color = "#0F2454"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "BMI"
+x = 944.0
+y = 653.0
+w = 51.0
+h = 23.3
+size = 39.4
+baseline = 676.3
+color = "#0B2052"
+bold = true
+erase = true
+show = true
+conf = 96.2

@@ -1,0 +1,491 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "colonoscopy"
+x = 807.7
+y = 19.0
+w = 146.0
+h = 25.7
+size = 27.6
+baseline = 38.9
+color = "#0E0E0E"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "anaemia"
+x = 335.7
+y = 31.7
+w = 88.3
+h = 29.0
+size = 54.7
+baseline = 60.7
+color = "#12100F"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "weight loss"
+x = 335.7
+y = 93.7
+w = 118.0
+h = 23.7
+size = 25.4
+baseline = 112.0
+color = "#0E0D0D"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "a new bowel pattern"
+x = 336.0
+y = 154.0
+w = 210.0
+h = 23.7
+size = 26.4
+baseline = 173.0
+color = "#100F0F"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "alarm override"
+x = 336.0
+y = 214.0
+w = 151.7
+h = 19.7
+size = 26.9
+baseline = 233.7
+color = "#10100F"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "opioid effect (day 1 prescription continues)"
+x = 399.0
+y = 313.0
+w = 361.0
+h = 22.0
+size = 19.4
+baseline = 330.2
+color = "#BF1F22"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "treatment pathway (opioid must continue)"
+x = 834.0
+y = 313.0
+w = 372.3
+h = 22.3
+size = 19.4
+baseline = 329.5
+color = "#4C177D"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "normal comparator"
+x = 88.3
+y = 313.7
+w = 189.3
+h = 22.7
+size = 19.4
+baseline = 331.6
+color = "#1C7625"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "peristalsis"
+x = 49.0
+y = 355.3
+w = 70.0
+h = 17.3
+size = 19.4
+baseline = 368.8
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "OPIOID"
+x = 430.0
+y = 358.7
+w = 47.3
+h = 12.7
+size = 17.6
+baseline = 371.3
+color = "#161615"
+bold = true
+erase = true
+show = true
+conf = 95.7
+
+[[label]]
+text = "OPIOID"
+x = 860.0
+y = 359.0
+w = 46.7
+h = 12.3
+size = 17.6
+baseline = 371.3
+color = "#191919"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "osmotic laxative"
+x = 1106.7
+y = 360.7
+w = 111.3
+h = 14.3
+size = 19.4
+baseline = 375.0
+color = "#171718"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "mucus"
+x = 197.0
+y = 364.0
+w = 44.7
+h = 10.3
+size = 19.4
+baseline = 374.3
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "day 1"
+x = 863.3
+y = 376.0
+w = 33.3
+h = 19.3
+size = 19.4
+baseline = 391.0
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "day 1"
+x = 434.0
+y = 377.0
+w = 34.0
+h = 17.3
+size = 19.4
+baseline = 390.3
+color = "#0F0F0F"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "(same day)"
+x = 1123.7
+y = 380.7
+w = 73.3
+h = 18.0
+size = 19.4
+baseline = 394.6
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "receptor"
+x = 673.0
+y = 389.3
+w = 57.0
+h = 16.0
+size = 19.4
+baseline = 401.7
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "activated"
+x = 672.0
+y = 408.0
+w = 62.0
+h = 13.7
+size = 19.4
+baseline = 421.7
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "laxative failure"
+x = 922.0
+y = 449.0
+w = 106.3
+h = 14.7
+size = 19.4
+baseline = 463.7
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "slowed"
+x = 716.0
+y = 471.7
+w = 46.3
+h = 14.0
+size = 19.4
+baseline = 485.7
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "transit"
+x = 717.0
+y = 492.0
+w = 45.0
+h = 13.0
+size = 19.4
+baseline = 505.0
+color = "#121212"
+bold = false
+erase = true
+show = true
+conf = 96.1
+
+[[label]]
+text = "PAMORA"
+x = 868.7
+y = 517.0
+w = 111.7
+h = 19.0
+size = 25.0
+baseline = 536.0
+color = "#551D87"
+bold = true
+erase = true
+show = true
+conf = 92.2
+
+[[label]]
+text = "normal transit"
+x = 36.0
+y = 548.7
+w = 99.3
+h = 14.0
+size = 19.4
+baseline = 562.3
+color = "#1C5423"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "reduced"
+x = 407.0
+y = 604.7
+w = 54.0
+h = 14.3
+size = 19.4
+baseline = 619.0
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "reduced"
+x = 539.0
+y = 606.0
+w = 54.0
+h = 14.0
+size = 19.4
+baseline = 620.0
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "increased"
+x = 666.0
+y = 607.0
+w = 65.0
+h = 14.0
+size = 19.4
+baseline = 621.0
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "normal function"
+x = 96.3
+y = 613.7
+w = 124.7
+h = 15.7
+size = 19.4
+baseline = 629.3
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 91.6
+
+[[label]]
+text = "peripheral μ-opioid"
+x = 853.7
+y = 621.0
+w = 130.3
+h = 18.0
+size = 19.4
+baseline = 634.7
+color = "#171617"
+bold = false
+erase = true
+show = true
+conf = 90.0
+
+[[label]]
+text = "peristalsis"
+x = 400.3
+y = 624.3
+w = 68.7
+h = 17.7
+size = 19.4
+baseline = 638.0
+color = "#191818"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "secretion"
+x = 535.7
+y = 625.7
+w = 62.3
+h = 13.7
+size = 19.4
+baseline = 639.3
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "absorption"
+x = 662.7
+y = 626.7
+w = 72.3
+h = 17.7
+size = 19.4
+baseline = 640.3
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 96.1
+
+[[label]]
+text = "further laxative step"
+x = 1078.7
+y = 627.0
+w = 140.0
+h = 18.0
+size = 19.4
+baseline = 641.0
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "receptor antagonist"
+x = 853.3
+y = 641.2
+w = 133.0
+h = 18.1
+size = 19.4
+baseline = 655.6
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "(after laxative failure)"
+x = 1075.0
+y = 647.0
+w = 148.0
+h = 17.7
+size = 19.4
+baseline = 660.7
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "reduced"
+x = 181.3
+y = 647.7
+w = 61.7
+h = 16.0
+size = 19.4
+baseline = 663.7
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 96.9

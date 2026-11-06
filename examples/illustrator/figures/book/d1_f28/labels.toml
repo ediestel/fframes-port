@@ -1,0 +1,29 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "ABNORMAL / DISEASE STATE"
+x = 780.0
+y = 376.3
+w = 280.7
+h = 22.9
+size = 21.3
+baseline = 393.0
+color = "#CD4B4C"
+bold = true
+erase = true
+show = true
+conf = 94.8
+
+[[label]]
+text = "NORMAL COMPARATOR"
+x = 202.0
+y = 377.7
+w = 224.7
+h = 15.3
+size = 21.3
+baseline = 393.0
+color = "#F0FAEF"
+bold = true
+erase = true
+show = true
+conf = 96.7

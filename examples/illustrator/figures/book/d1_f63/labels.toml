@@ -1,0 +1,57 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "tarsus"
+x = 779.0
+y = 274.0
+w = 57.0
+h = 20.7
+size = 27.0
+baseline = 294.7
+color = "#1A1611"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "tarsus"
+x = 355.7
+y = 275.3
+w = 57.0
+h = 16.0
+size = 27.0
+baseline = 291.3
+color = "#191512"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "tarsus"
+x = 1192.3
+y = 275.7
+w = 56.7
+h = 15.7
+size = 27.0
+baseline = 291.3
+color = "#1C1813"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Same-site recurrence"
+x = 524.7
+y = 459.7
+w = 226.3
+h = 20.3
+size = 27.0
+baseline = 480.0
+color = "#151516"
+bold = false
+erase = true
+show = true
+conf = 93.8

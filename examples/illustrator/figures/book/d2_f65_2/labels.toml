@@ -1,0 +1,127 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "CAPILLARY GLUCOSE"
+x = 281.7
+y = 46.7
+w = 205.3
+h = 18.3
+size = 26.4
+baseline = 65.0
+color = "#EAF8FC"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "PULSE OXIMETER"
+x = 980.3
+y = 46.7
+w = 181.7
+h = 19.0
+size = 26.4
+baseline = 65.3
+color = "#F1FBF1"
+bold = true
+erase = true
+show = true
+conf = 92.8
+
+[[label]]
+text = "mmol/L"
+x = 124.7
+y = 118.7
+w = 54.7
+h = 14.3
+size = 19.9
+baseline = 133.0
+color = "#101414"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "PAIN"
+x = 111.0
+y = 300.7
+w = 47.3
+h = 19.3
+size = 26.4
+baseline = 320.0
+color = "#881315"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "INFECTION"
+x = 298.0
+y = 300.7
+w = 102.0
+h = 19.3
+size = 26.4
+baseline = 320.0
+color = "#9C4F16"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "NUTRITION"
+x = 515.0
+y = 301.0
+w = 97.3
+h = 19.0
+size = 26.4
+baseline = 320.0
+color = "#235F1F"
+bold = true
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "MEDICATION"
+x = 708.0
+y = 301.0
+w = 112.3
+h = 19.0
+size = 26.4
+baseline = 320.0
+color = "#4F307B"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "HYDRATION"
+x = 912.7
+y = 301.0
+w = 104.0
+h = 19.0
+size = 26.4
+baseline = 320.0
+color = "#194E97"
+bold = true
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "CONSTIPATION"
+x = 1112.7
+y = 301.3
+w = 124.3
+h = 19.0
+size = 26.4
+baseline = 320.3
+color = "#643A1A"
+bold = true
+erase = true
+show = true
+conf = 97.0

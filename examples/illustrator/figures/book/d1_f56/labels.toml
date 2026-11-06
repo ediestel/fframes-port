@@ -1,0 +1,85 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "C5"
+x = 213.3
+y = 182.0
+w = 25.7
+h = 19.0
+size = 26.4
+baseline = 201.0
+color = "#0F0F0F"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "medulla"
+x = 663.7
+y = 254.3
+w = 71.3
+h = 18.0
+size = 25.0
+baseline = 272.3
+color = "#111212"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "spinalis"
+x = 665.0
+y = 278.7
+w = 69.0
+h = 22.3
+size = 25.0
+baseline = 296.0
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 93.3
+
+[[label]]
+text = "C6"
+x = 213.3
+y = 333.3
+w = 25.7
+h = 19.0
+size = 26.4
+baseline = 352.3
+color = "#111111"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "C8"
+x = 273.7
+y = 491.7
+w = 26.3
+h = 18.7
+size = 26.4
+baseline = 510.3
+color = "#111111"
+bold = true
+erase = true
+show = true
+conf = 95.5
+
+[[label]]
+text = "MRI"
+x = 1080.7
+y = 509.0
+w = 39.3
+h = 18.3
+size = 26.4
+baseline = 527.3
+color = "#10100F"
+bold = true
+erase = true
+show = true
+conf = 96.9

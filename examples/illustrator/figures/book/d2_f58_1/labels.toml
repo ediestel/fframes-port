@@ -1,0 +1,71 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "RG"
+x = 685.0
+y = 268.0
+w = 28.3
+h = 24.0
+size = 26.9
+baseline = 292.0
+color = "#FBECEA"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "MRGPR"
+x = 756.3
+y = 399.0
+w = 61.7
+h = 18.7
+size = 26.9
+baseline = 417.7
+color = "#FBEEEC"
+bold = true
+erase = true
+show = true
+conf = 93.0
+
+[[label]]
+text = "H1 antihistamine"
+x = 365.0
+y = 471.3
+w = 167.7
+h = 18.7
+size = 25.5
+baseline = 490.0
+color = "#1B5D1C"
+bold = false
+erase = true
+show = true
+conf = 94.2
+
+[[label]]
+text = "H1 antihistamine"
+x = 740.7
+y = 471.7
+w = 167.0
+h = 18.7
+size = 25.5
+baseline = 490.0
+color = "#B21A1B"
+bold = false
+erase = true
+show = true
+conf = 94.5
+
+[[label]]
+text = "H1"
+x = 325.7
+y = 531.0
+w = 26.0
+h = 19.3
+size = 26.9
+baseline = 550.3
+color = "#F5FBF1"
+bold = true
+erase = true
+show = true
+conf = 91.7

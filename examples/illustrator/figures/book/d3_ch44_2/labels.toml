@@ -1,0 +1,771 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "WHAT CAN BE OFFERED THIS WEEK, AND WHAT CANNOT WAIT?"
+x = 335.0
+y = 18.3
+w = 752.3
+h = 26.7
+size = 30.6
+baseline = 41.0
+color = "#F0F2F6"
+bold = true
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "CHAPTER 44"
+x = 146.0
+y = 19.3
+w = 150.7
+h = 22.0
+size = 29.2
+baseline = 41.0
+color = "#F0F2F6"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Source: Chapter 44"
+x = 1138.7
+y = 22.3
+w = 114.0
+h = 14.7
+size = 17.6
+baseline = 33.7
+color = "#1B1A1A"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "The pilgrimage is a legitimate goal. The red line is not."
+x = 367.0
+y = 68.3
+w = 545.7
+h = 25.0
+size = 26.5
+baseline = 87.8
+color = "#8F5F25"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "SYMPTOMATIC EARLY PROLAPSE"
+x = 484.0
+y = 117.3
+w = 322.7
+h = 18.0
+size = 21.8
+baseline = 135.0
+color = "#EFF2F7"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "RED-LINE FEATURES = URGENT"
+x = 902.7
+y = 117.3
+w = 303.3
+h = 17.7
+size = 21.8
+baseline = 135.0
+color = "#F9EDEB"
+bold = true
+erase = true
+show = true
+conf = 95.5
+
+[[label]]
+text = "PARALLEL, NOT SERIAL"
+x = 95.0
+y = 117.7
+w = 227.3
+h = 20.7
+size = 21.8
+baseline = 135.3
+color = "#EFF2F6"
+bold = true
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "Do not wait. Act now."
+x = 969.0
+y = 143.0
+w = 163.7
+h = 14.7
+size = 17.6
+baseline = 157.7
+color = "#F9E5E2"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "Support now. Do not delay care."
+x = 92.0
+y = 144.0
+w = 231.0
+h = 17.3
+size = 17.6
+baseline = 157.3
+color = "#E5EBF3"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Early = not advanced, no red-line features"
+x = 491.0
+y = 143.7
+w = 306.7
+h = 17.3
+size = 17.6
+baseline = 157.3
+color = "#E7EDF4"
+bold = false
+erase = true
+show = true
+conf = 95.6
+
+[[label]]
+text = "Stool and load management"
+x = 128.7
+y = 186.7
+w = 223.0
+h = 19.3
+size = 17.6
+baseline = 202.0
+color = "#12142D"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Ulceration"
+x = 1003.0
+y = 195.0
+w = 98.7
+h = 18.0
+size = 25.0
+baseline = 213.0
+color = "#8F181A"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "Address straining and heavy"
+x = 128.3
+y = 213.0
+w = 187.7
+h = 16.3
+size = 17.6
+baseline = 225.6
+color = "#1A1A19"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "Erosion, bleeding,"
+x = 1002.7
+y = 223.7
+w = 128.0
+h = 18.2
+size = 17.6
+baseline = 236.6
+color = "#1C1B19"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "load immediately."
+x = 129.0
+y = 233.3
+w = 115.3
+h = 16.7
+size = 17.6
+baseline = 246.2
+color = "#1A1A19"
+bold = false
+erase = true
+show = true
+conf = 95.9
+
+[[label]]
+text = "or broken tissue."
+x = 1002.3
+y = 246.3
+w = 119.7
+h = 14.0
+size = 17.6
+baseline = 260.0
+color = "#171716"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Physiotherapy"
+x = 129.0
+y = 279.0
+w = 115.0
+h = 19.3
+size = 17.6
+baseline = 294.0
+color = "#141631"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "Pelvic floor rehabilitation"
+x = 129.0
+y = 304.0
+w = 166.0
+h = 13.3
+size = 17.6
+baseline = 317.0
+color = "#1D1D1C"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "THREE PARALLEL PILLARS"
+x = 520.0
+y = 304.0
+w = 239.7
+h = 16.0
+size = 21.8
+baseline = 320.0
+color = "#121B3D"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Retention"
+x = 1003.3
+y = 304.0
+w = 92.3
+h = 18.0
+size = 25.0
+baseline = 322.0
+color = "#931819"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "212 weeks, early start."
+x = 128.7
+y = 325.0
+w = 149.7
+h = 17.0
+size = 17.6
+baseline = 337.5
+color = "#1C1C1B"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Physiotherapy + Local estrogen + Pessary"
+x = 492.0
+y = 328.3
+w = 295.3
+h = 17.0
+size = 17.6
+baseline = 341.5
+color = "#191817"
+bold = false
+erase = true
+show = true
+conf = 95.5
+
+[[label]]
+text = "Urinary retention"
+x = 1003.0
+y = 332.0
+w = 124.0
+h = 28.0
+size = 28.7
+baseline = 354.0
+color = "#191917"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "Run in parallel for symptom"
+x = 548.3
+y = 367.7
+w = 199.3
+h = 17.3
+size = 17.6
+baseline = 381.3
+color = "#171715"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Pessary"
+x = 129.0
+y = 370.7
+w = 62.3
+h = 19.3
+size = 17.6
+baseline = 385.6
+color = "#10122B"
+bold = false
+erase = true
+show = true
+conf = 93.0
+
+[[label]]
+text = "relief and stabilization"
+x = 548.0
+y = 388.7
+w = 160.0
+h = 14.0
+size = 17.6
+baseline = 402.7
+color = "#181716"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Fitting is a clinical act or referral,"
+x = 129.0
+y = 396.3
+w = 217.7
+h = 17.0
+size = 17.6
+baseline = 409.7
+color = "#1B1B19"
+bold = false
+erase = true
+show = true
+conf = 96.0
+
+[[label]]
+text = "prolapse"
+x = 1112.0
+y = 412.3
+w = 80.3
+h = 22.7
+size = 24.4
+baseline = 429.9
+color = "#941B1C"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "not a mail-order picture."
+x = 129.0
+y = 418.0
+w = 162.3
+h = 16.7
+size = 17.6
+baseline = 431.0
+color = "#1B1A19"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Reassess together at"
+x = 548.3
+y = 429.7
+w = 150.3
+h = 17.0
+size = 17.6
+baseline = 442.8
+color = "#151413"
+bold = false
+erase = true
+show = true
+conf = 95.3
+
+[[label]]
+text = "Cannot be reduced"
+x = 1002.7
+y = 441.3
+w = 139.0
+h = 14.0
+size = 17.6
+baseline = 455.3
+color = "#191917"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "weeks and beyond"
+x = 568.7
+y = 450.3
+w = 134.7
+h = 17.7
+size = 17.6
+baseline = 464.1
+color = "#191918"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Local estrogen"
+x = 129.0
+y = 462.4
+w = 117.0
+h = 19.9
+size = 17.6
+baseline = 478.2
+color = "#12152C"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "manually"
+x = 1002.7
+y = 464.0
+w = 64.0
+h = 18.0
+size = 17.6
+baseline = 477.9
+color = "#141312"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "SURGERY"
+x = 548.0
+y = 485.0
+w = 76.0
+h = 14.0
+size = 21.8
+baseline = 499.0
+color = "#12100E"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Vaginal tissue support"
+x = 128.7
+y = 489.0
+w = 146.3
+h = 16.7
+size = 17.6
+baseline = 502.0
+color = "#1D1D1B"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Reserve or informed choice:"
+x = 548.7
+y = 504.0
+w = 182.7
+h = 12.3
+size = 17.6
+baseline = 516.3
+color = "#1D1B17"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "(when appropriate)."
+x = 129.0
+y = 510.3
+w = 130.0
+h = 17.0
+size = 17.6
+baseline = 522.8
+color = "#1B1B19"
+bold = false
+erase = true
+show = true
+conf = 95.2
+
+[[label]]
+text = "URGENT EVALUATION AND"
+x = 957.0
+y = 517.7
+w = 213.0
+h = 15.7
+size = 21.8
+baseline = 533.3
+color = "#8F1819"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Conservative care fails"
+x = 563.3
+y = 520.7
+w = 141.3
+h = 18.0
+size = 17.6
+baseline = 533.7
+color = "#1A1814"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Stage is high"
+x = 563.3
+y = 539.0
+w = 79.0
+h = 15.0
+size = 17.6
+baseline = 550.6
+color = "#1C1A16"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "MANAGEMENT REQUIRED."
+x = 957.0
+y = 542.0
+w = 210.0
+h = 17.0
+size = 21.8
+baseline = 557.3
+color = "#8B1515"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "Informed patient asks"
+x = 564.0
+y = 556.0
+w = 135.0
+h = 15.0
+size = 17.6
+baseline = 567.7
+color = "#191814"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "CHECKS SO THE PESSARY IS NOT FORGOTTEN"
+x = 117.0
+y = 603.0
+w = 308.0
+h = 14.0
+size = 21.8
+baseline = 617.0
+color = "#14162A"
+bold = true
+erase = true
+show = true
+conf = 95.0
+
+[[label]]
+text = "THE PILGRIMAGE IS"
+x = 945.0
+y = 604.3
+w = 144.0
+h = 14.0
+size = 21.8
+baseline = 618.3
+color = "#141730"
+bold = true
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "DO NOT CALL IT MERE AGING."
+x = 561.7
+y = 610.3
+w = 208.0
+h = 14.0
+size = 21.8
+baseline = 624.0
+color = "#14172E"
+bold = true
+erase = true
+show = true
+conf = 95.8
+
+[[label]]
+text = "A LEGITIMATE GOAL."
+x = 945.3
+y = 625.0
+w = 151.7
+h = 14.3
+size = 21.8
+baseline = 639.3
+color = "#131732"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Review at each visit"
+x = 140.0
+y = 627.0
+w = 117.3
+h = 11.7
+size = 17.6
+baseline = 638.7
+color = "#1C1B19"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "It is anatomy, symptoms, and function—"
+x = 561.7
+y = 635.7
+w = 233.3
+h = 15.3
+size = 17.6
+baseline = 647.7
+color = "#1B1A18"
+bold = false
+erase = true
+show = true
+conf = 95.1
+
+[[label]]
+text = "Remove/clean/replace per plan"
+x = 140.0
+y = 647.0
+w = 185.3
+h = 15.7
+size = 17.6
+baseline = 658.9
+color = "#1E1D1B"
+bold = false
+erase = true
+show = true
+conf = 95.1
+
+[[label]]
+text = "Relief, function, and choice"
+x = 946.0
+y = 647.7
+w = 165.0
+h = 14.3
+size = 17.6
+baseline = 658.8
+color = "#1A1A18"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "deserving assessment and support."
+x = 561.0
+y = 656.0
+w = 205.7
+h = 15.3
+size = 17.6
+baseline = 668.1
+color = "#1F1E1D"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "guide the journey."
+x = 945.3
+y = 667.3
+w = 109.3
+h = 15.3
+size = 17.6
+baseline = 679.2
+color = "#1B1A18"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Patient education and red-flag advice."
+x = 140.0
+y = 668.0
+w = 226.7
+h = 15.3
+size = 17.6
+baseline = 680.0
+color = "#191918"
+bold = false
+erase = true
+show = true
+conf = 95.4
+
+[[label]]
+text = "No operative field"
+x = 1131.3
+y = 694.0
+w = 110.7
+h = 16.0
+size = 17.6
+baseline = 706.3
+color = "#E3EAF3"
+bold = false
+erase = true
+show = true
+conf = 96.8

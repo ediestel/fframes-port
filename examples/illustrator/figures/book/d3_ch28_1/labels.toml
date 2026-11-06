@@ -1,0 +1,365 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "hypothalamus"
+x = 663.7
+y = 108.0
+w = 122.7
+h = 32.3
+size = 34.8
+baseline = 133.0
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "hypothalamus"
+x = 80.3
+y = 192.3
+w = 117.0
+h = 19.7
+size = 22.7
+baseline = 207.6
+color = "#121212"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "hCG"
+x = 460.7
+y = 210.3
+w = 45.3
+h = 20.0
+size = 22.7
+baseline = 230.3
+color = "#0B0B0B"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "PRL"
+x = 264.7
+y = 258.0
+w = 38.3
+h = 17.7
+size = 24.5
+baseline = 275.7
+color = "#FBF5FB"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "hypophysis"
+x = 682.7
+y = 266.7
+w = 97.3
+h = 20.3
+size = 22.7
+baseline = 282.4
+color = "#131314"
+bold = false
+erase = true
+show = true
+conf = 92.3
+
+[[label]]
+text = "low-normal"
+x = 237.7
+y = 282.0
+w = 96.0
+h = 16.3
+size = 22.7
+baseline = 298.3
+color = "#F9F3FC"
+bold = false
+erase = true
+show = true
+conf = 91.8
+
+[[label]]
+text = "LH"
+x = 602.7
+y = 312.3
+w = 24.0
+h = 17.0
+size = 24.5
+baseline = 329.3
+color = "#F1FBFC"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Androgens"
+x = 867.7
+y = 316.7
+w = 95.7
+h = 28.3
+size = 30.5
+baseline = 338.6
+color = "#FBF8E8"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "hypophysis"
+x = 88.7
+y = 320.7
+w = 93.7
+h = 20.0
+size = 22.7
+baseline = 336.2
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 92.8
+
+[[label]]
+text = "high"
+x = 597.3
+y = 334.7
+w = 36.7
+h = 20.3
+size = 22.7
+baseline = 350.4
+color = "#EFF9FB"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "high"
+x = 897.0
+y = 341.3
+w = 36.7
+h = 15.3
+size = 16.5
+baseline = 353.2
+color = "#FBF7E3"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "FSH"
+x = 590.0
+y = 380.7
+w = 38.0
+h = 18.0
+size = 24.5
+baseline = 398.7
+color = "#FBF6FC"
+bold = true
+erase = true
+show = true
+conf = 95.6
+
+[[label]]
+text = "low-normal"
+x = 566.0
+y = 404.0
+w = 89.0
+h = 16.0
+size = 22.7
+baseline = 420.0
+color = "#F9F1FC"
+bold = false
+erase = true
+show = true
+conf = 91.4
+
+[[label]]
+text = "Androgens"
+x = 887.3
+y = 429.0
+w = 78.0
+h = 18.0
+size = 22.7
+baseline = 442.9
+color = "#D97427"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "ovarium"
+x = 101.7
+y = 431.7
+w = 67.7
+h = 32.7
+size = 61.6
+baseline = 464.3
+color = "#111111"
+bold = false
+erase = true
+show = true
+conf = 92.4
+
+[[label]]
+text = "ovarium"
+x = 696.0
+y = 439.0
+w = 69.7
+h = 16.0
+size = 30.2
+baseline = 455.0
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 92.4
+
+[[label]]
+text = "Normal E2,"
+x = 870.7
+y = 497.7
+w = 93.3
+h = 19.3
+size = 22.7
+baseline = 512.7
+color = "#FDF3F2"
+bold = false
+erase = true
+show = true
+conf = 93.2
+
+[[label]]
+text = "Normal"
+x = 258.0
+y = 511.0
+w = 60.3
+h = 16.7
+size = 22.7
+baseline = 527.7
+color = "#FCF4F3"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "Normal"
+x = 1109.7
+y = 513.0
+w = 68.3
+h = 17.7
+size = 22.7
+baseline = 530.7
+color = "#FCF7F4"
+bold = false
+erase = true
+show = true
+conf = 95.8
+
+[[label]]
+text = "normal"
+x = 887.7
+y = 520.0
+w = 57.7
+h = 16.7
+size = 22.7
+baseline = 536.7
+color = "#FDF5F4"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "endometrium"
+x = 235.0
+y = 534.0
+w = 107.7
+h = 16.0
+size = 22.7
+baseline = 550.0
+color = "#FCF3F1"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "hormones"
+x = 1099.3
+y = 538.0
+w = 91.3
+h = 17.0
+size = 22.7
+baseline = 555.0
+color = "#FCF5F3"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "endometrium"
+x = 862.0
+y = 542.7
+w = 111.0
+h = 16.3
+size = 22.7
+baseline = 559.0
+color = "#FCF3F2"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "uterus"
+x = 706.7
+y = 573.7
+w = 54.7
+h = 14.7
+size = 22.7
+baseline = 588.3
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "uterus"
+x = 115.3
+y = 590.3
+w = 53.3
+h = 14.7
+size = 22.7
+baseline = 605.0
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Pill bleed"
+x = 837.7
+y = 680.3
+w = 81.0
+h = 16.7
+size = 22.7
+baseline = 697.0
+color = "#4E1979"
+bold = false
+erase = true
+show = true
+conf = 96.8

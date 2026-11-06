@@ -1,0 +1,15 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "corey"
+x = 66.0
+y = 341.7
+w = 273.7
+h = 191.3
+size = 258.6
+baseline = 478.7
+color = "#3D5675"
+bold = false
+erase = true
+show = true
+conf = 71.7

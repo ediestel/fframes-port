@@ -1,0 +1,393 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "2-6 cm"
+x = 29.7
+y = 71.0
+w = 52.7
+h = 19.0
+size = 18.9
+baseline = 84.3
+color = "#151516"
+bold = false
+erase = true
+show = true
+conf = 96.1
+
+[[label]]
+text = "NORMAL"
+x = 664.3
+y = 103.0
+w = 50.0
+h = 11.0
+size = 15.3
+baseline = 114.0
+color = "#16181F"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "MECHANISM"
+x = 781.3
+y = 103.3
+w = 70.3
+h = 10.3
+size = 15.3
+baseline = 113.7
+color = "#171820"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "MECHANISM"
+x = 1126.3
+y = 109.3
+w = 75.3
+h = 10.0
+size = 15.3
+baseline = 119.3
+color = "#18191D"
+bold = true
+erase = true
+show = true
+conf = 92.6
+
+[[label]]
+text = "NORMAL"
+x = 664.3
+y = 224.3
+w = 50.7
+h = 22.0
+size = 30.6
+baseline = 246.3
+color = "#201E1B"
+bold = true
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "RUPTURE"
+x = 1138.0
+y = 228.3
+w = 52.3
+h = 22.3
+size = 31.0
+baseline = 250.7
+color = "#26201A"
+bold = true
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "ATROPHY"
+x = 792.7
+y = 235.7
+w = 55.7
+h = 10.7
+size = 15.3
+baseline = 246.3
+color = "#1A1B1E"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "CALF SQUEEZE"
+x = 988.7
+y = 240.0
+w = 83.0
+h = 12.0
+size = 15.3
+baseline = 250.7
+color = "#161616"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "CLINICAL FINDING"
+x = 1118.7
+y = 344.0
+w = 98.3
+h = 10.3
+size = 15.3
+baseline = 354.3
+color = "#151515"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "FOCAL STRESS"
+x = 774.7
+y = 368.0
+w = 82.0
+h = 10.3
+size = 15.3
+baseline = 378.3
+color = "#161618"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "NORMAL"
+x = 663.7
+y = 370.0
+w = 50.3
+h = 10.7
+size = 15.3
+baseline = 380.7
+color = "#18191C"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "REACTION"
+x = 786.7
+y = 380.3
+w = 57.0
+h = 17.0
+size = 23.6
+baseline = 397.3
+color = "#1C1D20"
+bold = true
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "STRESS"
+x = 794.0
+y = 420.0
+w = 42.3
+h = 17.3
+size = 24.1
+baseline = 437.3
+color = "#121215"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "MORTON"
+x = 1150.0
+y = 425.0
+w = 49.3
+h = 10.7
+size = 15.3
+baseline = 435.7
+color = "#1D1E1F"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "MULDER CLICK"
+x = 985.7
+y = 436.3
+w = 82.7
+h = 10.3
+size = 15.3
+baseline = 446.3
+color = "#141415"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "NEUROMA"
+x = 1146.0
+y = 438.7
+w = 58.0
+h = 23.0
+size = 31.9
+baseline = 461.7
+color = "#1B1B1D"
+bold = true
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "2-6 cm"
+x = 44.7
+y = 489.0
+w = 51.3
+h = 13.7
+size = 18.9
+baseline = 502.3
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 95.6
+
+[[label]]
+text = "NORMAL"
+x = 662.3
+y = 510.0
+w = 51.0
+h = 11.0
+size = 15.3
+baseline = 521.0
+color = "#141518"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "FRACTURE"
+x = 785.3
+y = 510.7
+w = 60.0
+h = 10.3
+size = 15.3
+baseline = 521.0
+color = "#1A1A1C"
+bold = true
+erase = true
+show = true
+conf = 96.0
+
+[[label]]
+text = "TARSAL"
+x = 995.3
+y = 546.0
+w = 44.7
+h = 11.0
+size = 15.3
+baseline = 557.0
+color = "#161617"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "NERVE"
+x = 1152.0
+y = 546.7
+w = 38.0
+h = 10.3
+size = 15.3
+baseline = 557.0
+color = "#1F1F20"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "CLINICAL FINDING"
+x = 728.3
+y = 559.7
+w = 104.0
+h = 10.7
+size = 15.3
+baseline = 570.0
+color = "#1D1E1E"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "TUNNEL"
+x = 995.0
+y = 559.7
+w = 46.3
+h = 16.0
+size = 22.2
+baseline = 575.7
+color = "#1E1E20"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "COMPRESSION"
+x = 1129.0
+y = 560.0
+w = 86.0
+h = 15.7
+size = 21.8
+baseline = 575.7
+color = "#1C1C1D"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "MTP"
+x = 561.3
+y = 635.7
+w = 36.7
+h = 16.0
+size = 22.2
+baseline = 651.7
+color = "#AC181A"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "URGENT"
+x = 778.0
+y = 667.7
+w = 50.0
+h = 11.7
+size = 15.3
+baseline = 679.3
+color = "#A52523"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "GOUT"
+x = 1008.3
+y = 677.7
+w = 34.0
+h = 11.0
+size = 15.3
+baseline = 688.7
+color = "#191818"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "REFERRAL"
+x = 775.7
+y = 682.3
+w = 61.7
+h = 11.7
+size = 15.3
+baseline = 694.0
+color = "#A12422"
+bold = true
+erase = true
+show = true
+conf = 96.9

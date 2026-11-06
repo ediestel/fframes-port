@@ -1,0 +1,113 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "NORMAL"
+x = 131.3
+y = 25.0
+w = 88.0
+h = 18.0
+size = 24.1
+baseline = 43.0
+color = "#0F1942"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "ABDOMINAL-WALL PAIN"
+x = 405.7
+y = 25.0
+w = 243.7
+h = 18.0
+size = 24.1
+baseline = 43.0
+color = "#101A44"
+bold = true
+erase = true
+show = true
+conf = 94.1
+
+[[label]]
+text = "FAECAL"
+x = 828.3
+y = 126.7
+w = 35.7
+h = 10.7
+size = 14.8
+baseline = 137.3
+color = "#1F1F1F"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "FAECAL"
+x = 973.0
+y = 126.7
+w = 35.3
+h = 10.7
+size = 14.8
+baseline = 137.3
+color = "#212121"
+bold = true
+erase = true
+show = true
+conf = 95.9
+
+[[label]]
+text = "tTG, IgA"
+x = 1113.7
+y = 136.7
+w = 46.7
+h = 15.7
+size = 16.1
+baseline = 148.3
+color = "#191A1A"
+bold = false
+erase = true
+show = true
+conf = 90.5
+
+[[label]]
+text = "TEST"
+x = 979.3
+y = 155.7
+w = 23.7
+h = 10.7
+size = 14.8
+baseline = 166.3
+color = "#212020"
+bold = true
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "(NEGATIVE)"
+x = 1084.3
+y = 468.7
+w = 109.7
+h = 43.3
+size = 46.6
+baseline = 502.2
+color = "#754F50"
+bold = true
+erase = true
+show = true
+conf = 76.3
+
+[[label]]
+text = "GLUTEN-FREE DIET"
+x = 1014.0
+y = 670.0
+w = 182.0
+h = 18.0
+size = 24.1
+baseline = 687.7
+color = "#2C722C"
+bold = true
+erase = true
+show = true
+conf = 96.2

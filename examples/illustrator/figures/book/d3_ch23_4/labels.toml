@@ -1,0 +1,239 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "TWO BLOCKED DOORS"
+x = 1034.7
+y = 35.0
+w = 200.7
+h = 16.3
+size = 19.9
+baseline = 51.3
+color = "#EDF1F6"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "RESTING ECG STRIP"
+x = 540.0
+y = 78.0
+w = 183.7
+h = 17.0
+size = 19.9
+baseline = 95.0
+color = "#101A41"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "NORMAL ECG"
+x = 808.0
+y = 160.7
+w = 109.0
+h = 15.7
+size = 19.9
+baseline = 176.3
+color = "#EDF8EE"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "QT"
+x = 659.3
+y = 269.0
+w = 18.0
+h = 14.0
+size = 19.9
+baseline = 283.0
+color = "#D86621"
+bold = true
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "BRUGADA PATTERN"
+x = 499.0
+y = 317.7
+w = 95.0
+h = 19.0
+size = 26.4
+baseline = 336.7
+color = "#E2F9E6"
+bold = true
+erase = true
+show = true
+conf = 94.9
+
+[[label]]
+text = "NO PRE-EXCITATION"
+x = 809.0
+y = 385.7
+w = 107.0
+h = 12.3
+size = 19.9
+baseline = 398.0
+color = "#1D4D21"
+bold = true
+erase = true
+show = true
+conf = 93.0
+
+[[label]]
+text = "NORMAL QT"
+x = 829.7
+y = 406.7
+w = 65.0
+h = 13.3
+size = 19.9
+baseline = 419.0
+color = "#1A4D20"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "NO STRUCTURAL DISEASE"
+x = 802.7
+y = 427.7
+w = 122.0
+h = 11.7
+size = 19.9
+baseline = 439.3
+color = "#204A27"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "PALPITATIONS BEFORE"
+x = 80.7
+y = 487.3
+w = 149.3
+h = 14.7
+size = 19.9
+baseline = 501.7
+color = "#E9EDF4"
+bold = true
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "TWO BLOCKED DOORS"
+x = 80.3
+y = 512.0
+w = 149.7
+h = 14.7
+size = 19.9
+baseline = 526.3
+color = "#EBEEF4"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "UNCERTAIN PATTERNS ROUTE"
+x = 519.3
+y = 556.3
+w = 207.0
+h = 13.7
+size = 19.9
+baseline = 570.0
+color = "#151838"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "TO AN URGENT EXPERT"
+x = 541.7
+y = 577.7
+w = 162.7
+h = 13.7
+size = 19.9
+baseline = 591.3
+color = "#16193D"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "OVER-READ"
+x = 583.3
+y = 598.7
+w = 81.3
+h = 13.7
+size = 19.9
+baseline = 612.3
+color = "#14163C"
+bold = true
+erase = true
+show = true
+conf = 92.3
+
+[[label]]
+text = "ESTABLISHED CAUSAL LINK"
+x = 120.0
+y = 657.3
+w = 191.0
+h = 14.7
+size = 19.9
+baseline = 672.0
+color = "#141736"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "UNCERTAIN LINK"
+x = 461.0
+y = 657.7
+w = 117.7
+h = 14.7
+size = 19.9
+baseline = 672.3
+color = "#131738"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "URGENT EXPERT OVER-READ"
+x = 723.0
+y = 657.7
+w = 200.0
+h = 15.0
+size = 19.9
+baseline = 672.7
+color = "#151838"
+bold = true
+erase = true
+show = true
+conf = 94.1
+
+[[label]]
+text = "BLOCKED ACCESS"
+x = 1059.0
+y = 658.0
+w = 124.3
+h = 14.7
+size = 19.9
+baseline = 672.7
+color = "#161939"
+bold = true
+erase = true
+show = true
+conf = 96.3

@@ -1,0 +1,393 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "Anterior drawe Anterior drawe"
+x = 695.7
+y = 22.8
+w = 157.7
+h = 26.0
+size = 21.9
+baseline = 41.7
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 87.9
+
+[[label]]
+text = "Both malleoli"
+x = 91.3
+y = 25.0
+w = 111.0
+h = 16.0
+size = 21.9
+baseline = 41.0
+color = "#121212"
+bold = false
+erase = true
+show = true
+conf = 92.8
+
+[[label]]
+text = "Fifth-metatarsal"
+x = 311.7
+y = 25.0
+w = 132.7
+h = 16.0
+size = 21.9
+baseline = 41.0
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 92.3
+
+[[label]]
+text = "Navicular"
+x = 507.0
+y = 25.3
+w = 77.3
+h = 15.7
+size = 21.9
+baseline = 41.0
+color = "#181819"
+bold = false
+erase = true
+show = true
+conf = 91.8
+
+[[label]]
+text = "base"
+x = 358.7
+y = 48.0
+w = 37.7
+h = 15.3
+size = 21.9
+baseline = 63.3
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Recheck on"
+x = 1065.0
+y = 212.7
+w = 106.7
+h = 17.0
+size = 21.9
+baseline = 229.7
+color = "#122B8C"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "green"
+x = 195.0
+y = 225.7
+w = 50.0
+h = 59.7
+size = 80.6
+baseline = 268.4
+color = "#206226"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "day 4-5"
+x = 1080.7
+y = 238.0
+w = 76.0
+h = 21.7
+size = 21.9
+baseline = 254.8
+color = "#1A3387"
+bold = false
+erase = true
+show = true
+conf = 96.0
+
+[[label]]
+text = "een only if no criterion is met"
+x = 213.3
+y = 239.7
+w = 278.3
+h = 22.3
+size = 21.9
+baseline = 257.0
+color = "#1C6A23"
+bold = false
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "Talar tilt"
+x = 69.7
+y = 303.3
+w = 79.7
+h = 17.7
+size = 21.9
+baseline = 321.0
+color = "#0B0B0B"
+bold = false
+erase = true
+show = true
+conf = 95.1
+
+[[label]]
+text = "4-5"
+x = 1193.7
+y = 303.3
+w = 43.3
+h = 19.7
+size = 21.9
+baseline = 323.0
+color = "#112A79"
+bold = false
+erase = true
+show = true
+conf = 96.0
+
+[[label]]
+text = "Talar tilt"
+x = 245.7
+y = 306.7
+w = 65.7
+h = 15.3
+size = 21.9
+baseline = 322.0
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 94.9
+
+[[label]]
+text = "ligamentum"
+x = 514.7
+y = 312.0
+w = 88.7
+h = 19.0
+size = 21.9
+baseline = 326.7
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "(increased"
+x = 237.7
+y = 328.0
+w = 78.7
+h = 19.0
+size = 21.9
+baseline = 342.7
+color = "#151514"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Normal"
+x = 79.0
+y = 330.7
+w = 56.3
+h = 15.0
+size = 21.9
+baseline = 345.7
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "talofibulare"
+x = 513.7
+y = 333.3
+w = 87.0
+h = 15.0
+size = 21.9
+baseline = 348.3
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 92.4
+
+[[label]]
+text = "Pain above the"
+x = 848.3
+y = 341.7
+w = 112.3
+h = 15.0
+size = 21.9
+baseline = 356.7
+color = "#B62223"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "anterius"
+x = 514.3
+y = 355.0
+w = 61.3
+h = 15.0
+size = 21.9
+baseline = 370.0
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 92.8
+
+[[label]]
+text = "joint line"
+x = 869.0
+y = 364.0
+w = 68.3
+h = 19.3
+size = 21.9
+baseline = 379.0
+color = "#AF2223"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Referral"
+x = 1181.0
+y = 387.7
+w = 68.3
+h = 17.3
+size = 21.9
+baseline = 405.0
+color = "#4B177B"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "ligamentum"
+x = 514.0
+y = 430.7
+w = 87.7
+h = 19.0
+size = 21.9
+baseline = 445.4
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "calcaneofibulare"
+x = 507.3
+y = 452.7
+w = 115.0
+h = 15.3
+size = 21.9
+baseline = 468.0
+color = "#121212"
+bold = false
+erase = true
+show = true
+conf = 92.8
+
+[[label]]
+text = "syndesmosis"
+x = 998.0
+y = 480.7
+w = 103.3
+h = 20.0
+size = 21.9
+baseline = 496.2
+color = "#161717"
+bold = false
+erase = true
+show = true
+conf = 91.4
+
+[[label]]
+text = "4-5"
+x = 71.0
+y = 552.7
+w = 44.0
+h = 20.0
+size = 21.9
+baseline = 572.7
+color = "#132F78"
+bold = false
+erase = true
+show = true
+conf = 93.1
+
+[[label]]
+text = "Urgent"
+x = 1003.7
+y = 586.7
+w = 61.7
+h = 21.7
+size = 21.9
+baseline = 603.4
+color = "#4E1781"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "referral"
+x = 1002.3
+y = 612.3
+w = 64.7
+h = 17.7
+size = 21.9
+baseline = 630.0
+color = "#4B1483"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "syndesmosis"
+x = 757.7
+y = 673.7
+w = 105.0
+h = 21.0
+size = 21.9
+baseline = 689.9
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 92.6
+
+[[label]]
+text = "No plantarflexion"
+x = 226.3
+y = 679.0
+w = 145.0
+h = 20.3
+size = 21.9
+baseline = 694.7
+color = "#B12021"
+bold = false
+erase = true
+show = true
+conf = 92.6

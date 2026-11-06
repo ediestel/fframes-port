@@ -1,0 +1,99 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "SALINE"
+x = 781.0
+y = 412.3
+w = 61.0
+h = 19.3
+size = 26.9
+baseline = 431.7
+color = "#E5F3FA"
+bold = true
+erase = true
+show = true
+conf = 95.8
+
+[[label]]
+text = "Examination"
+x = 1136.7
+y = 427.3
+w = 115.3
+h = 20.0
+size = 25.9
+baseline = 447.3
+color = "#9D1719"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "0.9%"
+x = 790.0
+y = 450.0
+w = 45.0
+h = 18.7
+size = 25.9
+baseline = 468.7
+color = "#102775"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "urgently"
+x = 1155.3
+y = 460.3
+w = 78.0
+h = 25.0
+size = 25.9
+baseline = 479.7
+color = "#9B1415"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "Day 1 Day 2 Day 3 Day 4"
+x = 436.0
+y = 495.0
+w = 243.3
+h = 22.0
+size = 25.9
+baseline = 512.0
+color = "#171718"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "Stop use"
+x = 799.0
+y = 549.0
+w = 84.0
+h = 23.3
+size = 25.9
+baseline = 567.1
+color = "#12256D"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "after 3 days"
+x = 799.0
+y = 578.0
+w = 111.7
+h = 24.0
+size = 25.9
+baseline = 597.0
+color = "#122470"
+bold = false
+erase = true
+show = true
+conf = 96.7

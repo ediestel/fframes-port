@@ -1,0 +1,57 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "C6"
+x = 830.0
+y = 25.0
+w = 41.3
+h = 27.0
+size = 37.5
+baseline = 52.0
+color = "#307846"
+bold = true
+erase = true
+show = true
+conf = 93.3
+
+[[label]]
+text = "C6"
+x = 1076.0
+y = 25.0
+w = 42.0
+h = 27.0
+size = 37.5
+baseline = 52.0
+color = "#BB3738"
+bold = true
+erase = true
+show = true
+conf = 95.6
+
+[[label]]
+text = "nervus medianus"
+x = 472.7
+y = 534.0
+w = 196.3
+h = 20.7
+size = 30.6
+baseline = 554.7
+color = "#DF6D22"
+bold = false
+erase = true
+show = true
+conf = 90.9
+
+[[label]]
+text = "nervus ulnaris"
+x = 472.0
+y = 610.3
+w = 166.3
+h = 22.0
+size = 30.6
+baseline = 632.3
+color = "#683F81"
+bold = false
+erase = true
+show = true
+conf = 92.2

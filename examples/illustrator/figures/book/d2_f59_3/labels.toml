@@ -1,0 +1,211 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "WHAT GOES WRONG"
+x = 800.7
+y = 7.0
+w = 162.3
+h = 13.0
+size = 17.6
+baseline = 20.0
+color = "#851719"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "NORMAL COMPARATOR"
+x = 217.7
+y = 12.0
+w = 217.0
+h = 15.0
+size = 17.6
+baseline = 26.7
+color = "#3A6734"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "MECHANISM TO SYMPTOM"
+x = 778.0
+y = 24.7
+w = 209.7
+h = 12.7
+size = 17.6
+baseline = 37.0
+color = "#871B1D"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "CLINICAL FINDING"
+x = 814.0
+y = 41.0
+w = 144.0
+h = 12.7
+size = 17.6
+baseline = 53.7
+color = "#891819"
+bold = true
+erase = true
+show = true
+conf = 95.7
+
+[[label]]
+text = "carcinoma"
+x = 438.0
+y = 364.0
+w = 97.7
+h = 25.0
+size = 47.2
+baseline = 389.0
+color = "#110F0E"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "carcinoma"
+x = 162.7
+y = 367.0
+w = 97.7
+h = 17.0
+size = 27.2
+baseline = 384.0
+color = "#13110F"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "keratosis"
+x = 1062.0
+y = 367.0
+w = 84.3
+h = 28.7
+size = 39.8
+baseline = 395.7
+color = "#151312"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "keratoacanthoma"
+x = 734.0
+y = 384.7
+w = 159.7
+h = 17.3
+size = 27.2
+baseline = 402.0
+color = "#12110F"
+bold = false
+erase = true
+show = true
+conf = 91.9
+
+[[label]]
+text = "basocellulare"
+x = 158.3
+y = 389.7
+w = 122.3
+h = 17.3
+size = 27.2
+baseline = 407.0
+color = "#12100F"
+bold = false
+erase = true
+show = true
+conf = 92.4
+
+[[label]]
+text = "spinocellulare"
+x = 437.7
+y = 394.3
+w = 130.3
+h = 21.7
+size = 27.2
+baseline = 411.1
+color = "#110F0E"
+bold = false
+erase = true
+show = true
+conf = 92.5
+
+[[label]]
+text = "actinica"
+x = 1067.7
+y = 396.3
+w = 72.7
+h = 27.7
+size = 38.4
+baseline = 424.0
+color = "#131110"
+bold = false
+erase = true
+show = true
+conf = 93.2
+
+[[label]]
+text = "keratosis"
+x = 198.0
+y = 641.0
+w = 93.3
+h = 19.0
+size = 27.2
+baseline = 660.0
+color = "#110F0D"
+bold = false
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "benign"
+x = 583.7
+y = 658.7
+w = 72.3
+h = 25.3
+size = 27.2
+baseline = 678.3
+color = "#11100E"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "biopsy"
+x = 968.7
+y = 662.0
+w = 73.3
+h = 26.0
+size = 27.2
+baseline = 682.1
+color = "#831115"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "seborrhoica"
+x = 185.0
+y = 666.0
+w = 123.3
+h = 19.0
+size = 27.2
+baseline = 685.0
+color = "#121110"
+bold = false
+erase = true
+show = true
+conf = 92.0

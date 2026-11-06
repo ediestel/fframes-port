@@ -1,0 +1,57 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "C6"
+x = 236.0
+y = 186.7
+w = 29.3
+h = 22.3
+size = 31.0
+baseline = 209.0
+color = "#144387"
+bold = true
+erase = true
+show = true
+conf = 92.0
+
+[[label]]
+text = "C6"
+x = 119.3
+y = 199.7
+w = 29.7
+h = 22.7
+size = 31.0
+baseline = 222.3
+color = "#0F3A82"
+bold = true
+erase = true
+show = true
+conf = 93.9
+
+[[label]]
+text = "C8"
+x = 237.0
+y = 317.3
+w = 29.0
+h = 21.3
+size = 31.0
+baseline = 338.7
+color = "#C48E23"
+bold = true
+erase = true
+show = true
+conf = 95.3
+
+[[label]]
+text = "C7"
+x = 42.0
+y = 385.7
+w = 28.7
+h = 21.7
+size = 31.0
+baseline = 407.3
+color = "#4B7E40"
+bold = true
+erase = true
+show = true
+conf = 96.6

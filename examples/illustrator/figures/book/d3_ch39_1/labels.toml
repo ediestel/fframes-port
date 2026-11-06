@@ -1,0 +1,85 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "ampulla recti"
+x = 205.3
+y = 30.3
+w = 133.7
+h = 24.7
+size = 26.4
+baseline = 49.7
+color = "#111112"
+bold = false
+erase = true
+show = true
+conf = 93.1
+
+[[label]]
+text = "ampulla recti"
+x = 606.0
+y = 30.7
+w = 133.3
+h = 24.3
+size = 26.4
+baseline = 49.5
+color = "#121212"
+bold = false
+erase = true
+show = true
+conf = 92.9
+
+[[label]]
+text = "ampulla recti"
+x = 1009.0
+y = 30.7
+w = 131.7
+h = 24.6
+size = 26.4
+baseline = 50.3
+color = "#121212"
+bold = false
+erase = true
+show = true
+conf = 93.2
+
+[[label]]
+text = "musculus"
+x = 1135.0
+y = 153.0
+w = 90.0
+h = 19.3
+size = 26.4
+baseline = 172.3
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "puborectalis"
+x = 1133.3
+y = 179.7
+w = 118.7
+h = 27.0
+size = 26.4
+baseline = 200.6
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 92.6
+
+[[label]]
+text = "PEG"
+x = 62.0
+y = 556.3
+w = 44.0
+h = 20.0
+size = 27.8
+baseline = 576.3
+color = "#111111"
+bold = true
+erase = true
+show = true
+conf = 96.4

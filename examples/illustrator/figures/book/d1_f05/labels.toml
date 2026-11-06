@@ -1,0 +1,141 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "30-60 s"
+x = 94.7
+y = 306.3
+w = 72.0
+h = 24.0
+size = 23.3
+baseline = 323.3
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 88.2
+
+[[label]]
+text = "30-60 s"
+x = 356.7
+y = 306.3
+w = 71.7
+h = 24.0
+size = 23.3
+baseline = 323.3
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 82.4
+
+[[label]]
+text = "30-60 s"
+x = 613.7
+y = 306.3
+w = 72.0
+h = 17.0
+size = 23.3
+baseline = 323.3
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 86.6
+
+[[label]]
+text = "30-60 s"
+x = 869.0
+y = 306.3
+w = 71.7
+h = 17.0
+size = 23.3
+baseline = 323.3
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 92.5
+
+[[label]]
+text = "30-60 s"
+x = 1134.7
+y = 306.3
+w = 71.7
+h = 17.0
+size = 23.3
+baseline = 323.3
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 92.5
+
+[[label]]
+text = "repeat if needed"
+x = 1092.7
+y = 407.7
+w = 121.7
+h = 19.3
+size = 23.3
+baseline = 423.0
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "canalis semicircularis"
+x = 242.0
+y = 456.7
+w = 151.3
+h = 14.7
+size = 23.3
+baseline = 471.3
+color = "#1D1D1D"
+bold = false
+erase = true
+show = true
+conf = 91.5
+
+[[label]]
+text = "posterior"
+x = 282.3
+y = 478.7
+w = 64.7
+h = 18.7
+size = 23.3
+baseline = 493.1
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "utriculus"
+x = 304.7
+y = 635.7
+w = 63.7
+h = 15.3
+size = 23.3
+baseline = 651.0
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 92.0
+
+[[label]]
+text = "utriculus"
+x = 1020.7
+y = 636.0
+w = 64.0
+h = 15.3
+size = 23.3
+baseline = 651.3
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 92.1

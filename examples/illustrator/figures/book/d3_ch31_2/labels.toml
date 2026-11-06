@@ -1,0 +1,141 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "hCG"
+x = 26.7
+y = 277.0
+w = 44.7
+h = 22.3
+size = 26.9
+baseline = 299.3
+color = "#0F0F0F"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "SEVERE PAIN OUT OF PROPORTION"
+x = 981.0
+y = 316.0
+w = 266.0
+h = 15.0
+size = 25.5
+baseline = 330.7
+color = "#F9E9E6"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "MESENTERIC ISCHAEMIA"
+x = 1013.3
+y = 341.0
+w = 200.3
+h = 15.0
+size = 25.5
+baseline = 356.0
+color = "#FAE7E5"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "aorta"
+x = 620.0
+y = 377.7
+w = 58.7
+h = 19.3
+size = 26.9
+baseline = 397.0
+color = "#0E0E0E"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "URGENT"
+x = 1101.7
+y = 603.7
+w = 82.7
+h = 18.3
+size = 25.5
+baseline = 622.0
+color = "#AE1619"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "UROLOGY"
+x = 1095.0
+y = 629.0
+w = 96.3
+h = 19.0
+size = 25.5
+baseline = 648.0
+color = "#AF1317"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "urine cup with white cells"
+x = 466.7
+y = 632.0
+w = 186.0
+h = 19.7
+size = 26.9
+baseline = 647.3
+color = "#1C1C1B"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "testis"
+x = 777.7
+y = 635.7
+w = 57.3
+h = 20.0
+size = 26.9
+baseline = 655.7
+color = "#131312"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "appendix vermiformis"
+x = 208.7
+y = 636.7
+w = 198.7
+h = 24.3
+size = 26.9
+baseline = 655.6
+color = "#121212"
+bold = false
+erase = true
+show = true
+conf = 93.0
+
+[[label]]
+text = "does not exclude appendicitis"
+x = 455.0
+y = 655.0
+w = 214.3
+h = 19.0
+size = 26.9
+baseline = 669.7
+color = "#191918"
+bold = false
+erase = true
+show = true
+conf = 96.8

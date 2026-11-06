@@ -1,0 +1,25 @@
+# GP handbook figure D2_F65-2 (Grok action a9739653-f542-4018-be5c-da717974dfb9), as a layered figure.
+# labels.toml is the lettering read by OCR, then corrected by hand; it is never overwritten.
+source = "source.png"
+scale = 3
+
+[trace]
+colors = 128
+tol = 20.0
+speck = 1
+# line art in the colour of the picture under it (navy banners stay navy, dark tissue grey)
+outline_color = "picture"
+# small, so the dashes of dashed arrows stay
+min_piece = 3
+
+[[layers]]
+name = "colour"
+kind = "trace-pieces"
+
+[[layers]]
+name = "outlines"
+kind = "trace-outlines"
+
+[[layers]]
+name = "labels"
+kind = "labels"

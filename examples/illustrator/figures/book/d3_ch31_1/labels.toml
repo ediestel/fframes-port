@@ -1,0 +1,113 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "EARLY PAIN"
+x = 240.7
+y = 19.7
+w = 132.7
+h = 17.7
+size = 24.5
+baseline = 37.3
+color = "#4B4B4B"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "PAIN MIGRATED"
+x = 823.0
+y = 19.7
+w = 182.3
+h = 17.7
+size = 24.5
+baseline = 37.3
+color = "#4C4C4D"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "appendix vermiformis"
+x = 982.0
+y = 248.0
+w = 166.0
+h = 19.7
+size = 20.8
+baseline = 263.4
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 93.0
+
+[[label]]
+text = "umbilicus"
+x = 186.7
+y = 275.3
+w = 72.7
+h = 23.0
+size = 31.9
+baseline = 298.3
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "appendix vermiformis"
+x = 315.0
+y = 514.3
+w = 163.3
+h = 19.0
+size = 20.8
+baseline = 529.1
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 92.9
+
+[[label]]
+text = "appendix vermiformis"
+x = 1021.7
+y = 640.0
+w = 160.3
+h = 23.7
+size = 20.8
+baseline = 656.8
+color = "#181819"
+bold = false
+erase = true
+show = true
+conf = 94.7
+
+[[label]]
+text = "retrocaecal"
+x = 167.0
+y = 670.0
+w = 83.3
+h = 15.0
+size = 20.8
+baseline = 685.0
+color = "#121212"
+bold = false
+erase = true
+show = true
+conf = 91.9
+
+[[label]]
+text = "pelvic"
+x = 402.0
+y = 670.0
+w = 44.0
+h = 18.7
+size = 20.8
+baseline = 684.5
+color = "#141514"
+bold = false
+erase = true
+show = true
+conf = 96.7

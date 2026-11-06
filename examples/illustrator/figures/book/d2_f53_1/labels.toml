@@ -1,0 +1,309 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "(A) PASSIVE MOTION FREE TO NEAR FULL ELEVATION"
+x = 11.3
+y = 21.0
+w = 538.0
+h = 27.5
+size = 25.0
+baseline = 41.0
+color = "#1D6221"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "HARD EARLY STOP, EXTERNAL ROTATION LOST FIRST"
+x = 727.0
+y = 23.0
+w = 505.3
+h = 21.3
+size = 25.0
+baseline = 41.0
+color = "#A41416"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "120°"
+x = 338.7
+y = 83.7
+w = 38.3
+h = 17.3
+size = 24.1
+baseline = 101.0
+color = "#0F0F0F"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "120°"
+x = 972.0
+y = 83.7
+w = 38.7
+h = 17.3
+size = 24.1
+baseline = 101.0
+color = "#0D0E0E"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "60°"
+x = 214.7
+y = 265.7
+w = 34.0
+h = 17.7
+size = 24.1
+baseline = 283.3
+color = "#140907"
+bold = false
+erase = true
+show = true
+conf = 96.1
+
+[[label]]
+text = "ABDUCTION WEAKNESS WITH"
+x = 49.0
+y = 361.0
+w = 173.3
+h = 12.0
+size = 16.7
+baseline = 372.7
+color = "#151515"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "END-RANGE PAIN ABOVE 150°"
+x = 335.7
+y = 361.0
+w = 175.3
+h = 12.0
+size = 16.7
+baseline = 372.7
+color = "#151615"
+bold = true
+erase = true
+show = true
+conf = 95.7
+
+[[label]]
+text = "ABDUCTION WEAKNESS WITH"
+x = 692.0
+y = 361.0
+w = 173.0
+h = 12.0
+size = 16.7
+baseline = 373.0
+color = "#131313"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "END-RANGE PAIN ABOVE 150°"
+x = 999.3
+y = 361.0
+w = 175.7
+h = 12.0
+size = 16.7
+baseline = 373.0
+color = "#141413"
+bold = true
+erase = true
+show = true
+conf = 95.7
+
+[[label]]
+text = "FREE PASSIVE MOTION FOR A CUFF TEAR"
+x = 24.7
+y = 379.0
+w = 225.7
+h = 16.9
+size = 16.7
+baseline = 391.0
+color = "#171717"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "AT THE ACROMIOCLAVICULAR JOINT"
+x = 322.7
+y = 379.0
+w = 206.0
+h = 17.0
+size = 16.7
+baseline = 391.0
+color = "#141414"
+bold = true
+erase = true
+show = true
+conf = 94.7
+
+[[label]]
+text = "AT THE ACROMIOCLAVICULAR JOINT"
+x = 992.7
+y = 379.3
+w = 207.7
+h = 12.0
+size = 16.7
+baseline = 391.0
+color = "#181818"
+bold = true
+erase = true
+show = true
+conf = 94.8
+
+[[label]]
+text = "FREE PASSIVE MOTION FOR A CUFF TEAR"
+x = 665.7
+y = 379.7
+w = 228.7
+h = 11.7
+size = 16.7
+baseline = 391.3
+color = "#1A1A1A"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "Irritadodaviculatio"
+x = 414.7
+y = 454.0
+w = 112.0
+h = 13.3
+size = 24.1
+baseline = 467.3
+color = "#1F1F1E"
+bold = false
+erase = true
+show = true
+conf = 72.0
+
+[[label]]
+text = "articulatio"
+x = 1080.0
+y = 469.0
+w = 64.3
+h = 17.7
+size = 24.1
+baseline = 486.7
+color = "#1F1F1E"
+bold = false
+erase = true
+show = true
+conf = 93.3
+
+[[label]]
+text = "acromioclavicularis"
+x = 414.0
+y = 473.7
+w = 119.7
+h = 13.3
+size = 24.1
+baseline = 487.0
+color = "#1E1E1E"
+bold = false
+erase = true
+show = true
+conf = 90.1
+
+[[label]]
+text = "acromioclavicularis"
+x = 1079.0
+y = 490.0
+w = 122.0
+h = 14.0
+size = 24.1
+baseline = 504.0
+color = "#1E1D1D"
+bold = false
+erase = true
+show = true
+conf = 92.1
+
+[[label]]
+text = "EDUCATION, ANALGESIA"
+x = 334.3
+y = 570.0
+w = 151.0
+h = 15.0
+size = 16.7
+baseline = 581.6
+color = "#161616"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "AND PHYSIOTHERAPY"
+x = 339.7
+y = 589.0
+w = 136.0
+h = 12.3
+size = 16.7
+baseline = 601.3
+color = "#181818"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "GLUCOSE METER"
+x = 934.0
+y = 665.3
+w = 105.3
+h = 19.4
+size = 16.7
+baseline = 679.3
+color = "#181818"
+bold = true
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "LONG CALENDAR"
+x = 1081.7
+y = 665.9
+w = 106.7
+h = 14.1
+size = 16.7
+baseline = 680.0
+color = "#171717"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "FOR DIABETES"
+x = 941.7
+y = 685.0
+w = 90.7
+h = 12.7
+size = 16.7
+baseline = 697.7
+color = "#161616"
+bold = true
+erase = true
+show = true
+conf = 96.5

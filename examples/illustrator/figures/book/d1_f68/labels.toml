@@ -1,0 +1,43 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "NORMAL"
+x = 119.0
+y = 17.7
+w = 95.0
+h = 17.3
+size = 24.1
+baseline = 35.0
+color = "#F2FBEE"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "ABNORMAL"
+x = 497.0
+y = 18.0
+w = 126.7
+h = 17.0
+size = 24.1
+baseline = 35.0
+color = "#FBEEE9"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "processus mastoideus"
+x = 259.7
+y = 643.0
+w = 176.0
+h = 19.7
+size = 21.2
+baseline = 658.2
+color = "#191A1A"
+bold = false
+erase = true
+show = true
+conf = 93.1

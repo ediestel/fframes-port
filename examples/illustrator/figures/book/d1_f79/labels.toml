@@ -1,0 +1,57 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "OCT"
+x = 846.0
+y = 91.7
+w = 47.0
+h = 18.7
+size = 25.9
+baseline = 110.3
+color = "#131313"
+bold = true
+erase = true
+show = true
+conf = 95.4
+
+[[label]]
+text = "OCT"
+x = 586.7
+y = 158.0
+w = 60.3
+h = 25.3
+size = 35.2
+baseline = 183.3
+color = "#F3F6F8"
+bold = true
+erase = true
+show = true
+conf = 95.2
+
+[[label]]
+text = "Normal"
+x = 980.3
+y = 218.7
+w = 53.7
+h = 15.3
+size = 21.8
+baseline = 234.0
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Abnormal"
+x = 976.7
+y = 452.7
+w = 69.7
+h = 15.7
+size = 21.8
+baseline = 468.3
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 96.8

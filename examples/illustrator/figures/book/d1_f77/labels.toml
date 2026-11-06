@@ -1,0 +1,43 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "nervus"
+x = 1188.0
+y = 439.0
+w = 63.7
+h = 14.0
+size = 26.4
+baseline = 453.0
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 91.7
+
+[[label]]
+text = "retina"
+x = 1094.7
+y = 454.7
+w = 54.0
+h = 19.0
+size = 26.4
+baseline = 473.7
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "opticus"
+x = 1186.0
+y = 461.3
+w = 68.7
+h = 23.7
+size = 26.4
+baseline = 479.7
+color = "#141415"
+bold = false
+erase = true
+show = true
+conf = 92.5

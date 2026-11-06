@@ -1,0 +1,29 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "Cutibacterium"
+x = 676.0
+y = 455.7
+w = 119.3
+h = 21.7
+size = 30.1
+baseline = 477.3
+color = "#12183F"
+bold = false
+erase = true
+show = true
+conf = 91.2
+
+[[label]]
+text = "acnes"
+x = 711.0
+y = 484.0
+w = 49.3
+h = 12.3
+size = 30.1
+baseline = 496.3
+color = "#131841"
+bold = false
+erase = true
+show = true
+conf = 92.8

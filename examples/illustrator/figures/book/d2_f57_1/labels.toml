@@ -1,0 +1,57 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "sulcus nasolabialis"
+x = 1004.0
+y = 392.3
+w = 154.0
+h = 16.0
+size = 21.8
+baseline = 408.3
+color = "#5F4376"
+bold = false
+erase = true
+show = true
+conf = 92.1
+
+[[label]]
+text = "sulcus nasolabialis"
+x = 86.7
+y = 393.0
+w = 153.3
+h = 15.3
+size = 21.8
+baseline = 408.3
+color = "#A12C2B"
+bold = false
+erase = true
+show = true
+conf = 92.6
+
+[[label]]
+text = "sulcus nasolabialis"
+x = 412.7
+y = 392.7
+w = 153.3
+h = 15.3
+size = 21.8
+baseline = 408.0
+color = "#A34E5A"
+bold = false
+erase = true
+show = true
+conf = 92.6
+
+[[label]]
+text = "sulcus nasolabialis"
+x = 705.3
+y = 392.7
+w = 153.7
+h = 15.7
+size = 21.8
+baseline = 408.3
+color = "#A37432"
+bold = false
+erase = true
+show = true
+conf = 92.1

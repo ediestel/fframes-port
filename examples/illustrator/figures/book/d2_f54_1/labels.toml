@@ -1,0 +1,15 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "<0.5"
+x = 484.0
+y = 439.3
+w = 44.3
+h = 18.7
+size = 25.9
+baseline = 458.0
+color = "#B11A1C"
+bold = false
+erase = true
+show = true
+conf = 92.6

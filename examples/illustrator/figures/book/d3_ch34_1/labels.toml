@@ -1,0 +1,351 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "SUPERFICIAL: levator muscle and vestibule"
+x = 52.0
+y = 18.3
+w = 427.7
+h = 18.7
+size = 22.7
+baseline = 37.0
+color = "#F6EFFA"
+bold = false
+erase = true
+show = true
+conf = 96.1
+
+[[label]]
+text = "DEEP: rectouterine pouch, cervix, adnexa, bladder and rectum"
+x = 677.3
+y = 18.7
+w = 562.0
+h = 23.0
+size = 22.7
+baseline = 37.0
+color = "#EAF0F7"
+bold = false
+erase = true
+show = true
+conf = 94.7
+
+[[label]]
+text = "excavatio"
+x = 715.0
+y = 82.0
+w = 73.0
+h = 15.7
+size = 22.7
+baseline = 97.7
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 92.7
+
+[[label]]
+text = "rectouterina"
+x = 715.0
+y = 105.0
+w = 96.0
+h = 16.0
+size = 22.7
+baseline = 121.0
+color = "#171716"
+bold = false
+erase = true
+show = true
+conf = 92.4
+
+[[label]]
+text = "adnexa"
+x = 1188.7
+y = 136.3
+w = 54.3
+h = 16.7
+size = 22.7
+baseline = 153.0
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 93.2
+
+[[label]]
+text = "EXAMINATION"
+x = 480.0
+y = 192.3
+w = 108.3
+h = 15.7
+size = 22.2
+baseline = 208.0
+color = "#151514"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "STOPS ON"
+x = 495.7
+y = 215.0
+w = 76.3
+h = 16.0
+size = 22.2
+baseline = 231.0
+color = "#151515"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "vestibulum"
+x = 343.3
+y = 238.0
+w = 83.3
+h = 16.3
+size = 22.7
+baseline = 254.3
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "REQUEST"
+x = 498.7
+y = 238.0
+w = 71.7
+h = 18.0
+size = 22.2
+baseline = 256.0
+color = "#141414"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "cervix uteri"
+x = 941.0
+y = 245.7
+w = 89.0
+h = 29.8
+size = 22.7
+baseline = 266.7
+color = "#161515"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "vaginae"
+x = 355.0
+y = 261.7
+w = 59.3
+h = 20.7
+size = 22.7
+baseline = 276.5
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 93.2
+
+[[label]]
+text = "rectum"
+x = 1190.0
+y = 341.7
+w = 53.3
+h = 15.3
+size = 22.7
+baseline = 357.0
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "vesica"
+x = 661.0
+y = 371.0
+w = 48.3
+h = 17.0
+size = 32.1
+baseline = 388.0
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 92.9
+
+[[label]]
+text = "urinaria"
+x = 657.7
+y = 395.0
+w = 59.0
+h = 16.3
+size = 30.8
+baseline = 411.3
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 92.7
+
+[[label]]
+text = "SPECULUM SET"
+x = 475.7
+y = 480.0
+w = 113.3
+h = 16.0
+size = 22.2
+baseline = 496.0
+color = "#151515"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "ASIDE FOR ENTRY"
+x = 468.0
+y = 505.0
+w = 129.3
+h = 16.0
+size = 22.2
+baseline = 521.0
+color = "#151515"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "CERVICAL MOTION TENDERNESS"
+x = 1013.7
+y = 515.0
+w = 227.7
+h = 16.3
+size = 22.2
+baseline = 531.0
+color = "#151F55"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "PAIN, NEVER FORCED"
+x = 459.0
+y = 530.0
+w = 150.0
+h = 18.7
+size = 22.2
+baseline = 546.0
+color = "#151515"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "pain on movement of cervix"
+x = 1014.0
+y = 540.7
+w = 196.0
+h = 20.3
+size = 22.7
+baseline = 556.7
+color = "#1D1D1D"
+bold = false
+erase = true
+show = true
+conf = 96.0
+
+[[label]]
+text = "COTTON-SWAB TOUCH TEST"
+x = 147.0
+y = 552.0
+w = 208.0
+h = 16.0
+size = 22.2
+baseline = 568.0
+color = "#421D6C"
+bold = true
+erase = true
+show = true
+conf = 95.2
+
+[[label]]
+text = "adnexa or pressure in"
+x = 1013.7
+y = 565.7
+w = 154.3
+h = 19.7
+size = 22.7
+baseline = 581.3
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 95.7
+
+[[label]]
+text = "gentle, localized contact"
+x = 147.3
+y = 579.0
+w = 181.0
+h = 20.0
+size = 22.7
+baseline = 594.6
+color = "#3E1E67"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "rectouterine pouch"
+x = 1014.3
+y = 590.0
+w = 135.7
+h = 19.7
+size = 22.7
+baseline = 605.3
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 95.1
+
+[[label]]
+text = "STOP ON REQUEST"
+x = 810.3
+y = 657.0
+w = 174.7
+h = 21.7
+size = 22.2
+baseline = 676.3
+color = "#172961"
+bold = true
+erase = true
+show = true
+conf = 95.4
+
+[[label]]
+text = "PATIENT CONTROL"
+x = 1018.0
+y = 657.0
+w = 170.0
+h = 19.3
+size = 22.2
+baseline = 676.0
+color = "#152860"
+bold = true
+erase = true
+show = true
+conf = 96.2

@@ -1,0 +1,15 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "<2"
+x = 482.7
+y = 607.7
+w = 44.7
+h = 33.3
+size = 46.3
+baseline = 641.0
+color = "#33923B"
+bold = false
+erase = true
+show = true
+conf = 96.6

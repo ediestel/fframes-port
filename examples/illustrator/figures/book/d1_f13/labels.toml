@@ -1,0 +1,240 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "BMI"
+x = 495.7
+y = 31.7
+w = 48.3
+h = 22.0
+size = 30.6
+baseline = 53.7
+color = "#113F7C"
+bold = true
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "CENTRAL FAT PATTERN"
+x = 664.0
+y = 35.0
+w = 222.0
+h = 18.7
+size = 20.8
+baseline = 53.7
+color = "#AD181A"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "HEIGHT"
+x = 915.0
+y = 131.7
+w = 58.0
+h = 14.7
+size = 20.8
+baseline = 146.3
+color = "#191919"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "WHAT GOES WRONG"
+x = 694.0
+y = 153.3
+w = 154.0
+h = 22.0
+size = 20.8
+baseline = 169.3
+color = "#A71C1D"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "NORMAL COMPARATOR"
+x = 432.3
+y = 154.7
+w = 173.7
+h = 14.3
+size = 20.8
+baseline = 169.0
+color = "#142D6C"
+bold = true
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "WRONG"
+x = 789.7
+y = 154.7
+w = 58.3
+h = 14.7
+size = 20.8
+baseline = 169.3
+color = "#AC1B1C"
+bold = true
+erase = true
+show = false
+conf = 96.3
+
+[[label]]
+text = "MECHANISM LINKING"
+x = 689.7
+y = 339.7
+w = 152.7
+h = 13.7
+size = 20.8
+baseline = 353.3
+color = "#A41E1F"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "TO SYMPTOM"
+x = 720.0
+y = 357.0
+w = 96.0
+h = 14.0
+size = 20.8
+baseline = 371.0
+color = "#AC1A1B"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "LOWER RISK"
+x = 976.0
+y = 387.0
+w = 102.7
+h = 16.0
+size = 20.8
+baseline = 403.0
+color = "#1850A2"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "HIGHER RISK"
+x = 1135.7
+y = 387.0
+w = 107.7
+h = 16.0
+size = 20.8
+baseline = 403.0
+color = "#C3191C"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "MAGNIFIED"
+x = 472.3
+y = 409.3
+w = 89.0
+h = 15.0
+size = 20.8
+baseline = 424.3
+color = "#163170"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "≥102 cm"
+x = 1009.7
+y = 531.0
+w = 88.0
+h = 23.0
+size = 29.0
+baseline = 553.0
+color = "#1F5FB0"
+bold = true
+erase = true
+show = true
+conf = 88.5
+
+# Set by hand: the OCR read the sex symbols as letters; the symbols stay as drawn.
+[[label]]
+text = "≥88 cm"
+x = 1172.7
+y = 531.0
+w = 77.0
+h = 23.0
+size = 29.0
+baseline = 553.0
+color = "#C3191C"
+bold = true
+erase = true
+show = true
+conf = 0.0
+
+[[label]]
+text = "WAIST"
+x = 913.7
+y = 597.7
+w = 50.3
+h = 14.7
+size = 20.8
+baseline = 612.3
+color = "#151515"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = ">0.5"
+x = 1071.7
+y = 604.0
+w = 67.7
+h = 28.0
+size = 38.9
+baseline = 632.0
+color = "#16232E"
+bold = false
+erase = true
+show = true
+conf = 93.1
+
+[[label]]
+text = "RESULTING CLINICAL"
+x = 692.3
+y = 493.7
+w = 149.0
+h = 13.7
+size = 20.8
+baseline = 507.3
+color = "#A22020"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "FINDING"
+x = 737.0
+y = 512.3
+w = 58.0
+h = 12.7
+size = 20.8
+baseline = 525.0
+color = "#A22020"
+bold = true
+erase = true
+show = true
+conf = 96.9

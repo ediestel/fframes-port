@@ -1,0 +1,85 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "QT"
+x = 187.0
+y = 102.0
+w = 29.0
+h = 20.3
+size = 26.9
+baseline = 122.3
+color = "#1C55A1"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Brugada pattern"
+x = 1002.0
+y = 123.1
+w = 131.7
+h = 19.2
+size = 20.1
+baseline = 138.3
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "V1-V2"
+x = 1040.0
+y = 147.7
+w = 55.3
+h = 15.3
+size = 26.9
+baseline = 163.0
+color = "#101010"
+bold = true
+erase = true
+show = true
+conf = 88.8
+
+[[label]]
+text = "delta wave"
+x = 139.0
+y = 581.0
+w = 86.7
+h = 15.3
+size = 20.1
+baseline = 596.3
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "ST"
+x = 1067.0
+y = 600.0
+w = 27.0
+h = 19.3
+size = 26.9
+baseline = 619.3
+color = "#E27B29"
+bold = true
+erase = true
+show = true
+conf = 96.0
+
+[[label]]
+text = "for pre-excitation"
+x = 114.0
+y = 604.3
+w = 137.3
+h = 19.0
+size = 20.1
+baseline = 619.1
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 92.2

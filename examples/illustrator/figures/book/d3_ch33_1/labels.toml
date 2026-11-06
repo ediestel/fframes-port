@@ -1,0 +1,729 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "watery stool continuing"
+x = 143.7
+y = 32.3
+w = 157.3
+h = 17.7
+size = 17.1
+baseline = 46.0
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "stool settling"
+x = 465.0
+y = 32.0
+w = 91.0
+h = 18.3
+size = 17.1
+baseline = 46.3
+color = "#151516"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "blood, fever"
+x = 780.0
+y = 32.0
+w = 83.0
+h = 16.7
+size = 17.1
+baseline = 44.9
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "no blood,"
+x = 1097.0
+y = 32.0
+w = 64.7
+h = 17.0
+size = 17.1
+baseline = 45.2
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "despite fasting"
+x = 144.0
+y = 54.0
+w = 103.0
+h = 18.3
+size = 17.1
+baseline = 68.3
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "with fasting"
+x = 464.7
+y = 54.0
+w = 82.7
+h = 18.3
+size = 17.1
+baseline = 68.3
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "no deficit"
+x = 1096.7
+y = 54.0
+w = 66.0
+h = 14.3
+size = 17.1
+baseline = 68.3
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "and tenesmus"
+x = 779.3
+y = 54.7
+w = 98.0
+h = 14.0
+size = 17.1
+baseline = 68.7
+color = "#141514"
+bold = false
+erase = true
+show = true
+conf = 92.6
+
+[[label]]
+text = "NORMAL"
+x = 21.0
+y = 122.3
+w = 59.7
+h = 12.7
+size = 17.6
+baseline = 135.0
+color = "#131314"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "NORMAL"
+x = 340.7
+y = 122.7
+w = 58.7
+h = 12.7
+size = 17.6
+baseline = 135.3
+color = "#161717"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "NORMAL"
+x = 656.0
+y = 122.7
+w = 59.0
+h = 12.7
+size = 17.6
+baseline = 135.3
+color = "#181919"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "NORMAL"
+x = 973.0
+y = 123.0
+w = 58.7
+h = 12.7
+size = 17.6
+baseline = 135.7
+color = "#171717"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Na⁺ absorption"
+x = 213.3
+y = 148.0
+w = 83.0
+h = 15.7
+size = 17.1
+baseline = 160.3
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 94.3
+
+[[label]]
+text = "Na⁺ absorption"
+x = 526.7
+y = 148.0
+w = 83.7
+h = 16.0
+size = 17.1
+baseline = 160.5
+color = "#171616"
+bold = false
+erase = true
+show = true
+conf = 94.1
+
+[[label]]
+text = "intact barrier"
+x = 849.3
+y = 159.7
+w = 74.7
+h = 12.3
+size = 17.1
+baseline = 172.0
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "coordinated"
+x = 1170.0
+y = 165.7
+w = 68.0
+h = 12.7
+size = 17.1
+baseline = 178.3
+color = "#20201F"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "H₂O absorption"
+x = 212.0
+y = 167.0
+w = 84.7
+h = 15.7
+size = 17.1
+baseline = 178.7
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 89.2
+
+[[label]]
+text = "H₂O absorption"
+x = 526.7
+y = 167.7
+w = 84.7
+h = 15.3
+size = 17.1
+baseline = 179.0
+color = "#1C1C1C"
+bold = false
+erase = true
+show = true
+conf = 92.2
+
+[[label]]
+text = "controlled"
+x = 856.7
+y = 178.7
+w = 57.7
+h = 12.3
+size = 17.1
+baseline = 191.0
+color = "#1C1C1C"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "propulsion"
+x = 1174.0
+y = 182.7
+w = 60.3
+h = 19.0
+size = 17.1
+baseline = 197.4
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "response"
+x = 860.3
+y = 200.7
+w = 51.7
+h = 12.3
+size = 17.1
+baseline = 209.5
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "ABNORMAL"
+x = 20.3
+y = 279.0
+w = 77.7
+h = 13.0
+size = 17.6
+baseline = 292.0
+color = "#141953"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "ABNORMAL"
+x = 339.7
+y = 280.0
+w = 78.0
+h = 12.7
+size = 17.6
+baseline = 292.7
+color = "#191F5C"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "ABNORMAL"
+x = 655.0
+y = 279.7
+w = 77.0
+h = 12.7
+size = 17.6
+baseline = 292.3
+color = "#A11D21"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "ABNORMAL"
+x = 972.0
+y = 282.0
+w = 77.0
+h = 12.7
+size = 17.6
+baseline = 294.7
+color = "#401C63"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "(SECRETORY)"
+x = 20.3
+y = 297.0
+w = 78.3
+h = 14.7
+size = 17.6
+baseline = 308.4
+color = "#1A1B1A"
+bold = true
+erase = true
+show = true
+conf = 95.7
+
+[[label]]
+text = "(INFLAMMATORY)"
+x = 654.7
+y = 297.3
+w = 99.7
+h = 14.7
+size = 17.6
+baseline = 308.7
+color = "#1B1B1B"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "(OSMOTIC)"
+x = 339.7
+y = 297.7
+w = 63.3
+h = 14.3
+size = 17.6
+baseline = 308.8
+color = "#191919"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "(MOTILITY)"
+x = 972.3
+y = 299.0
+w = 65.0
+h = 14.3
+size = 17.6
+baseline = 310.1
+color = "#171718"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Cl⁻ secretion"
+x = 215.3
+y = 323.0
+w = 73.7
+h = 13.0
+size = 17.1
+baseline = 336.0
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 94.3
+
+[[label]]
+text = "osmoles in lumen"
+x = 520.3
+y = 323.1
+w = 92.0
+h = 17.3
+size = 17.1
+baseline = 335.7
+color = "#1A1919"
+bold = false
+erase = true
+show = true
+conf = 88.0
+
+[[label]]
+text = "barrier damage"
+x = 846.0
+y = 324.7
+w = 84.3
+h = 15.7
+size = 17.1
+baseline = 336.9
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 96.1
+
+[[label]]
+text = "rapid transit"
+x = 1168.0
+y = 338.0
+w = 70.0
+h = 16.0
+size = 17.1
+baseline = 351.0
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "secretion"
+x = 240.7
+y = 343.0
+w = 52.0
+h = 12.0
+size = 17.1
+baseline = 355.0
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "retention"
+x = 553.7
+y = 343.0
+w = 50.3
+h = 12.0
+size = 17.1
+baseline = 355.0
+color = "#1E1E1E"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "inflammation"
+x = 850.0
+y = 343.7
+w = 74.0
+h = 12.3
+size = 17.1
+baseline = 356.0
+color = "#1D1D1D"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "reduced"
+x = 1179.7
+y = 357.3
+w = 45.7
+h = 12.7
+size = 17.1
+baseline = 370.0
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "contact time"
+x = 1167.0
+y = 377.0
+w = 72.3
+h = 12.3
+size = 17.1
+baseline = 389.3
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "BLOOD"
+x = 761.0
+y = 477.0
+w = 39.3
+h = 10.3
+size = 17.6
+baseline = 487.3
+color = "#181817"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "FEVER"
+x = 674.3
+y = 485.7
+w = 35.7
+h = 10.7
+size = 17.6
+baseline = 496.3
+color = "#171717"
+bold = true
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "TENESMUS"
+x = 845.3
+y = 485.7
+w = 62.0
+h = 11.0
+size = 17.6
+baseline = 496.7
+color = "#171717"
+bold = true
+erase = true
+show = true
+conf = 92.5
+
+[[label]]
+text = "IN STOOL"
+x = 754.7
+y = 490.7
+w = 52.7
+h = 10.7
+size = 17.6
+baseline = 501.3
+color = "#171717"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "E. coli"
+x = 836.0
+y = 573.7
+w = 34.0
+h = 11.7
+size = 17.1
+baseline = 585.3
+color = "#1B1B1A"
+bold = false
+erase = true
+show = true
+conf = 92.0
+
+[[label]]
+text = "ANTIDIARRHOEAL"
+x = 660.7
+y = 574.7
+w = 98.0
+h = 10.7
+size = 17.6
+baseline = 585.3
+color = "#201F1F"
+bold = true
+erase = true
+show = true
+conf = 92.5
+
+[[label]]
+text = "WATERY STOOL"
+x = 75.0
+y = 586.9
+w = 112.0
+h = 15.1
+size = 17.6
+baseline = 601.7
+color = "#142366"
+bold = true
+erase = true
+show = true
+conf = 92.1
+
+[[label]]
+text = "(toxin-producing)"
+x = 805.7
+y = 588.7
+w = 93.7
+h = 14.7
+size = 17.1
+baseline = 600.0
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 92.4
+
+[[label]]
+text = "CONTRAINDICATED"
+x = 658.3
+y = 589.7
+w = 104.7
+h = 10.7
+size = 17.6
+baseline = 600.3
+color = "#1A1A1A"
+bold = true
+erase = true
+show = true
+conf = 91.9
+
+[[label]]
+text = "STOOL SETTLING"
+x = 393.7
+y = 612.3
+w = 116.3
+h = 13.0
+size = 17.6
+baseline = 625.3
+color = "#1A1A1A"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "WITH FASTING"
+x = 402.3
+y = 630.7
+w = 98.3
+h = 13.0
+size = 17.6
+baseline = 643.7
+color = "#141415"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "FASTING"
+x = 99.3
+y = 665.3
+w = 58.3
+h = 13.7
+size = 17.6
+baseline = 679.0
+color = "#121E63"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "NO BLOOD"
+x = 1004.7
+y = 665.0
+w = 70.0
+h = 13.0
+size = 17.6
+baseline = 678.0
+color = "#121312"
+bold = true
+erase = true
+show = true
+conf = 91.6
+
+[[label]]
+text = "DEFICIT"
+x = 1125.0
+y = 665.0
+w = 46.7
+h = 13.3
+size = 17.6
+baseline = 678.3
+color = "#171717"
+bold = true
+erase = true
+show = true
+conf = 91.4

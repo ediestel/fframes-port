@@ -1,0 +1,57 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "fossa"
+x = 321.3
+y = 519.3
+w = 49.7
+h = 17.7
+size = 24.5
+baseline = 537.0
+color = "#101111"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "fossa"
+x = 773.7
+y = 519.0
+w = 49.7
+h = 18.0
+size = 24.5
+baseline = 537.0
+color = "#161615"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "supraclavicularis"
+x = 281.7
+y = 545.7
+w = 156.3
+h = 22.7
+size = 24.5
+baseline = 563.2
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 91.6
+
+[[label]]
+text = "supraclavicularis"
+x = 721.7
+y = 545.7
+w = 155.3
+h = 22.7
+size = 24.5
+baseline = 563.2
+color = "#19191A"
+bold = false
+erase = true
+show = true
+conf = 90.3

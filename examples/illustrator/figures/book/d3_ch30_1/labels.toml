@@ -1,0 +1,169 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "10"
+x = 148.0
+y = 168.0
+w = 46.3
+h = 39.7
+size = 55.1
+baseline = 207.7
+color = "#4C4945"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "BLACK STOOL"
+x = 768.7
+y = 292.7
+w = 114.0
+h = 15.3
+size = 21.8
+baseline = 308.0
+color = "#11163B"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "WEIGHT LOSS"
+x = 911.0
+y = 292.7
+w = 114.0
+h = 15.3
+size = 21.8
+baseline = 308.0
+color = "#0F1439"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "ANAEMIA"
+x = 1068.3
+y = 292.7
+w = 79.7
+h = 15.3
+size = 21.8
+baseline = 308.0
+color = "#11163A"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "DYSPHAGIA"
+x = 771.7
+y = 457.3
+w = 98.3
+h = 16.0
+size = 21.8
+baseline = 473.3
+color = "#10143B"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "RECURRENT"
+x = 913.7
+y = 457.7
+w = 101.3
+h = 15.3
+size = 21.8
+baseline = 473.0
+color = "#12183E"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "NEW DYSPEPSIA"
+x = 1046.7
+y = 457.7
+w = 131.0
+h = 15.3
+size = 21.8
+baseline = 473.0
+color = "#12173C"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "VOMITING"
+x = 920.7
+y = 480.0
+w = 86.3
+h = 16.0
+size = 21.8
+baseline = 496.0
+color = "#13183E"
+bold = true
+erase = true
+show = true
+conf = 96.1
+
+[[label]]
+text = "AT OLDER AGE"
+x = 1053.0
+y = 480.3
+w = 118.0
+h = 15.7
+size = 21.8
+baseline = 496.0
+color = "#0E1237"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "SAME-DAY"
+x = 889.7
+y = 584.7
+w = 124.0
+h = 20.3
+size = 21.8
+baseline = 605.0
+color = "#0E1A46"
+bold = true
+erase = true
+show = true
+conf = 91.8
+
+[[label]]
+text = "CARE"
+x = 890.0
+y = 613.3
+w = 61.0
+h = 20.7
+size = 28.7
+baseline = 634.0
+color = "#0E1B47"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "AT ANY AGE"
+x = 890.0
+y = 642.7
+w = 138.3
+h = 20.3
+size = 21.8
+baseline = 663.0
+color = "#0E1C46"
+bold = true
+erase = true
+show = true
+conf = 96.3

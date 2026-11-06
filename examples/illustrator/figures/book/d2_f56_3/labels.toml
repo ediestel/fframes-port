@@ -1,0 +1,211 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "low"
+x = 789.7
+y = 85.7
+w = 30.7
+h = 17.0
+size = 24.0
+baseline = 102.7
+color = "#222222"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "potency"
+x = 789.7
+y = 111.3
+w = 72.7
+h = 19.7
+size = 24.0
+baseline = 126.6
+color = "#1D1D1D"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "FTU"
+x = 221.3
+y = 161.7
+w = 38.3
+h = 17.7
+size = 24.5
+baseline = 179.3
+color = "#40403F"
+bold = true
+erase = true
+show = true
+conf = 92.7
+
+[[label]]
+text = "medium"
+x = 789.3
+y = 191.0
+w = 72.3
+h = 17.0
+size = 24.0
+baseline = 208.0
+color = "#202020"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "potency"
+x = 789.7
+y = 216.7
+w = 72.7
+h = 19.7
+size = 24.0
+baseline = 231.9
+color = "#1B1B1C"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "=0.5g"
+x = 1016.0
+y = 378.0
+w = 84.0
+h = 30.0
+size = 32.3
+baseline = 401.2
+color = "#173B74"
+bold = false
+erase = true
+show = true
+conf = 84.9
+
+[[label]]
+text = "Emollient"
+x = 889.0
+y = 387.3
+w = 66.3
+h = 22.3
+size = 24.0
+baseline = 409.7
+color = "#102042"
+bold = false
+erase = true
+show = true
+conf = 92.9
+
+[[label]]
+text = "100-250"
+x = 1016.7
+y = 492.7
+w = 115.3
+h = 23.3
+size = 32.4
+baseline = 516.0
+color = "#2D5D34"
+bold = false
+erase = true
+show = true
+conf = 93.3
+
+[[label]]
+text = "Emollient"
+x = 888.7
+y = 503.0
+w = 66.7
+h = 16.0
+size = 24.0
+baseline = 519.0
+color = "#1C3621"
+bold = false
+erase = true
+show = true
+conf = 91.9
+
+[[label]]
+text = "250-500 g/7 d"
+x = 1016.0
+y = 606.3
+w = 195.7
+h = 30.7
+size = 33.0
+baseline = 630.1
+color = "#5F3986"
+bold = false
+erase = true
+show = true
+conf = 83.0
+
+[[label]]
+text = "2 adult"
+x = 82.7
+y = 611.7
+w = 68.7
+h = 18.7
+size = 24.0
+baseline = 630.3
+color = "#323232"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "2 adult"
+x = 262.7
+y = 611.7
+w = 68.7
+h = 18.7
+size = 24.0
+baseline = 630.3
+color = "#3B3B3B"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Emollient"
+x = 887.3
+y = 617.7
+w = 68.3
+h = 16.7
+size = 24.0
+baseline = 634.3
+color = "#2E1F4D"
+bold = false
+erase = true
+show = true
+conf = 93.1
+
+[[label]]
+text = "palms"
+x = 89.0
+y = 639.0
+w = 56.7
+h = 22.0
+size = 24.0
+baseline = 656.0
+color = "#313131"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "palms"
+x = 268.7
+y = 638.7
+w = 56.7
+h = 22.3
+size = 24.0
+baseline = 656.0
+color = "#2D2D2D"
+bold = false
+erase = true
+show = true
+conf = 96.6

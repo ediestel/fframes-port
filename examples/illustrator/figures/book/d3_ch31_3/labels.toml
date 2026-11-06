@@ -1,0 +1,15 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "A few hours later"
+x = 729.0
+y = 550.7
+w = 155.0
+h = 17.0
+size = 23.1
+baseline = 567.7
+color = "#141B42"
+bold = false
+erase = true
+show = true
+conf = 96.1

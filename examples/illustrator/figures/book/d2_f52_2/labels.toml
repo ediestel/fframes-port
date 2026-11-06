@@ -1,0 +1,295 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "L5"
+x = 568.0
+y = 16.0
+w = 35.3
+h = 26.3
+size = 28.7
+baseline = 42.3
+color = "#0C1C46"
+bold = true
+erase = true
+show = true
+conf = 91.8
+
+[[label]]
+text = "Posterior view"
+x = 33.7
+y = 63.0
+w = 111.7
+h = 16.3
+size = 21.9
+baseline = 79.3
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Plantar view"
+x = 218.7
+y = 63.0
+w = 95.7
+h = 16.0
+size = 21.9
+baseline = 79.0
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "L5"
+x = 783.7
+y = 95.3
+w = 24.3
+h = 18.7
+size = 28.7
+baseline = 114.0
+color = "#F3FCEF"
+bold = true
+erase = true
+show = true
+conf = 92.1
+
+[[label]]
+text = "30-60°"
+x = 1139.7
+y = 194.0
+w = 77.7
+h = 20.3
+size = 21.9
+baseline = 214.3
+color = "#0E0E0E"
+bold = false
+erase = true
+show = true
+conf = 90.3
+
+[[label]]
+text = "30-60"
+x = 995.0
+y = 267.7
+w = 71.7
+h = 20.0
+size = 21.9
+baseline = 287.7
+color = "#0E0E0E"
+bold = false
+erase = true
+show = true
+conf = 89.1
+
+[[label]]
+text = "Great-toe lift"
+x = 431.3
+y = 365.0
+w = 100.0
+h = 16.0
+size = 21.9
+baseline = 381.0
+color = "#111111"
+bold = false
+erase = true
+show = true
+conf = 94.8
+
+[[label]]
+text = "No resis"
+x = 598.0
+y = 365.0
+w = 62.0
+h = 16.0
+size = 21.9
+baseline = 380.7
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "No reflex"
+x = 705.0
+y = 365.0
+w = 68.3
+h = 16.0
+size = 21.9
+baseline = 381.0
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "S2-S4"
+x = 1000.0
+y = 478.0
+w = 68.0
+h = 20.0
+size = 28.7
+baseline = 498.0
+color = "#0C0D0D"
+bold = true
+erase = true
+show = true
+conf = 85.0
+
+[[label]]
+text = "Saddle area"
+x = 993.7
+y = 511.0
+w = 82.3
+h = 15.7
+size = 21.9
+baseline = 526.3
+color = "#111111"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "and sphincter"
+x = 990.0
+y = 535.3
+w = 94.0
+h = 19.7
+size = 21.9
+baseline = 550.6
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "Heel walking"
+x = 45.0
+y = 537.3
+w = 98.0
+h = 20.0
+size = 21.9
+baseline = 552.8
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Knee-jerk"
+x = 222.7
+y = 537.3
+w = 75.3
+h = 20.3
+size = 21.9
+baseline = 553.1
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 92.8
+
+[[label]]
+text = "hammer"
+x = 229.0
+y = 561.7
+w = 63.7
+h = 16.0
+size = 21.9
+baseline = 577.7
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "S2-S4"
+x = 1140.0
+y = 583.0
+w = 69.0
+h = 20.7
+size = 28.7
+baseline = 603.7
+color = "#0E0E0E"
+bold = true
+erase = true
+show = true
+conf = 87.9
+
+[[label]]
+text = "Sphincter function"
+x = 1111.0
+y = 614.7
+w = 128.3
+h = 19.3
+size = 21.9
+baseline = 629.6
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Ankle-jerk"
+x = 609.3
+y = 656.3
+w = 80.7
+h = 20.3
+size = 21.9
+baseline = 672.1
+color = "#1C1C1C"
+bold = false
+erase = true
+show = true
+conf = 92.8
+
+[[label]]
+text = "Toe"
+x = 463.0
+y = 656.7
+w = 27.3
+h = 15.7
+size = 21.9
+baseline = 672.3
+color = "#1C1C1C"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "standing"
+x = 445.7
+y = 679.7
+w = 66.0
+h = 20.3
+size = 21.9
+baseline = 695.4
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "hammer"
+x = 618.7
+y = 679.7
+w = 63.7
+h = 16.0
+size = 21.9
+baseline = 695.7
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 96.8

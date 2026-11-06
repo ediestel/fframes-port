@@ -1,0 +1,57 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "margo"
+x = 32.7
+y = 184.7
+w = 56.3
+h = 17.3
+size = 24.4
+baseline = 197.1
+color = "#1C2645"
+bold = false
+erase = true
+show = true
+conf = 93.1
+
+[[label]]
+text = "diaphragma"
+x = 373.0
+y = 196.0
+w = 99.3
+h = 22.7
+size = 24.4
+baseline = 213.5
+color = "#141F42"
+bold = false
+erase = true
+show = true
+conf = 91.6
+
+[[label]]
+text = "linguae"
+x = 32.3
+y = 205.0
+w = 63.7
+h = 22.3
+size = 24.4
+baseline = 222.3
+color = "#182344"
+bold = false
+erase = true
+show = true
+conf = 92.9
+
+[[label]]
+text = "oris"
+x = 373.0
+y = 221.7
+w = 31.3
+h = 17.7
+size = 33.3
+baseline = 239.3
+color = "#182144"
+bold = false
+erase = true
+show = true
+conf = 93.0

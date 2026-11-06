@@ -1,0 +1,281 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "posterior edge and tip"
+x = 265.0
+y = 131.0
+w = 152.3
+h = 18.7
+size = 19.9
+baseline = 145.3
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "posterior edge and tip"
+x = 726.7
+y = 131.0
+w = 151.3
+h = 18.7
+size = 19.9
+baseline = 145.3
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "of the lateral malleolus"
+x = 264.7
+y = 153.7
+w = 158.3
+h = 15.0
+size = 19.9
+baseline = 168.3
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "of the medial malleolus"
+x = 726.0
+y = 154.0
+w = 161.0
+h = 14.7
+size = 19.9
+baseline = 168.3
+color = "#1C1C1C"
+bold = false
+erase = true
+show = true
+conf = 94.8
+
+[[label]]
+text = "distal 6 cm"
+x = 264.7
+y = 176.7
+w = 76.3
+h = 14.7
+size = 19.9
+baseline = 191.0
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "distal 6 cm"
+x = 726.0
+y = 176.7
+w = 76.3
+h = 14.3
+size = 19.9
+baseline = 191.0
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "THOMPSON CALF SQUEEZE"
+x = 998.0
+y = 225.3
+w = 232.0
+h = 17.3
+size = 23.1
+baseline = 241.7
+color = "#A71E20"
+bold = true
+erase = true
+show = true
+conf = 96.1
+
+[[label]]
+text = "fifth-metatarsal base"
+x = 376.0
+y = 250.0
+w = 130.0
+h = 14.7
+size = 19.9
+baseline = 264.7
+color = "#161615"
+bold = false
+erase = true
+show = true
+conf = 94.3
+
+[[label]]
+text = "navicular"
+x = 838.0
+y = 250.3
+w = 63.0
+h = 14.7
+size = 19.9
+baseline = 265.0
+color = "#1C1C1C"
+bold = false
+erase = true
+show = true
+conf = 95.0
+
+[[label]]
+text = "(always done)"
+x = 1061.0
+y = 250.0
+w = 104.0
+h = 20.0
+size = 19.9
+baseline = 265.0
+color = "#9C2425"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "OR"
+x = 571.0
+y = 486.0
+w = 28.3
+h = 18.7
+size = 23.1
+baseline = 504.7
+color = "#0D0D0D"
+bold = true
+erase = true
+show = true
+conf = 96.1
+
+[[label]]
+text = "YES"
+x = 725.0
+y = 524.0
+w = 31.0
+h = 16.0
+size = 23.1
+baseline = 540.0
+color = "#9C2023"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Tenderness at"
+x = 495.7
+y = 568.0
+w = 78.3
+h = 12.7
+size = 19.9
+baseline = 580.7
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "or fewer than"
+x = 595.7
+y = 568.0
+w = 74.3
+h = 12.7
+size = 19.9
+baseline = 580.7
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = ",B,CorD"
+x = 517.3
+y = 587.0
+w = 57.3
+h = 15.0
+size = 19.9
+baseline = 598.6
+color = "#1D1D1D"
+bold = false
+erase = true
+show = true
+conf = 86.8
+
+[[label]]
+text = "four steps"
+x = 602.7
+y = 587.1
+w = 56.0
+h = 15.9
+size = 19.9
+baseline = 599.7
+color = "#191918"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "NO PLANTAR FLEXION"
+x = 1024.0
+y = 588.3
+w = 181.3
+h = 16.3
+size = 23.1
+baseline = 604.3
+color = "#A41F20"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "X-RAY"
+x = 799.0
+y = 591.0
+w = 52.7
+h = 16.7
+size = 23.1
+baseline = 607.7
+color = "#131313"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "(4) or fewer than four steps"
+x = 100.7
+y = 596.1
+w = 235.3
+h = 25.5
+size = 19.9
+baseline = 614.7
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "NO"
+x = 694.7
+y = 633.0
+w = 25.3
+h = 17.0
+size = 23.1
+baseline = 650.0
+color = "#0D0D0D"
+bold = true
+erase = true
+show = true
+conf = 96.6

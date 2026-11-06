@@ -1,0 +1,29 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = ">6 mm"
+x = 441.7
+y = 336.0
+w = 78.3
+h = 19.0
+size = 26.4
+baseline = 355.0
+color = "#0E0E0E"
+bold = false
+erase = true
+show = true
+conf = 94.5
+
+[[label]]
+text = "14"
+x = 788.3
+y = 593.7
+w = 53.3
+h = 39.3
+size = 54.6
+baseline = 633.0
+color = "#0B0C0C"
+bold = false
+erase = true
+show = true
+conf = 96.9

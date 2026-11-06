@@ -1,0 +1,57 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "15"
+x = 125.0
+y = 392.3
+w = 23.7
+h = 20.7
+size = 28.7
+baseline = 413.0
+color = "#111111"
+bold = false
+erase = true
+show = true
+conf = 94.7
+
+[[label]]
+text = "15s"
+x = 862.3
+y = 392.3
+w = 43.3
+h = 21.0
+size = 28.7
+baseline = 413.3
+color = "#0E0E0E"
+bold = false
+erase = true
+show = true
+conf = 92.3
+
+[[label]]
+text = "15"
+x = 393.0
+y = 392.7
+w = 24.3
+h = 20.3
+size = 28.7
+baseline = 413.0
+color = "#101010"
+bold = false
+erase = true
+show = true
+conf = 95.5
+
+[[label]]
+text = "pulse check"
+x = 976.0
+y = 470.7
+w = 108.0
+h = 23.0
+size = 28.7
+baseline = 488.5
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 96.6

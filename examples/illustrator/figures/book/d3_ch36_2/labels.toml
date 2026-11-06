@@ -1,0 +1,267 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "prostata"
+x = 502.0
+y = 18.0
+w = 98.7
+h = 44.3
+size = 47.7
+baseline = 52.3
+color = "#B0181B"
+bold = false
+erase = true
+show = true
+conf = 93.2
+
+[[label]]
+text = "prostata"
+x = 135.7
+y = 23.7
+w = 99.7
+h = 23.7
+size = 24.0
+baseline = 42.0
+color = "#132559"
+bold = false
+erase = true
+show = true
+conf = 93.0
+
+[[label]]
+text = "prostata"
+x = 1033.0
+y = 24.0
+w = 99.7
+h = 31.3
+size = 33.7
+baseline = 48.3
+color = "#5A2F81"
+bold = false
+erase = true
+show = true
+conf = 93.3
+
+[[label]]
+text = "referral"
+x = 785.0
+y = 149.0
+w = 94.7
+h = 23.3
+size = 32.4
+baseline = 172.3
+color = "#B41B1D"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "does not wait"
+x = 777.7
+y = 185.7
+w = 109.3
+h = 16.3
+size = 24.0
+baseline = 202.0
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "for PSA"
+x = 799.0
+y = 210.0
+w = 63.3
+h = 16.3
+size = 24.0
+baseline = 226.0
+color = "#181718"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "very tender"
+x = 1007.0
+y = 340.3
+w = 105.7
+h = 21.7
+size = 24.0
+baseline = 357.2
+color = "#4E2873"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "no massage"
+x = 1006.7
+y = 369.7
+w = 108.0
+h = 17.3
+size = 24.0
+baseline = 382.1
+color = "#502877"
+bold = false
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "symmetric, smooth, elastic"
+x = 51.0
+y = 373.7
+w = 242.3
+h = 22.3
+size = 24.0
+baseline = 391.0
+color = "#141947"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "hard, asymmetric, nodular"
+x = 427.7
+y = 373.7
+w = 241.3
+h = 22.3
+size = 24.0
+baseline = 391.0
+color = "#A81C1D"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "PSA"
+x = 839.0
+y = 465.7
+w = 50.3
+h = 21.7
+size = 31.0
+baseline = 487.3
+color = "#10265C"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "concerning"
+x = 816.7
+y = 494.0
+w = 94.0
+h = 20.3
+size = 24.0
+baseline = 508.6
+color = "#161851"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "a normal feel"
+x = 201.3
+y = 597.7
+w = 115.7
+h = 16.7
+size = 24.0
+baseline = 614.3
+color = "#181F4B"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "does not stop"
+x = 199.3
+y = 622.3
+w = 121.0
+h = 21.0
+size = 24.0
+baseline = 639.0
+color = "#151D4C"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "overdiagnosis"
+x = 893.0
+y = 645.0
+w = 118.3
+h = 24.0
+size = 24.0
+baseline = 663.6
+color = "#482572"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "benefit"
+x = 749.0
+y = 646.0
+w = 61.3
+h = 17.3
+size = 24.0
+baseline = 663.3
+color = "#24662E"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "a concerning"
+x = 202.0
+y = 647.0
+w = 115.0
+h = 21.7
+size = 24.0
+baseline = 664.0
+color = "#141946"
+bold = false
+erase = true
+show = true
+conf = 96.0
+
+[[label]]
+text = "PSA"
+x = 524.0
+y = 646.7
+w = 49.3
+h = 22.3
+size = 31.0
+baseline = 669.0
+color = "#0E275B"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "PSA path"
+x = 220.0
+y = 672.7
+w = 81.0
+h = 21.0
+size = 24.0
+baseline = 688.9
+color = "#151F4D"
+bold = false
+erase = true
+show = true
+conf = 96.8

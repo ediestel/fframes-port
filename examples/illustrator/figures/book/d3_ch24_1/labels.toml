@@ -1,0 +1,351 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "020202"
+x = 1019.0
+y = 79.0
+w = 47.0
+h = 11.3
+size = 15.7
+baseline = 90.3
+color = "#685F76"
+bold = false
+erase = true
+show = true
+conf = 80.3
+
+[[label]]
+text = "<3"
+x = 262.7
+y = 143.0
+w = 39.0
+h = 26.0
+size = 36.1
+baseline = 169.0
+color = "#184993"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "3-8"
+x = 597.7
+y = 143.0
+w = 59.7
+h = 26.0
+size = 36.1
+baseline = 169.0
+color = "#227631"
+bold = false
+erase = true
+show = true
+conf = 90.8
+
+[[label]]
+text = "NORMAL"
+x = 95.0
+y = 380.7
+w = 70.7
+h = 14.3
+size = 16.7
+baseline = 395.0
+color = "#1A458F"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "POST-INFECTIOUS"
+x = 539.0
+y = 383.3
+w = 161.7
+h = 15.7
+size = 21.8
+baseline = 399.0
+color = "#26742C"
+bold = true
+erase = true
+show = true
+conf = 92.0
+
+[[label]]
+text = "INFECTIOUS"
+x = 256.3
+y = 387.7
+w = 95.0
+h = 14.7
+size = 16.7
+baseline = 402.3
+color = "#AC2122"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "DRY COUGH PATH"
+x = 848.3
+y = 460.7
+w = 126.7
+h = 13.3
+size = 16.7
+baseline = 474.0
+color = "#3E1D68"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "CHRONIC WORK-UP"
+x = 1060.0
+y = 460.7
+w = 141.3
+h = 13.3
+size = 16.7
+baseline = 474.0
+color = "#3E1F66"
+bold = true
+erase = true
+show = true
+conf = 92.7
+
+[[label]]
+text = "RESPIRATORY"
+x = 1043.3
+y = 547.7
+w = 69.7
+h = 10.7
+size = 16.7
+baseline = 558.3
+color = "#1B1C1B"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "CARDIAC"
+x = 1166.7
+y = 547.7
+w = 46.3
+h = 10.7
+size = 16.7
+baseline = 558.3
+color = "#1F2020"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "SENSITISED"
+x = 580.7
+y = 590.0
+w = 68.7
+h = 12.3
+size = 16.7
+baseline = 602.3
+color = "#181817"
+bold = true
+erase = true
+show = true
+conf = 92.0
+
+[[label]]
+text = "COUGH"
+x = 694.0
+y = 590.3
+w = 43.0
+h = 12.0
+size = 16.7
+baseline = 602.3
+color = "#1C1C1B"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "RESIDUAL"
+x = 486.7
+y = 590.7
+w = 58.3
+h = 11.7
+size = 16.7
+baseline = 602.3
+color = "#1E1F1E"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "INFECTIOUS"
+x = 95.7
+y = 592.3
+w = 75.3
+h = 12.3
+size = 16.7
+baseline = 604.7
+color = "#191919"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "AIRWAYS"
+x = 587.7
+y = 607.3
+w = 54.3
+h = 12.3
+size = 16.7
+baseline = 619.7
+color = "#1B1B1A"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "IRRITANTS"
+x = 485.7
+y = 607.7
+w = 61.7
+h = 12.0
+size = 16.7
+baseline = 619.7
+color = "#1D1E1C"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "MUCUS / IRRITANTS"
+x = 95.3
+y = 624.0
+w = 124.7
+h = 14.0
+size = 16.7
+baseline = 637.0
+color = "#1A1A1A"
+bold = true
+erase = true
+show = true
+conf = 93.2
+
+[[label]]
+text = "UPPER"
+x = 1066.0
+y = 636.0
+w = 34.0
+h = 10.3
+size = 16.7
+baseline = 646.3
+color = "#1E1E1E"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "OTHER"
+x = 1170.0
+y = 636.0
+w = 34.7
+h = 11.0
+size = 16.7
+baseline = 647.0
+color = "#131313"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "AIRWAY"
+x = 1063.0
+y = 649.7
+w = 41.3
+h = 11.0
+size = 16.7
+baseline = 660.7
+color = "#1A1A1A"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "ACE-"
+x = 831.7
+y = 652.0
+w = 24.3
+h = 10.3
+size = 16.7
+baseline = 662.3
+color = "#181818"
+bold = true
+erase = true
+show = true
+conf = 88.6
+
+[[label]]
+text = "BRADYKININ"
+x = 885.0
+y = 652.0
+w = 61.3
+h = 10.3
+size = 16.7
+baseline = 662.3
+color = "#1D1D1E"
+bold = true
+erase = true
+show = true
+conf = 92.6
+
+[[label]]
+text = "COUGH"
+x = 971.3
+y = 652.0
+w = 35.7
+h = 10.3
+size = 16.7
+baseline = 662.3
+color = "#171717"
+bold = true
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "COUGH REFLEX"
+x = 95.0
+y = 656.7
+w = 99.0
+h = 12.0
+size = 16.7
+baseline = 668.7
+color = "#181818"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "INHIBITOR ACCUMULATION REFLEX"
+x = 820.3
+y = 666.3
+w = 188.0
+h = 11.0
+size = 16.7
+baseline = 677.3
+color = "#1D1E1E"
+bold = true
+erase = true
+show = true
+conf = 91.9

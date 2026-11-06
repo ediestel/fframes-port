@@ -1,0 +1,15 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "hilum"
+x = 493.0
+y = 162.3
+w = 60.3
+h = 20.7
+size = 28.7
+baseline = 183.0
+color = "#111212"
+bold = false
+erase = true
+show = true
+conf = 96.4

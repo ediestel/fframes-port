@@ -1,0 +1,15 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "arteria carotis"
+x = 1055.0
+y = 353.0
+w = 132.3
+h = 16.7
+size = 23.1
+baseline = 369.7
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 92.8

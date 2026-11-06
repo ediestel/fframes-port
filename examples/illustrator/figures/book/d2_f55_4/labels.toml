@@ -1,0 +1,71 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "2-6 cm."
+x = 1186.3
+y = 174.7
+w = 66.7
+h = 17.7
+size = 23.9
+baseline = 192.3
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 93.4
+
+[[label]]
+text = "2-6 cm."
+x = 1186.7
+y = 203.7
+w = 66.3
+h = 17.3
+size = 23.9
+baseline = 220.7
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 96.0
+
+[[label]]
+text = "late,"
+x = 1146.7
+y = 413.7
+w = 34.0
+h = 20.7
+size = 23.9
+baseline = 429.7
+color = "#432417"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "sparing option"
+x = 1146.0
+y = 439.7
+w = 109.3
+h = 22.3
+size = 23.9
+baseline = 457.0
+color = "#422217"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "urgent referral"
+x = 1007.7
+y = 632.3
+w = 145.3
+h = 26.0
+size = 23.9
+baseline = 652.9
+color = "#B81B1B"
+bold = false
+erase = true
+show = true
+conf = 94.8

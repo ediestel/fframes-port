@@ -1,0 +1,393 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "MMSE"
+x = 37.0
+y = 26.0
+w = 82.7
+h = 22.3
+size = 31.0
+baseline = 48.3
+color = "#0F1D3F"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "MoCA"
+x = 437.7
+y = 26.0
+w = 79.3
+h = 22.3
+size = 31.0
+baseline = 48.3
+color = "#101D3E"
+bold = false
+erase = true
+show = true
+conf = 92.7
+
+[[label]]
+text = "11:10"
+x = 894.7
+y = 27.0
+w = 65.3
+h = 21.3
+size = 23.6
+baseline = 48.3
+color = "#111B3C"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "clock numerals"
+x = 1100.0
+y = 31.3
+w = 134.3
+h = 16.7
+size = 23.6
+baseline = 48.0
+color = "#10122E"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Trail"
+x = 436.3
+y = 70.3
+w = 38.7
+h = 15.7
+size = 23.6
+baseline = 86.0
+color = "#141625"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Orientation"
+x = 84.7
+y = 73.0
+w = 93.0
+h = 15.3
+size = 23.6
+baseline = 88.3
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "10/10"
+x = 289.0
+y = 73.0
+w = 46.3
+h = 17.0
+size = 23.6
+baseline = 90.0
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "ABCODE"
+x = 675.3
+y = 101.7
+w = 142.0
+h = 14.7
+size = 20.4
+baseline = 116.3
+color = "#101011"
+bold = true
+erase = true
+show = true
+conf = 74.0
+
+[[label]]
+text = "Registration"
+x = 85.0
+y = 110.0
+w = 99.0
+h = 19.3
+size = 23.6
+baseline = 125.0
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "3/3"
+x = 297.0
+y = 109.7
+w = 28.0
+h = 17.0
+size = 23.6
+baseline = 126.7
+color = "#151514"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "10"
+x = 949.7
+y = 135.7
+w = 29.3
+h = 25.3
+size = 35.2
+baseline = 161.0
+color = "#161718"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "Attention/Calculation"
+x = 84.0
+y = 146.7
+w = 175.7
+h = 16.7
+size = 23.6
+baseline = 163.3
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 92.0
+
+[[label]]
+text = "5/5"
+x = 297.0
+y = 146.7
+w = 28.0
+h = 17.0
+size = 23.6
+baseline = 163.7
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 95.7
+
+[[label]]
+text = "Recall"
+x = 85.0
+y = 184.3
+w = 48.0
+h = 15.3
+size = 23.6
+baseline = 199.7
+color = "#131314"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "3/3"
+x = 297.0
+y = 184.0
+w = 28.0
+h = 17.3
+size = 23.6
+baseline = 201.3
+color = "#121213"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Cube"
+x = 437.0
+y = 191.0
+w = 45.7
+h = 16.0
+size = 23.6
+baseline = 207.0
+color = "#151426"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Language"
+x = 85.0
+y = 221.0
+w = 80.3
+h = 19.3
+size = 23.6
+baseline = 236.0
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "8/8"
+x = 296.7
+y = 221.0
+w = 28.7
+h = 17.0
+size = 23.6
+baseline = 238.0
+color = "#121212"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Visuospatial"
+x = 84.3
+y = 258.0
+w = 100.0
+h = 19.3
+size = 23.6
+baseline = 273.0
+color = "#131313"
+bold = false
+erase = true
+show = true
+conf = 92.7
+
+[[label]]
+text = "1/1"
+x = 297.7
+y = 258.0
+w = 24.3
+h = 17.3
+size = 23.6
+baseline = 275.3
+color = "#0B0B0B"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "Fluency"
+x = 437.0
+y = 288.7
+w = 69.3
+h = 20.3
+size = 23.6
+baseline = 304.4
+color = "#111121"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "fish fun"
+x = 640.0
+y = 296.0
+w = 95.7
+h = 22.0
+size = 23.6
+baseline = 317.3
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 89.1
+
+[[label]]
+text = "forget"
+x = 763.7
+y = 296.7
+w = 57.3
+h = 26.3
+size = 23.6
+baseline = 317.1
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "Words beginning with"
+x = 436.3
+y = 317.3
+w = 154.0
+h = 17.0
+size = 23.6
+baseline = 330.7
+color = "#1C1C1D"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "4/11"
+x = 706.0
+y = 336.3
+w = 53.3
+h = 21.0
+size = 23.6
+baseline = 357.3
+color = "#451A1B"
+bold = false
+erase = true
+show = true
+conf = 91.4
+
+[[label]]
+text = "/30"
+x = 37.3
+y = 339.7
+w = 30.0
+h = 17.3
+size = 23.6
+baseline = 357.0
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 93.0
+
+[[label]]
+text = "30"
+x = 343.0
+y = 339.7
+w = 21.3
+h = 16.0
+size = 23.6
+baseline = 355.7
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "in 60 sec"
+x = 462.3
+y = 341.0
+w = 63.3
+h = 13.7
+size = 23.6
+baseline = 354.7
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.4

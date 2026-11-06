@@ -1,0 +1,57 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "WEEK 1"
+x = 100.7
+y = 108.3
+w = 61.3
+h = 14.3
+size = 19.4
+baseline = 122.7
+color = "#151515"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "WEEK 2"
+x = 367.0
+y = 108.3
+w = 64.3
+h = 14.3
+size = 19.4
+baseline = 122.7
+color = "#151515"
+bold = true
+erase = true
+show = true
+conf = 96.3
+
+[[label]]
+text = "WEEK 3"
+x = 618.0
+y = 108.3
+w = 64.0
+h = 14.3
+size = 19.4
+baseline = 122.7
+color = "#131313"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "WEEK 4"
+x = 859.0
+y = 108.3
+w = 64.3
+h = 14.3
+size = 19.4
+baseline = 122.7
+color = "#121212"
+bold = true
+erase = true
+show = true
+conf = 96.6

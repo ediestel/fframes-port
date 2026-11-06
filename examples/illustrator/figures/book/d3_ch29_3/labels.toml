@@ -1,0 +1,113 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "Thrombosed external"
+x = 508.7
+y = 217.0
+w = 132.7
+h = 14.0
+size = 19.4
+baseline = 230.7
+color = "#1B1B1C"
+bold = false
+erase = true
+show = true
+conf = 94.8
+
+[[label]]
+text = "Normal"
+x = 400.0
+y = 223.3
+w = 49.0
+h = 14.0
+size = 19.4
+baseline = 237.3
+color = "#181717"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "haemorrhoid"
+x = 533.0
+y = 237.7
+w = 81.3
+h = 13.7
+size = 19.4
+baseline = 251.3
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 92.0
+
+[[label]]
+text = "Fluctuant swelling"
+x = 860.0
+y = 289.0
+w = 124.7
+h = 18.0
+size = 19.4
+baseline = 302.9
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 94.7
+
+[[label]]
+text = "Tender, recent"
+x = 666.7
+y = 318.8
+w = 79.7
+h = 19.5
+size = 19.4
+baseline = 334.3
+color = "#1C1C1C"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "thrombosed"
+x = 667.0
+y = 341.3
+w = 74.0
+h = 17.7
+size = 19.4
+baseline = 359.0
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 92.0
+
+[[label]]
+text = "Recurring fistula"
+x = 1062.0
+y = 507.7
+w = 104.3
+h = 17.3
+size = 19.4
+baseline = 521.1
+color = "#191918"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Crohn disease"
+x = 857.7
+y = 589.4
+w = 86.3
+h = 15.6
+size = 19.4
+baseline = 605.0
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 93.1

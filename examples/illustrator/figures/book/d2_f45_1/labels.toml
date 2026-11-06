@@ -1,0 +1,127 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "epicondylus"
+x = 363.0
+y = 221.3
+w = 98.3
+h = 21.0
+size = 22.6
+baseline = 237.6
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 93.0
+
+[[label]]
+text = "lateralis"
+x = 377.7
+y = 245.0
+w = 66.7
+h = 16.3
+size = 22.6
+baseline = 261.3
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "sulcus nervi"
+x = 753.7
+y = 292.7
+w = 99.3
+h = 16.3
+size = 22.6
+baseline = 309.0
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 93.1
+
+[[label]]
+text = "ulnaris"
+x = 754.7
+y = 316.0
+w = 56.7
+h = 16.3
+size = 22.6
+baseline = 332.3
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 92.9
+
+[[label]]
+text = "4cm"
+x = 414.0
+y = 402.7
+w = 47.7
+h = 18.0
+size = 22.6
+baseline = 420.7
+color = "#0F0F0F"
+bold = false
+erase = true
+show = true
+conf = 92.2
+
+[[label]]
+text = "nervus"
+x = 439.3
+y = 510.7
+w = 54.7
+h = 11.3
+size = 22.6
+baseline = 522.0
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 91.5
+
+[[label]]
+text = "interosseus"
+x = 435.7
+y = 529.7
+w = 89.7
+h = 15.7
+size = 22.6
+baseline = 545.3
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 92.6
+
+[[label]]
+text = "posterior"
+x = 438.7
+y = 552.7
+w = 75.3
+h = 20.3
+size = 22.6
+baseline = 568.4
+color = "#171717"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "caput radii"
+x = 502.7
+y = 595.1
+w = 90.7
+h = 20.3
+size = 22.6
+baseline = 611.1
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 96.7

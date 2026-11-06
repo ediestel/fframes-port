@@ -1,0 +1,729 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "BEDSIDE PICTURE OF SEPSIS"
+x = 619.7
+y = 22.3
+w = 446.0
+h = 39.0
+size = 54.2
+baseline = 61.3
+color = "#0C1E49"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "≤100 mm Hg"
+x = 211.0
+y = 67.3
+w = 167.0
+h = 29.7
+size = 32.1
+baseline = 91.0
+color = "#0F194A"
+bold = false
+erase = true
+show = true
+conf = 95.0
+
+[[label]]
+text = "PERFUSION"
+x = 493.0
+y = 79.0
+w = 107.0
+h = 30.7
+size = 42.6
+baseline = 109.7
+color = "#1949A4"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "URINE OUTPUT"
+x = 665.7
+y = 79.0
+w = 135.0
+h = 16.3
+size = 22.2
+baseline = 95.3
+color = "#227028"
+bold = true
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "LACTATE (IF TAKEN)"
+x = 841.7
+y = 78.7
+w = 223.3
+h = 21.2
+size = 20.8
+baseline = 93.6
+color = "#612D77"
+bold = true
+erase = true
+show = true
+conf = 90.4
+
+[[label]]
+text = "INFECTION SOURCE"
+x = 1046.3
+y = 79.0
+w = 180.0
+h = 16.7
+size = 23.1
+baseline = 95.7
+color = "#8F4D1F"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "systolic"
+x = 211.7
+y = 102.7
+w = 65.7
+h = 21.0
+size = 18.6
+baseline = 118.9
+color = "#141414"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "≥22/min"
+x = 211.7
+y = 160.7
+w = 117.3
+h = 27.3
+size = 38.0
+baseline = 188.0
+color = "#0E1848"
+bold = false
+erase = true
+show = true
+conf = 87.2
+
+[[label]]
+text = "respiratory rate"
+x = 213.3
+y = 197.3
+w = 134.7
+h = 21.7
+size = 18.6
+baseline = 214.3
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Pneumonia"
+x = 1045.0
+y = 227.7
+w = 69.7
+h = 13.3
+size = 18.6
+baseline = 241.0
+color = "#1C1D1D"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "pyelonephritis"
+x = 1148.7
+y = 245.3
+w = 88.7
+h = 16.7
+size = 18.6
+baseline = 258.2
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "confusion"
+x = 211.7
+y = 263.3
+w = 124.7
+h = 24.7
+size = 34.3
+baseline = 288.0
+color = "#111B4D"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Low score does NOT rule out sepsis"
+x = 90.7
+y = 332.0
+w = 272.0
+h = 19.3
+size = 18.6
+baseline = 347.3
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Cool, mottled extremities"
+x = 462.0
+y = 369.7
+w = 165.3
+h = 16.7
+size = 18.6
+baseline = 383.7
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "IN SEPSIS"
+x = 262.3
+y = 376.3
+w = 99.3
+h = 25.3
+size = 31.9
+baseline = 399.3
+color = "#A4181B"
+bold = true
+erase = true
+show = true
+conf = 93.8
+
+[[label]]
+text = "Intra-abdominal"
+x = 1029.0
+y = 377.3
+w = 100.0
+h = 13.7
+size = 18.6
+baseline = 391.0
+color = "#181817"
+bold = false
+erase = true
+show = true
+conf = 92.0
+
+[[label]]
+text = "Skin"
+x = 1179.3
+y = 377.7
+w = 26.7
+h = 13.3
+size = 18.6
+baseline = 391.0
+color = "#111211"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "with capillary refill"
+x = 482.3
+y = 391.7
+w = 123.0
+h = 18.7
+size = 18.6
+baseline = 406.3
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Elevated"
+x = 867.3
+y = 396.0
+w = 57.7
+h = 14.7
+size = 18.6
+baseline = 410.7
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 93.3
+
+[[label]]
+text = "infection"
+x = 1051.7
+y = 397.0
+w = 54.7
+h = 13.7
+size = 18.6
+baseline = 410.7
+color = "#111111"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "soft tissue"
+x = 1160.7
+y = 397.3
+w = 65.3
+h = 13.7
+size = 18.6
+baseline = 411.0
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Oliguria"
+x = 693.0
+y = 397.7
+w = 54.3
+h = 18.3
+size = 18.6
+baseline = 411.9
+color = "#1D1C1C"
+bold = false
+erase = true
+show = true
+conf = 93.0
+
+[[label]]
+text = "Pathogen"
+x = 373.3
+y = 413.7
+w = 50.0
+h = 15.0
+size = 18.6
+baseline = 425.3
+color = "#1D1C1C"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = ">2 seconds"
+x = 505.0
+y = 415.0
+w = 78.7
+h = 14.3
+size = 18.6
+baseline = 429.0
+color = "#191918"
+bold = false
+erase = true
+show = true
+conf = 94.7
+
+[[label]]
+text = "infection"
+x = 1166.0
+y = 417.0
+w = 55.0
+h = 13.3
+size = 18.6
+baseline = 430.3
+color = "#1D1D1D"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "(>2 mmol/L)"
+x = 858.0
+y = 417.7
+w = 85.3
+h = 18.0
+size = 18.6
+baseline = 431.7
+color = "#161515"
+bold = false
+erase = true
+show = true
+conf = 94.4
+
+[[label]]
+text = "(<0.5 mL/kg/h)"
+x = 673.7
+y = 419.7
+w = 103.3
+h = 18.7
+size = 18.6
+baseline = 433.1
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 91.9
+
+[[label]]
+text = "infection"
+x = 373.0
+y = 431.0
+w = 46.3
+h = 12.0
+size = 18.6
+baseline = 443.0
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Endothelial"
+x = 373.3
+y = 465.7
+w = 59.7
+h = 11.7
+size = 18.6
+baseline = 477.3
+color = "#1E1E1F"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "activation"
+x = 372.7
+y = 483.3
+w = 52.3
+h = 12.0
+size = 18.6
+baseline = 495.3
+color = "#212122"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "injury"
+x = 373.3
+y = 504.3
+w = 30.7
+h = 11.7
+size = 18.6
+baseline = 512.7
+color = "#0F0F0F"
+bold = false
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "Intact"
+x = 57.7
+y = 538.3
+w = 33.3
+h = 12.3
+size = 18.6
+baseline = 550.7
+color = "#1E1D1E"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Increased permeability"
+x = 293.0
+y = 540.0
+w = 124.0
+h = 15.3
+size = 18.6
+baseline = 551.9
+color = "#1F1F1E"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "endothelium"
+x = 39.0
+y = 556.3
+w = 72.3
+h = 12.0
+size = 18.6
+baseline = 568.3
+color = "#161717"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "and glycocalyx damage"
+x = 292.7
+y = 557.7
+w = 127.7
+h = 15.7
+size = 18.6
+baseline = 570.0
+color = "#1A1A19"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Microvascular leak,"
+x = 874.0
+y = 575.3
+w = 126.7
+h = 16.3
+size = 18.6
+baseline = 588.0
+color = "#1A1A19"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "Organ dysfunction"
+x = 1081.3
+y = 575.3
+w = 121.7
+h = 17.7
+size = 18.6
+baseline = 588.8
+color = "#191918"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "Systemic inflammatory"
+x = 662.7
+y = 575.7
+w = 151.3
+h = 17.7
+size = 18.6
+baseline = 589.1
+color = "#171817"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Infection"
+x = 521.0
+y = 577.0
+w = 59.3
+h = 14.3
+size = 18.6
+baseline = 591.3
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "Microvascular leak"
+x = 38.7
+y = 594.0
+w = 114.7
+h = 13.0
+size = 18.6
+baseline = 607.0
+color = "#1D1C1C"
+bold = false
+erase = true
+show = true
+conf = 95.1
+
+[[label]]
+text = "(e.g. confusion"
+x = 1092.3
+y = 595.3
+w = 96.3
+h = 17.7
+size = 18.6
+baseline = 609.3
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "vasodilation,"
+x = 895.0
+y = 595.7
+w = 83.3
+h = 16.3
+size = 18.6
+baseline = 608.3
+color = "#1D1D1D"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "response"
+x = 709.0
+y = 600.0
+w = 59.3
+h = 14.0
+size = 18.6
+baseline = 610.0
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Reduced perfusion"
+x = 270.7
+y = 602.0
+w = 114.7
+h = 17.0
+size = 18.6
+baseline = 615.3
+color = "#1B1B1B"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "and vasodilation"
+x = 38.0
+y = 613.0
+w = 100.3
+h = 13.3
+size = 18.6
+baseline = 626.3
+color = "#202020"
+bold = false
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "hypoperfusion"
+x = 890.3
+y = 616.0
+w = 94.7
+h = 18.0
+size = 18.6
+baseline = 629.9
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "hypotension"
+x = 1100.0
+y = 615.7
+w = 80.0
+h = 17.7
+size = 18.6
+baseline = 629.3
+color = "#1D1C1C"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "oliguria)"
+x = 1115.7
+y = 635.7
+w = 54.0
+h = 17.7
+size = 18.6
+baseline = 649.3
+color = "#181717"
+bold = false
+erase = true
+show = true
+conf = 93.1
+
+[[label]]
+text = "Cellular dysfunction"
+x = 38.0
+y = 639.7
+w = 122.7
+h = 16.7
+size = 18.6
+baseline = 652.6
+color = "#191919"
+bold = false
+erase = true
+show = true
+conf = 95.1
+
+[[label]]
+text = "Organ dysfunction"
+x = 270.3
+y = 647.0
+w = 113.7
+h = 17.0
+size = 18.6
+baseline = 660.2
+color = "#1A1A1A"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "and anaerobic metabolism"
+x = 38.0
+y = 659.3
+w = 159.3
+h = 13.0
+size = 18.6
+baseline = 672.3
+color = "#181818"
+bold = false
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "qSOFA is a screening tool, not a diagnostic test"
+x = 625.7
+y = 664.0
+w = 399.7
+h = 21.0
+size = 18.6
+baseline = 680.3
+color = "#161616"
+bold = false
+erase = true
+show = true
+conf = 95.1

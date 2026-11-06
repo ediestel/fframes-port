@@ -1,0 +1,141 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "≥3 cm"
+x = 322.7
+y = 183.7
+w = 64.7
+h = 19.7
+size = 25.9
+baseline = 203.3
+color = "#111112"
+bold = false
+erase = true
+show = true
+conf = 93.9
+
+[[label]]
+text = "Evening swelling"
+x = 807.7
+y = 307.7
+w = 185.3
+h = 25.7
+size = 25.9
+baseline = 327.6
+color = "#0E0E0F"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "<2"
+x = 222.3
+y = 396.0
+w = 31.0
+h = 21.3
+size = 25.9
+baseline = 417.3
+color = "#0F0E0E"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "New tablet"
+x = 1000.7
+y = 397.3
+w = 97.3
+h = 23.0
+size = 25.9
+baseline = 416.0
+color = "#151515"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "Started recently"
+x = 1000.0
+y = 426.4
+w = 141.3
+h = 29.0
+size = 25.9
+baseline = 449.3
+color = "#121212"
+bold = false
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "Before any"
+x = 986.0
+y = 590.0
+w = 100.7
+h = 22.7
+size = 25.9
+baseline = 607.8
+color = "#565654"
+bold = false
+erase = true
+show = true
+conf = 96.5
+
+[[label]]
+text = "NT-proBNP"
+x = 758.0
+y = 591.3
+w = 93.0
+h = 22.0
+size = 25.9
+baseline = 608.4
+color = "#130E17"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "diuretic"
+x = 985.3
+y = 616.7
+w = 70.3
+h = 18.3
+size = 25.9
+baseline = 635.0
+color = "#595857"
+bold = false
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "Same-day"
+x = 385.0
+y = 624.0
+w = 94.3
+h = 22.3
+size = 25.9
+baseline = 641.3
+color = "#1F4295"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "duplex ultrasound"
+x = 352.7
+y = 649.3
+w = 165.3
+h = 22.3
+size = 25.9
+baseline = 666.7
+color = "#1E4190"
+bold = false
+erase = true
+show = true
+conf = 96.7

@@ -1,0 +1,183 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "MCP"
+x = 44.0
+y = 138.0
+w = 42.3
+h = 18.0
+size = 24.1
+baseline = 156.0
+color = "#121212"
+bold = true
+erase = true
+show = true
+conf = 95.9
+
+[[label]]
+text = "DIP"
+x = 1163.3
+y = 138.3
+w = 31.0
+h = 17.3
+size = 24.1
+baseline = 155.7
+color = "#101010"
+bold = true
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "PIP"
+x = 51.7
+y = 205.7
+w = 29.7
+h = 17.3
+size = 24.1
+baseline = 223.0
+color = "#0D0D0E"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "PIP"
+x = 1163.7
+y = 206.0
+w = 29.3
+h = 17.0
+size = 24.1
+baseline = 223.0
+color = "#0F0F0F"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "DIP"
+x = 50.7
+y = 282.7
+w = 31.3
+h = 17.7
+size = 24.1
+baseline = 300.3
+color = "#181819"
+bold = true
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "THUMB BASE"
+x = 1150.0
+y = 284.0
+w = 105.3
+h = 16.0
+size = 24.1
+baseline = 300.0
+color = "#181818"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "<30 min"
+x = 1065.7
+y = 433.0
+w = 85.7
+h = 20.0
+size = 26.9
+baseline = 453.0
+color = "#1B55A2"
+bold = false
+erase = true
+show = true
+conf = 94.2
+
+[[label]]
+text = ">30-60 min"
+x = 38.0
+y = 433.7
+w = 129.3
+h = 19.3
+size = 26.9
+baseline = 453.0
+color = "#C11E20"
+bold = false
+erase = true
+show = true
+conf = 94.2
+
+[[label]]
+text = "morning stiffness"
+x = 37.3
+y = 462.0
+w = 133.7
+h = 18.7
+size = 26.9
+baseline = 476.7
+color = "#504F4F"
+bold = false
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "URGENT REFERRAL"
+x = 126.0
+y = 536.3
+w = 190.3
+h = 18.0
+size = 24.1
+baseline = 554.0
+color = "#FBEFED"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "blood tubes do not stop"
+x = 134.0
+y = 562.3
+w = 177.0
+h = 18.0
+size = 19.0
+baseline = 576.3
+color = "#FAE6E5"
+bold = false
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "WEIGHT"
+x = 1046.7
+y = 663.0
+w = 65.0
+h = 15.0
+size = 24.1
+baseline = 678.0
+color = "#2E7731"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "TOPICAL GEL"
+x = 1144.0
+y = 663.0
+w = 104.3
+h = 15.0
+size = 24.1
+baseline = 678.0
+color = "#19478B"
+bold = true
+erase = true
+show = true
+conf = 96.8

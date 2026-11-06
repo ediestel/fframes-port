@@ -1,0 +1,253 @@
+font = "Helvetica Neue"
+
+[[label]]
+text = "SUDDEN PAIN"
+x = 66.7
+y = 220.3
+w = 122.3
+h = 18.0
+size = 24.1
+baseline = 238.3
+color = "#111211"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "PALE MOTTLED"
+x = 263.3
+y = 220.3
+w = 135.7
+h = 18.0
+size = 24.1
+baseline = 238.3
+color = "#121212"
+bold = true
+erase = true
+show = true
+conf = 93.2
+
+[[label]]
+text = "ABSENT FOOT"
+x = 469.0
+y = 220.3
+w = 126.0
+h = 18.0
+size = 24.1
+baseline = 238.0
+color = "#131313"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "TINGLING AND"
+x = 670.0
+y = 220.3
+w = 131.0
+h = 17.7
+size = 24.1
+baseline = 238.0
+color = "#131313"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "TOES THAT"
+x = 886.3
+y = 220.3
+w = 98.0
+h = 18.0
+size = 24.1
+baseline = 238.0
+color = "#121212"
+bold = true
+erase = true
+show = true
+conf = 96.7
+
+[[label]]
+text = "A LIMB COLDER"
+x = 1068.0
+y = 220.3
+w = 139.0
+h = 17.7
+size = 24.1
+baseline = 238.0
+color = "#121212"
+bold = true
+erase = true
+show = true
+conf = 96.0
+
+[[label]]
+text = "LIMB"
+x = 309.7
+y = 247.3
+w = 42.7
+h = 17.7
+size = 24.1
+baseline = 265.0
+color = "#0B0B0B"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "PULSES"
+x = 498.7
+y = 247.0
+w = 67.0
+h = 18.0
+size = 24.1
+baseline = 265.0
+color = "#111111"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "NUMBNESS"
+x = 684.7
+y = 247.0
+w = 100.7
+h = 18.0
+size = 24.1
+baseline = 265.0
+color = "#121212"
+bold = true
+erase = true
+show = true
+conf = 96.8
+
+[[label]]
+text = "CANNOT MOVE"
+x = 870.3
+y = 247.0
+w = 131.3
+h = 18.3
+size = 24.1
+baseline = 265.0
+color = "#111111"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "THAN THE OTHER"
+x = 1061.0
+y = 247.0
+w = 153.3
+h = 18.0
+size = 24.1
+baseline = 265.0
+color = "#101010"
+bold = true
+erase = true
+show = true
+conf = 96.6
+
+[[label]]
+text = "HEPARIN LIMBHANGING NOHEAT ANALGESIA"
+x = 403.0
+y = 575.3
+w = 335.7
+h = 15.7
+size = 24.1
+baseline = 591.0
+color = "#151414"
+bold = true
+erase = true
+show = true
+conf = 91.0
+
+[[label]]
+text = "FASTING"
+x = 764.0
+y = 575.3
+w = 56.0
+h = 15.7
+size = 24.1
+baseline = 591.0
+color = "#181818"
+bold = true
+erase = true
+show = true
+conf = 96.2
+
+[[label]]
+text = "REVASCULARISATION"
+x = 1052.3
+y = 581.3
+w = 164.7
+h = 17.3
+size = 24.1
+baseline = 598.7
+color = "#131313"
+bold = true
+erase = true
+show = true
+conf = 92.5
+
+[[label]]
+text = "SYRINGE"
+x = 402.3
+y = 599.0
+w = 58.7
+h = 16.0
+size = 24.1
+baseline = 615.0
+color = "#151515"
+bold = true
+erase = true
+show = true
+conf = 96.4
+
+[[label]]
+text = "DOWN"
+x = 500.0
+y = 599.0
+w = 41.7
+h = 15.7
+size = 24.1
+baseline = 614.7
+color = "#141414"
+bold = true
+erase = true
+show = true
+conf = 96.9
+
+[[label]]
+text = "SOURCE"
+x = 583.3
+y = 599.0
+w = 54.7
+h = 16.0
+size = 24.1
+baseline = 615.0
+color = "#121212"
+bold = true
+erase = true
+show = true
+conf = 97.0
+
+[[label]]
+text = "WITHIN 6 HOURS"
+x = 1067.0
+y = 608.7
+w = 134.3
+h = 17.0
+size = 24.1
+baseline = 625.7
+color = "#121212"
+bold = true
+erase = true
+show = true
+conf = 96.1
