@@ -47,6 +47,13 @@ impl SegmentsDirectory {
         Ok(Self { path, owned })
     }
 
+    /// A new directory in `parent` that is removed when the render ends.
+    pub fn inside(parent: &Path, prefix: &str) -> std::io::Result<Self> {
+        let path = parent.join(format!("{prefix}-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&path)?;
+        Ok(Self { path, owned: true })
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }

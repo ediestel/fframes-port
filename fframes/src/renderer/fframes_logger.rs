@@ -51,6 +51,11 @@ pub trait FFramesLogger: Sync + Send {
     fn warn(&self, message: &str) {
         eprintln!("{} {message}", "warning:".yellow().bold());
     }
+
+    /// What a render with [`super::RenderOptions::segment_cache`] takes from the cache.
+    fn log_segment_cache(&self, report: &super::SegmentCacheReport) {
+        eprintln!("{report}");
+    }
 }
 
 pub struct CompactFFramesLogger {
@@ -150,6 +155,7 @@ pub struct SilentLogger;
 impl FFramesLogger for SilentLogger {
     fn success(&self, _output_path: &Path, _temp_files_dir: Option<&PathBuf>) {}
     fn warn(&self, _message: &str) {}
+    fn log_segment_cache(&self, _report: &super::SegmentCacheReport) {}
 }
 
 pub struct QuietLogger;
@@ -315,6 +321,20 @@ impl FFramesLogger for LinesLogger {
             "warning",
             format!("warning: {message}"),
             &[("message", json_string(message))],
+        );
+    }
+
+    fn log_segment_cache(&self, report: &super::SegmentCacheReport) {
+        self.emit(
+            "segment_cache",
+            report.to_string(),
+            &[
+                ("segments", report.segments.to_string()),
+                ("reused_segments", report.reused_segments.to_string()),
+                ("frames", report.frames.to_string()),
+                ("reused_frames", report.reused_frames.to_string()),
+                ("replaced_segments", report.replaced_segments.to_string()),
+            ],
         );
     }
 

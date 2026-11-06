@@ -153,6 +153,14 @@ pub struct RenderArgs {
     /// when a finding of this severity is found; `never` renders without the check.
     #[arg(long, value_enum, default_value = "error")]
     pub fail_on: FailOn,
+    /// Keep the encoded segments in this directory and render only the segments whose frames
+    /// changed since an earlier render with the same settings.
+    #[arg(long, value_name = "DIR")]
+    pub cache: Option<PathBuf>,
+    /// Most disk space the cache may use, in MB (default 2048). The least recently used
+    /// segments are deleted after a render.
+    #[arg(long, value_name = "MB", requires = "cache")]
+    pub cache_limit: Option<u64>,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -806,6 +814,14 @@ fn render<'a, 'media: 'a, V: Video + Send + Sync, B: FFramesRenderBackend>(
     }
     drop(previewer);
     options.frame_range = Some(range.clone());
+    if let Some(directory) = &args.cache {
+        options.segment_cache = Some(super::SegmentCacheOptions {
+            directory: directory.clone(),
+            max_bytes: args
+                .cache_limit
+                .map_or(super::SegmentCacheOptions::DEFAULT_MAX_BYTES, |mb| mb << 20),
+        });
+    }
 
     if args.draft {
         if scale.is_none() {

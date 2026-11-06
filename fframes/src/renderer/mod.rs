@@ -41,6 +41,8 @@ pub use scheduler::*;
 
 mod segment_writer;
 pub use segment_writer::*;
+mod segment_cache;
+pub use segment_cache::*;
 pub mod svg_parse_cache;
 pub use svg_parse_cache::SvgParseCache;
 mod frame_guard;

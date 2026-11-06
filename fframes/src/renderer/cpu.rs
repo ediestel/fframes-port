@@ -169,63 +169,35 @@ impl crate::SvgrRasterizer for CpuSvgrRasterizer {
     }
 }
 
-impl FFramesRenderBackend for CpuRenderingBackend {
-    fn frame_renderer(&self) -> Option<impl FrameRenderer + '_> {
-        Some(super::CpuFrameRenderer::new(self.cache_capacity))
-    }
-
-    fn encoder_frame_renderer(
+impl CpuRenderingBackend {
+    /// Renders the frames `scheduler` hands out into segment files in `directory`, in segment
+    /// order. `frame_map` maps a scheduled frame to its video frame.
+    #[allow(clippy::too_many_arguments)]
+    fn encode_segments<'a, 'media: 'a, TVideo: Video + Sync + Sized>(
         &self,
-        input: &EncoderInput,
-        width: u32,
-        height: u32,
-    ) -> FFramesRendererResult<impl EncoderFrameRenderer + '_> {
-        CpuEncoderFrameRenderer::new(self.cache_capacity, input, width, height)
-            .map_err(|err| FFramesRendererError::from_chunk(0, err))
-    }
-
-    fn render<'a, 'media: 'a, TVideo: Video + Sync + Sized>(
-        self,
-        output: impl AsRef<Path>,
         video: &'a TVideo,
-        logger: Arc<dyn FFramesLogger>,
+        logger: &Arc<dyn FFramesLogger>,
         usvg_options: &'a usvgr::Options,
         render_options: &RenderOptions<'a, 'media>,
         font_db: &'a fontdb::Database,
-        timeline: &'a ResolvedRenderingTimeline<AudioTimelineSamples>,
         ctx: &'a crate::FFramesContext<'a, 'media>,
-    ) -> FFramesRendererResult<()> {
-        let output = output.as_ref();
-        let extension = output
-            .extension()
-            .ok_or(FFramesRendererError::InvalidOutput)?;
-
-        let segments_directory = super::SegmentsDirectory::new(render_options, "fframes")?;
-        let directory = segments_directory.path();
-
-        // The scheduler and segments work in output frames; `frame_offset` maps them back to
-        // video frames when only a range is rendered.
-        let frame_range = render_options.output_frame_range(ctx.duration_in_frames);
-        let frame_offset = frame_range.start;
-
+        svgr_images: &SvgrImages,
+        directory: &Path,
+        extension: &str,
+        scheduler: FrameScheduler,
+        frame_map: &(dyn Fn(usize) -> usize + Sync),
+    ) -> FFramesRendererResult<Vec<std::path::PathBuf>> {
         let video_size = &ctx.current_video_size;
-        let scheduler = FrameScheduler::new(
-            frame_range.len(),
-            self.concurrency,
-            render_options
-                .video_encoder_options
-                .min_segment_frames(ctx.time_base.fps),
-        );
         let writer = SegmentWriter::new(
             directory,
-            extension.to_string_lossy().as_ref(),
+            extension,
             (
                 video_size.width as i32,
                 video_size.height as i32,
                 ctx.time_base.fps as i32,
             ),
             render_options,
-            &logger,
+            logger,
         );
         let encoder_input = writer
             .encoder_info()
@@ -233,7 +205,6 @@ impl FFramesRenderBackend for CpuRenderingBackend {
             .map_err(|err| FFramesRendererError::RenderChunkError(0, err))?;
         let writer = writer.with_encoder_input(encoder_input);
         let failed = AtomicBool::new(false);
-        let svgr_images = SvgrImages::new(self.svgr_rasterizer());
 
         let render_worker = |worker: usize| -> FFramesRendererResult<()> {
             let worker_local_decoders = VideoDecodersWorker::new(1);
@@ -255,7 +226,7 @@ impl FFramesRenderBackend for CpuRenderingBackend {
                     return Err(FFramesRendererError::Aborted);
                 }
 
-                let video_frame = claim.frame + frame_offset;
+                let video_frame = frame_map(claim.frame);
                 let svg = super::render_frame_guarded(
                     video,
                     Frame::__internal_make_for_renderer(
@@ -291,8 +262,7 @@ impl FFramesRenderBackend for CpuRenderingBackend {
         std::thread::scope(|scope| {
             let workers: Vec<_> = (0..scheduler.workers())
                 .map(|worker| {
-                    let (render_worker, failed, svgr_images) =
-                        (&render_worker, &failed, &svgr_images);
+                    let (render_worker, failed) = (&render_worker, &failed);
                     scope.spawn(move || {
                         let result =
                             svgr_images.enter(usvg_options, font_db, || render_worker(worker));
@@ -314,26 +284,120 @@ impl FFramesRenderBackend for CpuRenderingBackend {
                 .collect::<FFramesRendererResult<Vec<_>>>()
         })?;
 
-        let files = writer
+        writer
             .finish()
-            .map_err(|err| FFramesRendererError::RenderChunkError(0, err))?;
+            .map_err(|err| FFramesRendererError::RenderChunkError(0, err))
+    }
+}
 
-        unsafe {
+impl FFramesRenderBackend for CpuRenderingBackend {
+    fn frame_renderer(&self) -> Option<impl FrameRenderer + '_> {
+        Some(super::CpuFrameRenderer::new(self.cache_capacity))
+    }
+
+    fn encoder_frame_renderer(
+        &self,
+        input: &EncoderInput,
+        width: u32,
+        height: u32,
+    ) -> FFramesRendererResult<impl EncoderFrameRenderer + '_> {
+        CpuEncoderFrameRenderer::new(self.cache_capacity, input, width, height)
+            .map_err(|err| FFramesRendererError::from_chunk(0, err))
+    }
+
+    fn render<'a, 'media: 'a, TVideo: Video + Sync + Sized>(
+        self,
+        output: impl AsRef<Path>,
+        video: &'a TVideo,
+        logger: Arc<dyn FFramesLogger>,
+        usvg_options: &'a usvgr::Options,
+        render_options: &RenderOptions<'a, 'media>,
+        font_db: &'a fontdb::Database,
+        timeline: &'a ResolvedRenderingTimeline<AudioTimelineSamples>,
+        ctx: &'a crate::FFramesContext<'a, 'media>,
+    ) -> FFramesRendererResult<()> {
+        let output = output.as_ref();
+        let extension = output
+            .extension()
+            .ok_or(FFramesRendererError::InvalidOutput)?
+            .to_string_lossy()
+            .into_owned();
+        let svgr_images = SvgrImages::new(self.svgr_rasterizer());
+        let concat = |files: &[std::path::PathBuf]| unsafe {
             concatenator::concat_video_files_with_audio(
-                files.as_slice(),
+                files,
                 output,
                 timeline.audio_map.as_ref(),
                 render_options,
                 ctx,
                 &logger,
             )
-            .map_err(FFramesRendererError::ConcatChunkError)?;
-        }
+            .map_err(FFramesRendererError::ConcatChunkError)
+        };
+        let encode = |directory: &Path,
+                      scheduler: FrameScheduler,
+                      frame_map: &(dyn Fn(usize) -> usize + Sync)| {
+            self.encode_segments(
+                video,
+                &logger,
+                usvg_options,
+                render_options,
+                font_db,
+                ctx,
+                &svgr_images,
+                directory,
+                &extension,
+                scheduler,
+                frame_map,
+            )
+        };
 
-        logger.success(output, segments_directory.kept());
+        let Some(cache) = render_options.segment_cache.as_ref() else {
+            let segments_directory = super::SegmentsDirectory::new(render_options, "fframes")?;
+            // The scheduler and segments work in output frames; they map back to video frames
+            // when only a range is rendered.
+            let frame_range = render_options.output_frame_range(ctx.duration_in_frames);
+            let scheduler = FrameScheduler::new(
+                frame_range.len(),
+                self.concurrency,
+                render_options
+                    .video_encoder_options
+                    .min_segment_frames(ctx.time_base.fps),
+            );
+            let files = encode(segments_directory.path(), scheduler, &|frame| {
+                frame + frame_range.start
+            })?;
+            concat(&files)?;
+            logger.success(output, segments_directory.kept());
+            return Ok(());
+        };
+
+        let renderer = format!("cpu {:?}", TVideo::BACKGROUND_COLOR);
+        let mut plan = super::SegmentPlan::new(
+            cache,
+            video,
+            ctx,
+            render_options,
+            usvg_options,
+            font_db,
+            &svgr_images,
+            super::RenderKeyInput {
+                renderer: &renderer,
+                extension: &extension,
+            },
+        )?;
+        plan.render_stale(&logger, |lengths, frames, directory| {
+            encode(
+                directory,
+                FrameScheduler::with_segment_lengths(lengths, self.concurrency),
+                &|frame| frames[frame],
+            )
+        })?;
+        concat(&plan.files())?;
+        plan.finish(&logger);
+        logger.success(output, None);
         Ok(())
     }
-
     fn render_frame<'a, 'media: 'a, TVideo: Video + Sync + Sized>(
         self,
         frame: crate::Frame,

@@ -6,7 +6,7 @@ use fframes::{
     ResolvedRenderingTimeline, SegmentWriter, TextCache, Video, VideoDecodersWorker, usvgr,
 };
 use fframes::{FFramesLogger, FFramesRendererError, FFramesRendererResult, concatenator};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
@@ -153,44 +153,138 @@ impl BufferPool {
 ///
 /// The [`FrameScheduler`] gives every generator a contiguous range of frames that is
 /// encoded as a separate segment, the segments are concatenated with the audio at the end.
+/// With [`RenderOptions::segment_cache`] only the segments the cache does not have are
+/// rendered, see [`fframes::SegmentPlan`].
 pub(crate) fn render<'p, 'a, 'media: 'a, TVideo: Video + Sync + Send, TBackend: SkiaBackend>(
-    Pipeline {
-        ctx,
-        render_options,
-        font_db,
-        logger,
-        output,
-        pipeline_config,
-        frame_export,
-        skia,
-        timeline,
-        usvg_options,
-        video,
-        background_color,
-    }: Pipeline<'p, 'a, 'media, TVideo, TBackend>,
+    pipeline: Pipeline<'p, 'a, 'media, TVideo, TBackend>,
 ) -> FFramesRendererResult<()> {
-    let workers = pipeline_config.encoder_threads.max(1);
-    let gpu_contexts = pipeline_config.gpu_contexts();
-    let queue_size = pipeline_config.buffer_queue_size.max(1);
-
-    let extension = output
+    let render_options = pipeline.render_options;
+    let ctx = pipeline.ctx;
+    let extension = pipeline
+        .output
         .extension()
         .ok_or(FFramesRendererError::InvalidOutput)?
         .to_string_lossy()
         .into_owned();
-    let segments_directory = fframes::SegmentsDirectory::new(render_options, "fframes-skia")?;
-    let directory = segments_directory.path();
+
+    // The generators share the images of `FFramesContext::render_svgr`.
+    let svgr_images = fframes::SvgrImages::new(Some(Box::new(crate::SkiaSvgrRasterizer::new(
+        pipeline.skia,
+        pipeline.pipeline_config.cache,
+        pipeline.pipeline_config.gpu_contexts().max(2),
+    ))));
+
+    let Some(cache) = render_options.segment_cache.as_ref() else {
+        let segments_directory = fframes::SegmentsDirectory::new(render_options, "fframes-skia")?;
+        // The scheduler and segments work in output frames, mapped back to video frames when
+        // only a range is rendered.
+        let frame_range = render_options.output_frame_range(ctx.duration_in_frames);
+        let min_segment_frames = render_options
+            .video_encoder_options
+            .min_segment_frames(ctx.time_base.fps);
+        let files = encode_segments(
+            &pipeline,
+            &svgr_images,
+            segments_directory.path(),
+            &extension,
+            |generators| FrameScheduler::new(frame_range.len(), generators, min_segment_frames),
+            &|frame| frame + frame_range.start,
+        )?;
+        concat(&pipeline, &files)?;
+        pipeline
+            .logger
+            .success(pipeline.output, segments_directory.kept());
+        return Ok(());
+    };
+
+    let renderer = format!(
+        "skia {} {:?} {:?}",
+        std::any::type_name::<TBackend>(),
+        pipeline.frame_export,
+        pipeline.background_color
+    );
+    let mut plan = fframes::SegmentPlan::new(
+        cache,
+        pipeline.video,
+        ctx,
+        render_options,
+        pipeline.usvg_options,
+        pipeline.font_db,
+        &svgr_images,
+        fframes::RenderKeyInput {
+            renderer: &renderer,
+            extension: &extension,
+        },
+    )?;
+    plan.render_stale(&pipeline.logger, |lengths, frames, directory| {
+        encode_segments(
+            &pipeline,
+            &svgr_images,
+            directory,
+            &extension,
+            |generators| FrameScheduler::with_segment_lengths(lengths, generators),
+            &|frame| frames[frame],
+        )
+    })?;
+    concat(&pipeline, &plan.files())?;
+    plan.finish(&pipeline.logger);
+    pipeline.logger.success(pipeline.output, None);
+    Ok(())
+}
+
+fn concat<TVideo: Video + Sync + Send, TBackend: SkiaBackend>(
+    pipeline: &Pipeline<'_, '_, '_, TVideo, TBackend>,
+    files: &[PathBuf],
+) -> FFramesRendererResult<()> {
+    unsafe {
+        concatenator::concat_video_files_with_audio(
+            files,
+            pipeline.output,
+            pipeline.timeline.audio_map.as_ref(),
+            pipeline.render_options,
+            pipeline.ctx,
+            &pipeline.logger,
+        )
+        .map_err(FFramesRendererError::ConcatChunkError)
+    }
+}
+
+/// Renders the frames of the scheduler `make_scheduler` builds for the number of generators
+/// into segment files in `directory`, in segment order. `frame_map` maps a scheduled frame
+/// to its video frame.
+fn encode_segments<'p, 'a, 'media: 'a, TVideo: Video + Sync + Send, TBackend: SkiaBackend>(
+    pipeline: &Pipeline<'p, 'a, 'media, TVideo, TBackend>,
+    svgr_images: &fframes::SvgrImages,
+    directory: &Path,
+    extension: &str,
+    make_scheduler: impl FnOnce(usize) -> FrameScheduler,
+    frame_map: &(dyn Fn(usize) -> usize + Sync),
+) -> FFramesRendererResult<Vec<PathBuf>> {
+    let ctx = pipeline.ctx;
+    let render_options = pipeline.render_options;
+    let font_db = pipeline.font_db;
+    let logger = &pipeline.logger;
+    let pipeline_config = pipeline.pipeline_config;
+    let frame_export = pipeline.frame_export;
+    let skia = pipeline.skia;
+    let usvg_options = pipeline.usvg_options;
+    let video = pipeline.video;
+    let background_color = pipeline.background_color;
+
+    let workers = pipeline_config.encoder_threads.max(1);
+    let gpu_contexts = pipeline_config.gpu_contexts();
+    let queue_size = pipeline_config.buffer_queue_size.max(1);
 
     let writer = SegmentWriter::new(
         directory,
-        &extension,
+        extension,
         (
             ctx.current_video_size.width as i32,
             ctx.current_video_size.height as i32,
             ctx.time_base.fps as i32,
         ),
         render_options,
-        &logger,
+        logger,
     );
     let (encoder_input, hardware_encoder) = writer
         .encoder_info()
@@ -218,17 +312,7 @@ pub(crate) fn render<'p, 'a, 'media: 'a, TVideo: Video + Sync + Send, TBackend: 
             .min(software_encoders_memory() / frame_bytes.max(1))
             .max(generators)
     };
-    // The scheduler and segments work in output frames; `frame_offset` maps them back to
-    // video frames when only a range is rendered.
-    let frame_range = render_options.output_frame_range(ctx.duration_in_frames);
-    let frame_offset = frame_range.start;
-    let scheduler = FrameScheduler::new(
-        frame_range.len(),
-        generators,
-        render_options
-            .video_encoder_options
-            .min_segment_frames(ctx.time_base.fps),
-    );
+    let scheduler = make_scheduler(generators);
     let writer = writer.with_encoder_input(encoder_input);
 
     #[cfg(feature = "debug")]
@@ -236,12 +320,6 @@ pub(crate) fn render<'p, 'a, 'media: 'a, TVideo: Video + Sync + Send, TBackend: 
 
     let failed = AtomicBool::new(false);
     let buffers = BufferPool::default();
-    // The generators share the images of `FFramesContext::render_svgr`.
-    let svgr_images = fframes::SvgrImages::new(Some(Box::new(crate::SkiaSvgrRasterizer::new(
-        skia,
-        pipeline_config.cache,
-        gpu_contexts.max(2),
-    ))));
     let (tree_sender, tree_receiver) = mpsc::sync_channel::<(FrameClaim, usvgr::Tree)>(queue_size);
     let (frame_sender, frame_receiver) = mpsc::sync_channel::<RenderedFrame>(queue_size);
     // Every stage owns its end of the queues, so a stage that stops (all of its threads
@@ -261,7 +339,7 @@ pub(crate) fn render<'p, 'a, 'media: 'a, TVideo: Video + Sync + Send, TBackend: 
         let mut handles = Vec::new();
         for worker in 0..scheduler.workers() {
             let tree_sender = tree_sender.clone();
-            let (scheduler, failed, svgr_images) = (&scheduler, &failed, &svgr_images);
+            let (scheduler, failed, svgr_images) = (&scheduler, &failed, svgr_images);
             #[cfg(feature = "debug")]
             let metrics = metrics.generator_metrics.clone();
             handles.push(scope.spawn(move || {
@@ -270,7 +348,7 @@ pub(crate) fn render<'p, 'a, 'media: 'a, TVideo: Video + Sync + Send, TBackend: 
                         worker,
                         video,
                         scheduler,
-                        frame_offset,
+                        frame_map,
                         usvg_options,
                         font_db,
                         tree_sender,
@@ -289,7 +367,7 @@ pub(crate) fn render<'p, 'a, 'media: 'a, TVideo: Video + Sync + Send, TBackend: 
         for _ in 0..gpu_contexts {
             let frame_sender = frame_sender.clone();
             let tree_receiver = Arc::clone(&tree_receiver);
-            let (buffers, failed, logger, writer) = (&buffers, &failed, &logger, &writer);
+            let (buffers, failed, logger, writer) = (&buffers, &failed, logger, &writer);
             #[cfg(feature = "debug")]
             let metrics = metrics.renderer_metrics.clone();
             handles.push(scope.spawn(move || {
@@ -352,32 +430,16 @@ pub(crate) fn render<'p, 'a, 'media: 'a, TVideo: Video + Sync + Send, TBackend: 
     #[cfg(feature = "debug")]
     metrics.print_stats();
 
-    let files = writer
+    writer
         .finish()
-        .map_err(|err| FFramesRendererError::RenderChunkError(0, err))?;
-
-    unsafe {
-        concatenator::concat_video_files_with_audio(
-            files.as_slice(),
-            output,
-            timeline.audio_map.as_ref(),
-            render_options,
-            ctx,
-            &logger,
-        )
-        .map_err(FFramesRendererError::ConcatChunkError)?;
-    }
-
-    logger.success(output, segments_directory.kept());
-    Ok(())
+        .map_err(|err| FFramesRendererError::RenderChunkError(0, err))
 }
-
 #[allow(clippy::too_many_arguments)]
 fn generate_frames<'a, 'media: 'a, TVideo: Video + Sync + Send>(
     worker: usize,
     video: &'a TVideo,
     scheduler: &FrameScheduler,
-    frame_offset: usize,
+    frame_map: &(dyn Fn(usize) -> usize + Sync),
     usvg_options: &'a usvgr::Options<'a>,
     font_db: &'a usvgr::fontdb::Database,
     tree_sender: SyncSender<(FrameClaim, usvgr::Tree)>,
@@ -406,7 +468,7 @@ fn generate_frames<'a, 'media: 'a, TVideo: Video + Sync + Send>(
             return Err(FFramesRendererError::Aborted);
         }
 
-        let video_frame = claim.frame + frame_offset;
+        let video_frame = frame_map(claim.frame);
         let frame = fframes::Frame::__internal_make_for_renderer(
             video_frame,
             video_frame,

@@ -17,13 +17,12 @@ pub struct FrameClaim {
 const MAX_SEGMENTS: usize = 128;
 
 /// The segments a timeline is encoded in. They depend only on the number of frames and
-/// `min_segment_frames`, never on the number of workers or on how fast they go.
-#[derive(Debug, Clone, Copy)]
+/// `min_segment_frames` (or on the lengths given), never on the number of workers or on how
+/// fast they go.
+#[derive(Debug, Clone)]
 struct Segments {
-    total_frames: usize,
-    /// The length of every segment but the last, a multiple of `min_segment_frames`.
-    length: usize,
-    count: usize,
+    /// The first frame of every segment, then the end of the timeline.
+    bounds: Vec<usize>,
 }
 
 impl Segments {
@@ -41,24 +40,37 @@ impl Segments {
         .max(1);
 
         Self {
-            total_frames,
-            length,
-            count,
+            bounds: (0..count)
+                .map(|index| index * length)
+                .chain(std::iter::once(total_frames))
+                .collect(),
         }
+    }
+
+    /// Segments of the given lengths, one after the other. Empty lengths are skipped.
+    fn from_lengths(lengths: &[usize]) -> Self {
+        let mut bounds = vec![0];
+        for &length in lengths.iter().filter(|length| **length > 0) {
+            bounds.push(bounds[bounds.len() - 1] + length);
+        }
+        Self { bounds }
+    }
+
+    fn count(&self) -> usize {
+        self.bounds.len() - 1
     }
 
     /// The segment `frame` is in.
     fn index(&self, frame: usize) -> usize {
-        (frame / self.length).min(self.count - 1)
+        self.bounds
+            .partition_point(|start| *start <= frame)
+            .saturating_sub(1)
+            .min(self.count().saturating_sub(1))
     }
 
     /// The first frame of segment `index`, the end of the timeline past the last segment.
     fn start(&self, index: usize) -> usize {
-        if index < self.count {
-            index * self.length
-        } else {
-            self.total_frames
-        }
+        self.bounds[index.min(self.count())]
     }
 }
 
@@ -95,14 +107,12 @@ impl Slot {
         }
         let first = segments.start(segments.index(self.next) + 1);
         let last = segments.start(segments.index(self.end - 1));
-        (first <= last)
-            .then(|| align(self.next + self.remaining() / 2, segments.length).clamp(first, last))
+        (first <= last).then(|| {
+            segments
+                .start(segments.index(self.next + self.remaining() / 2))
+                .clamp(first, last)
+        })
     }
-}
-
-/// `frame` rounded down to a multiple of `step`.
-fn align(frame: usize, step: usize) -> usize {
-    frame - frame % step
 }
 
 /// Distributes the frames of a video between rendering workers.
@@ -133,20 +143,31 @@ pub struct FrameScheduler {
 
 impl FrameScheduler {
     pub fn new(total_frames: usize, workers: usize, min_segment_frames: usize) -> Self {
-        let segments = Segments::new(total_frames, min_segment_frames.max(1));
+        Self::with_segments(
+            Segments::new(total_frames, min_segment_frames.max(1)),
+            workers,
+        )
+    }
+
+    /// Segments of exactly these lengths, one after the other, for frames `0..sum`. The
+    /// segment cache renders only the segments it does not have; the caller maps the frames
+    /// back to the video.
+    pub fn with_segment_lengths(lengths: &[usize], workers: usize) -> Self {
+        Self::with_segments(Segments::from_lengths(lengths), workers)
+    }
+
+    fn with_segments(segments: Segments, workers: usize) -> Self {
         let workers = workers.max(1);
+        let count = segments.count();
         // workers without an initial run of segments only help the others
-        let runs = workers.min(segments.count);
+        let runs = workers.min(count);
 
         let slots = (0..workers)
             .map(|worker| {
                 let (first, last) = if worker < runs {
-                    (
-                        segments.count * worker / runs,
-                        segments.count * (worker + 1) / runs,
-                    )
+                    (count * worker / runs, count * (worker + 1) / runs)
                 } else {
-                    (segments.count, segments.count)
+                    (count, count)
                 };
                 Mutex::new(Slot {
                     next: segments.start(first),
@@ -276,5 +297,44 @@ mod tests {
             }
             assert_eq!(all.len(), total);
         }
+    }
+
+    #[test]
+    fn uneven_segments_keep_their_bounds() {
+        let lengths = [5, 48, 0, 13, 72, 1, 30];
+        let total: usize = lengths.iter().sum();
+        let mut starts = vec![0];
+        for length in lengths.iter().filter(|length| **length > 0) {
+            starts.push(starts.last().unwrap() + length);
+        }
+
+        for workers in [1, 2, 3, 8] {
+            let scheduler = FrameScheduler::with_segment_lengths(&lengths, workers);
+            let mut segments: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+            let mut done = vec![false; workers];
+            let mut round = 0;
+            while done.iter().any(|done| !done) {
+                round += 1;
+                for (worker, done) in done.iter_mut().enumerate() {
+                    if *done || round % (worker % 2 + 1) != 0 {
+                        continue;
+                    }
+                    match scheduler.claim(worker) {
+                        Some(claim) => {
+                            let index = starts.partition_point(|start| *start <= claim.frame) - 1;
+                            assert_eq!(claim.segment, starts[index]);
+                            assert_eq!(claim.last_in_segment, claim.frame + 1 == starts[index + 1]);
+                            segments.entry(claim.segment).or_default().push(claim.frame);
+                        }
+                        None => *done = true,
+                    }
+                }
+            }
+            let claimed: BTreeSet<usize> = segments.values().flatten().copied().collect();
+            assert_eq!(claimed.len(), total);
+            assert_eq!(segments.len(), starts.len() - 1);
+        }
+
+        assert_eq!(FrameScheduler::with_segment_lengths(&[], 4).claim(2), None);
     }
 }

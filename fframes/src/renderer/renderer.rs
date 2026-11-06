@@ -55,6 +55,9 @@ pub struct RenderOptions<'a, 'media> {
     pub frame_range: Option<std::ops::Range<usize>>,
     /// Master bus of the audio mix: limiter, master gain and de-click fades.
     pub audio_mix: crate::AudioMixOptions,
+    /// Keep the encoded segments in this cache and encode only the segments whose frames
+    /// changed since an earlier render, see [`super::SegmentPlan`]. `None` renders everything.
+    pub segment_cache: Option<super::SegmentCacheOptions>,
 }
 
 impl RenderOptions<'_, '_> {
@@ -82,6 +85,7 @@ impl Default for RenderOptions<'_, '_> {
             tmp_files_directory: None,
             frame_range: None,
             audio_mix: crate::AudioMixOptions::default(),
+            segment_cache: None,
         }
     }
 }
