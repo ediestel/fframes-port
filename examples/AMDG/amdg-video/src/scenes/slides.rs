@@ -3,7 +3,7 @@
 //! 9, 10 und 12 sind nicht enthalten; nach "Warum AMDG Engineers" folgen die
 //! Quellen als vorletzte Seite, der Abschluss wie in der Reihe der AMDG-Videos.
 
-use fframes::{FFramesContext, Frame, Svgr};
+use fframes::{FFramesContext, FontQuery, Frame, Svgr};
 
 use super::common::*;
 use crate::narration::at;
@@ -61,12 +61,37 @@ fn cards4<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32, top: f32, ite
     fframes::svgr!(<g>{out}</g>)
 }
 
-/// Drei Karten nebeneinander ab `top`: (Titel, Text).
+/// Zeilen, die `para` für `s` braucht (Umbruch an Wortgrenzen).
+fn line_count<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, s: &'a str, width: f32, size: usize, weight: u16) -> usize {
+    let mut n = 1;
+    // die aktuelle Zeile als Ausschnitt von `s`: Anfang des ersten Worts
+    let mut line_start: Option<usize> = None;
+    for (pos, w) in s.split_whitespace().map(|w| (w.as_ptr() as usize - s.as_ptr() as usize, w)) {
+        let start = line_start.unwrap_or(pos);
+        let cand = &s[start..pos + w.len()];
+        let cw = f
+            .text_width(ctx, FontQuery { family: SANS, size, weight, ..Default::default() }, cand)
+            .map(|x| x as f32)
+            .unwrap_or(cand.chars().count() as f32 * size as f32 * 0.52);
+        if cw > width && line_start.is_some() {
+            n += 1;
+            line_start = Some(pos);
+        } else {
+            line_start = Some(start);
+        }
+    }
+    n
+}
+
+/// Drei Karten nebeneinander ab `top`: (Titel, Text, Lösung). Die Lösung, wenn
+/// es eine gibt, steht grün unter dem Text.
 #[allow(clippy::too_many_arguments)]
-fn cards3<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32, top: f32, h: f32, items: &[(&str, &str); 3], t0: f32, step: f32, color: &'static str) -> Svgr<'a> {
+fn cards3<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32, top: f32, h: f32, items: &[(&'a str, &'a str, &'a str); 3], t0: f32, step: f32, color: &'static str) -> Svgr<'a> {
     let mut out = Vec::new();
-    for (i, (title, body)) in items.iter().enumerate() {
+    for (i, (title, body, solution)) in items.iter().enumerate() {
         let x = 130.0 + i as f32 * 563.0;
+        let sol_y = if body.is_empty() { top + 150.0 } else { top + 150.0 + line_count(f, ctx, body, 466.0, 25, 400) as f32 * 32.5 + 14.0 };
+        let sol = if solution.is_empty() { Svgr::empty() } else { para(f, ctx, (x + 34.0) as i32, sol_y as i32, 466, 25, 500, GREEN, solution) };
         out.push(rise_in(
             t,
             t0 + i as f32 * step,
@@ -74,6 +99,7 @@ fn cards3<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32, top: f32, h: 
                 {card(x, top, 534.0, h, Some(color), PANEL, LINE)}
                 {para(f, ctx, (x + 34.0) as i32, (top + 62.0) as i32, 466, 30, 500, color, title)}
                 {para(f, ctx, (x + 34.0) as i32, (top + 150.0) as i32, 466, 25, 400, INK, body)}
+                {sol}
             </g>),
         ));
     }
@@ -170,9 +196,9 @@ fn s03b<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
 /// 3c · Beispiele aus High-Risk-Domänen.
 fn s03c<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     let items = [
-        ("Juristische Recherche", "Lexis+ AI lieferte im Test der Stanford University bei mehr als 17 % der Anfragen falsche Angaben. Jede vermiedene falsche Angabe spart Prüfzeit."),
-        ("Medizinischer Dienst", "Steigt der Anteil der zu Recht geminderten Krankenhausrechnungen um 1 Prozentpunkt, ergibt das rechnerisch 25,3 Mio. € im Jahr. Heute stehen je Fall im Schnitt rund 77 Minuten gutachterliche Arbeitszeit zur Verfügung, zu wenig für eine eingehende Prüfung; mit der AMDG-Modulation wird sie mit demselben Personal möglich."),
-        ("Jede Institution", "Alle Institutionen in High-Risk-Domänen können mit der AMDG-Modulation erhebliche Kosten einsparen; weltweit wäre die Wirkung enorm."),
+        ("Juristische Recherche", "Lexis+ AI lieferte im Test der Stanford University bei mehr als 17 % der Anfragen falsche Angaben.", "Jede vermiedene falsche Angabe spart Prüfzeit."),
+        ("Medizinischer Dienst", "Steigt der Anteil der zu Recht geminderten Krankenhausrechnungen um 1 Prozentpunkt, ergibt das rechnerisch 25,3 Mio. € im Jahr. Heute stehen je Fall im Schnitt rund 77 Minuten gutachterliche Arbeitszeit zur Verfügung, zu wenig für eine eingehende Prüfung;", "mit der AMDG-Modulation wird sie mit demselben Personal möglich."),
+        ("Jede Institution", "", "Alle Institutionen in High-Risk-Domänen können mit der AMDG-Modulation erhebliche Kosten einsparen; weltweit wäre die Wirkung enorm."),
     ];
     let body = cards3(f, ctx, t, 290.0, 500.0, &items, 1.2, (at("g03c_2") - 1.2) / 2.0, AMBER);
     page(
@@ -186,9 +212,9 @@ fn s03c<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
 /// 4 · Heutige Grenzen.
 fn s04<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     let items = [
-        ("KI-Fehler", "Antworten können erfundene Fakten, Zitate oder technische Details enthalten."),
-        ("Fehlende Voraussetzungen", "Antworten können auf Angaben beruhen, die in der Anfrage nicht enthalten sind."),
-        ("Kontextabhängigkeit", "Frühere Teile eines Gesprächs können spätere Antworten beeinflussen."),
+        ("KI-Fehler", "Antworten können erfundene Fakten, Zitate oder technische Details enthalten.", ""),
+        ("Fehlende Voraussetzungen", "Antworten können auf Angaben beruhen, die in der Anfrage nicht enthalten sind.", ""),
+        ("Kontextabhängigkeit", "Frühere Teile eines Gesprächs können spätere Antworten beeinflussen.", ""),
     ];
     let body = fframes::svgr!(<g>
         {lead(t, "Auch eine flüssig formulierte Antwort kann unbelegte Aussagen enthalten.")}
@@ -378,7 +404,7 @@ fn s09<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
 
 /// 10 · Das Prüfprotokoll: ein Auszug aus dem Test mit einem Begehungsbericht,
 /// ins Deutsche übertragen.
-fn s10<'a>(_f: &mut Frame, _ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
+fn s10<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     let established = [
         "Laut Text fand die Dachinspektion am 3. März 2026 statt.",
         "Laut Text hält Mosers Bericht die Inspektion vom 5. März 2026 fest.",
@@ -389,9 +415,11 @@ fn s10<'a>(_f: &mut Frame, _ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
         "Nicht belegt ist, dass der vorgelegte Text Mosers Bericht ist.",
     ];
     let a2 = at("g10_2");
+    // das Protokoll steht unter der Erklärung, 68 px tiefer als zuvor
+    let dy = 68.0;
     let mut items = Vec::new();
     for (i, s) in established.iter().enumerate() {
-        let y = 384.0 + i as f32 * 62.0;
+        let y = dy + 384.0 + i as f32 * 62.0;
         let at_i = a2 + 0.8 + i as f32 * 0.8;
         items.push(rise_in(t, at_i, fframes::svgr!(<g>
             {check(186.0, y - 8.0, 14.0, prog(t, at_i + 0.3, at_i + 0.9), GREEN)}
@@ -399,7 +427,7 @@ fn s10<'a>(_f: &mut Frame, _ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
         </g>)));
     }
     for (i, s) in open.iter().enumerate() {
-        let y = 590.0 + i as f32 * 62.0;
+        let y = dy + 590.0 + i as f32 * 62.0;
         let at_i = a2 + 3.6 + i as f32 * 0.9;
         items.push(rise_in(t, at_i, fframes::svgr!(<g>
             <circle cx="186" cy={y - 8.0} r="14" fill={AMBER_BG} stroke={AMBER} stroke-width="2" />
@@ -411,18 +439,40 @@ fn s10<'a>(_f: &mut Frame, _ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
         t,
         a2,
         fframes::svgr!(<g>
-            {card(130.0, 258.0, 1660.0, 520.0, Some(GREEN), PANEL, LINE)}
-            {text(166.0, 304.0, 20.0, 500, GREEN, "start", "Prüfprotokoll zu einem Begehungsbericht, erstellt mit grok-4.7 und AMDG-Modulation")}
-            {text(166.0, 344.0, 20.0, 500, MUTED, "start", "belegt")}
-            {text(166.0, 548.0, 20.0, 500, MUTED, "start", "nicht belegt")}
+            {card(130.0, dy + 258.0, 1660.0, 470.0, Some(GREEN), PANEL, LINE)}
+            {text(166.0, dy + 304.0, 20.0, 500, GREEN, "start", "Prüfprotokoll zu einem Begehungsbericht, erstellt mit grok-4.7 und AMDG-Modulation")}
+            {text(166.0, dy + 344.0, 20.0, 500, MUTED, "start", "belegt")}
+            {text(166.0, dy + 548.0, 20.0, 500, MUTED, "start", "nicht belegt")}
             {items}
         </g>),
     );
+    // rechts im Protokoll: was das Beispiel zeigt, Schritt für Schritt mit den Zeilen
+    let notes: [(&'a str, f32); 4] = [
+        ("Grundlage ist ein Begehungsbericht über eine Dachinspektion. Jede Aussage der Antwort wird am vorgelegten Text beurteilt.", a2 + 0.4),
+        ("Belegt ist, was so im Text steht. Für die Inspektion nennt der Text zwei Daten: den 3. und den 5. März.", a2 + 0.8),
+        ("Weil sich die Daten widersprechen, ist ein eindeutiges Datum der Inspektion nicht belegt. Ebenso fehlt ein Beleg, dass der Text Mosers Bericht ist.", a2 + 3.6),
+        ("Das Protokoll benennt diese Lücken, statt sie mit einer Vermutung zu füllen.", a2 + 5.6),
+    ];
+    let mut note_y = dy + 344.0;
+    let mut side = Vec::new();
+    for (s, at_i) in notes {
+        let lines = line_count(f, ctx, s, 600.0, 22, 400);
+        side.push(rise_in(t, at_i, para(f, ctx, 1150, note_y as i32, 600, 22, 400, INK, s)));
+        note_y += lines as f32 * 28.6 + 18.0;
+    }
+    let side = rise_in(t, a2, fframes::svgr!(<g>
+        <rect x="1110" y={dy + 330.0} width="2" height="380" fill={LINE} />
+        {side}
+    </g>));
+    let explain = fframes::svgr!(<g>
+        {rise_in(t, 0.8, text(130.0, 262.0, 24.0, 400, MUTED, "start", "Die abschließende Antwort ist ein Prüfprotokoll: Jedes Urteil bezieht sich auf eine einzelne Aussage."))}
+        {rise_in(t, 2.4, text(130.0, 300.0, 24.0, 400, MUTED, "start", "Was im Text steht, gilt als belegt; was der Text nicht belegt, wird ausdrücklich benannt."))}
+    </g>);
     page(
         t,
         "Ein Beispiel für ein Prüfprotokoll",
         "Beispiel aus dem Begehungsbericht-Test der Paarvergleiche vom 3. November 2026.",
-        fframes::svgr!(<g>{excerpt}</g>),
+        fframes::svgr!(<g>{explain}{excerpt}{side}</g>),
     )
 }
 
@@ -461,10 +511,10 @@ fn s12<'a>(f: &mut Frame, ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     let a1 = para(f, ctx, 180, 240, w, 32, 500, AMBER, "\u{201E}AMDG Engineers bearbeitet Anfragen mit führenden Sprachmodellen und entfernt mit der AMDG-Modulation KI-Fehler aus den Antworten.\u{201C}");
     let g1a = para(f, ctx, 180, 348, w, 28, 400, GREEN, "\u{201E}Ihre Organisation erhält Antworten, in denen alle Kernaussagen für den Leser erkennbar gekennzeichnet sind.\u{201C}");
     let g1b = para(f, ctx, 180, 446, w, 28, 400, GREEN, "\u{201E}Jede Anfrage wird für sich bearbeitet, nicht als Teil eines Gesprächs. So werden Drift und Halluzinationen vermieden.\u{201C}");
-    let g2 = para(f, ctx, 180, 650, w, 28, 400, GREEN, "\u{201E}Die Leistungsfähigkeit der AMDG-Modulation lässt sich an der Qualität der gelieferten Antworten nachweisen.\u{201C}");
+    let g2 = para(f, ctx, 180, 548, w, 28, 400, GREEN, "\u{201E}Die Leistungsfähigkeit der AMDG-Modulation lässt sich an der Qualität der gelieferten Antworten nachweisen.\u{201C}");
     fframes::svgr!(<g>
         {rise_in(t, 0.5, fframes::svgr!(<g>
-            {card(140.0, 180.0, 1640.0, 380.0, Some(AMBER), PANEL, LINE)}
+            {card(140.0, 180.0, 1640.0, 460.0, Some(AMBER), PANEL, LINE)}
             {a1}
         </g>))}
         {rise_in(t, 4.0, g1a)}
@@ -481,12 +531,13 @@ fn s13<'a>(_f: &mut Frame, _ctx: &FFramesContext<'a, '_>, t: f32) -> Svgr<'a> {
     let pre = enter(t, 2.0, 0.8);
     fframes::svgr!(<g>
         <g opacity={c1} transform={tr(0.0, (1.0 - c1) * 24.0)}>
-            {text(960.0, 400.0, 84.0, 500, AMBER, "middle", "AMDG-Modulation:")}
-            {text(960.0, 510.0, 84.0, 500, AMBER, "middle", "Jede Aussage wird einzeln beurteilt.")}
+            {text(960.0, 350.0, 72.0, 500, AMBER, "middle", "Die AMDG-Modulation")}
+            {text(960.0, 445.0, 72.0, 500, AMBER, "middle", "ermöglicht den zuverlässigen Einsatz")}
+            {text(960.0, 540.0, 72.0, 500, AMBER, "middle", "von KI in High-Risk-Bereichen.")}
         </g>
-        <rect x={960.0 - 110.0 * rule} y="590" width={(220.0 * rule).max(0.5)} height="4" rx="2" fill="url(#amberBar)" opacity={rule} />
+        <rect x={960.0 - 110.0 * rule} y="610" width={(220.0 * rule).max(0.5)} height="4" rx="2" fill="url(#amberBar)" opacity={rule} />
         <g opacity={pre} transform={tr(0.0, (1.0 - pre) * 16.0)}>
-            <text x="960" y="680" font-family={SANS} font-size="32" font-weight="400" fill={MUTED} text-anchor="middle">"Präsentiert von "<tspan font-weight="500" fill={INK}>"AMDG Engineers"</tspan></text>
+            <text x="960" y="700" font-family={SANS} font-size="32" font-weight="400" fill={MUTED} text-anchor="middle">"Präsentiert von "<tspan font-weight="500" fill={INK}>"AMDG Engineers"</tspan></text>
         </g>
     </g>)
 }

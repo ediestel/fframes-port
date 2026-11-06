@@ -863,7 +863,7 @@ See `examples/teej-podcast/src/main.rs`; `cargo fframes new` generates the same 
 
 | command | what |
 | --- | --- |
-| `render [RANGE] [-o out.mp4] [--draft] [--fail-on error\|warning\|never]` | the video or a range of it (default command); `--draft` = half size + fastest preset. The range is inspected first (as `inspect` does, without `--pops`): a finding of the `--fail-on` severity (default `error`) prints the findings and exits with code 2 instead of writing a file; `--fail-on never` skips the check |
+| `render [RANGE] [-o out.mp4] [--draft] [--fail-on error\|warning\|never] [--cache DIR] [--cache-limit MB]` | the video or a range of it (default command); `--cache` keeps encoded segments in `DIR` and renders only the segments whose frames changed (see below); `--draft` = half size + fastest preset. The range is inspected first (as `inspect` does, without `--pops`): a finding of the `--fail-on` severity (default `error`) prints the findings and exits with code 2 instead of writing a file; `--fail-on never` skips the check |
 | `frame 1s,50%,Intro@end [-o dir] [--svg] [--crop x,y,w,h] [--zoom N] [--ids]` | PNGs of single frames plus the problems found in them; `--crop` renders one rectangle sharply (zoomed to about 960 px wide), `--ids` outlines and labels every element with an `id` |
 | `strip [RANGE \| TIMES] -n 12 [--crop x,y,w,h]` | labelled contact sheet of evenly spaced frames (or of comma separated times), one image to review motion |
 | `onion RANGE -n 6` | frames blended into one image, shows the path of a movement |
@@ -872,6 +872,26 @@ See `examples/teej-podcast/src/main.rs`; `cargo fframes new` generates the same 
 | `inspect [RANGE] [--every 0.25s] [--pops]` | missing media/fonts/glyphs, text cut by the canvas edge, NaN transforms, panics, and the video's own checks (`fframes::diagnostics::error("name", detail)` / `::warning` called in `render_frame`, grouped by name across frames); exit code 2 on errors. `--pops` also renders every frame small and warns about pops: parts that change in one frame between still frames (an element appearing, vanishing or jumping in front of another) |
 | `audio render/analyze/at` | WAV of the mix, loudness report and waveform, tracks playing at a time |
 | `preview [TIME] [--paused] [--mute] [--no-loop] [--software-decode] [--backend B]` | real-time GPU window (`fframes_native_player`) with a studio timeline below the video (left of portrait videos): time ruler, scenes, film strip and audio lanes; drag to scrub, click a scene to jump to it, `[`/`]` previous/next scene, `,`/`.` one frame, `t` timeline on/off; blocks until closed |
+
+**The segment cache** (`render --cache DIR --cache-limit MB`): every frame is built and hashed
+(the whole tree, text and image pixels included) and the video is cut into segments at each
+scene start and every two seconds. Segments already in the cache are copied into the output
+without decoding; the others are rendered, encoded and stored.
+
+Use it only when both hold:
+- **Frames are expensive to render**: 3D scenes, video sources, shaders, heavy vector art.
+  Building and hashing a frame costs about a third of rendering a simple 4K Skia frame, so
+  for slide videos the cache saves little even when nothing changed.
+- **The change leaves the timing alone**: a text, colour or layout change inside a scene.
+  Anything that moves with film time (a drifting background, a global clock) makes every
+  frame after a scene that got longer or shorter count as new.
+
+Measured on the AMDG slide video (4K, 9,540 frames, Skia GPU): a full render took 432 s;
+the first render with `--cache` took 945 s (it fills the cache); the next one, after one
+scene grew by 4 s, reused 69 of 136 segments and took 424 s. Not worth it there. The first
+render with `--cache` is always a full render plus hashing and writing; keep `--scale` and the
+encoder settings the same between renders, they are part of each segment's key. Delete the
+cache directory when the video is done.
 
 Global flags: `--json` (one JSON document on stdout, JSON progress events on stderr),
 `--scale 0.5`, `--renderer cpu|skia-cpu|gpu` (another backend for this run, see below).

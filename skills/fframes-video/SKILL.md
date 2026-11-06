@@ -326,7 +326,9 @@ the user listen in `$R preview`.
 3. Nothing from the "No slop" list at the top of this file is left in any strip.
 4. `$R audio analyze` shows sensible levels.
 5. For GPU work awaiting review, show the preview command and offer to run it at the relevant
-   second. When the user requests the final export, run `$R render -o out.mp4`, then confirm
+   second. When the user requests the final export, run `$R render -o out.mp4` (add
+   `--cache DIR` only for expensive frames such as 3D, video or shaders and changes that keep
+   the timing; see AGENTS.md, "The segment cache"), then confirm
    size, frame count and audio with
    `ffprobe -v error -show_entries stream=codec_type,width,height,nb_frames,duration out.mp4`.
 

@@ -11,8 +11,8 @@ use fframes::{FFramesContext, FontQuery, Frame, Svgr};
 use crate::ui::*;
 
 /// Start of every scene in seconds.
-pub const SCENE_START: [f32; 15] = [0.0, 13.0, 31.0, 48.0, 67.0, 84.0, 131.0, 158.0, 178.0, 194.0, 210.0, 235.0, 267.0, 287.0, 302.0];
-pub const TOTAL: f32 = 314.0;
+pub const SCENE_START: [f32; 15] = [0.0, 13.0, 31.0, 48.0, 67.0, 84.0, 131.0, 158.0, 182.0, 198.0, 214.0, 239.0, 271.0, 291.0, 306.0];
+pub const TOTAL: f32 = 318.0;
 
 const CAPTIONS_TSV: &str = include_str!("../narration/captions.tsv");
 
