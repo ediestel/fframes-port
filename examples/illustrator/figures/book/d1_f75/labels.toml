@@ -1,10 +1,10 @@
 font = "Helvetica Neue"
 
 [[label]]
-text = "ERGENCY"
-x = 426.7
+text = "EMERGENCY"
+x = 396.0
 y = 167.7
-w = 92.0
+w = 122.7
 h = 19.0
 size = 26.4
 baseline = 186.7

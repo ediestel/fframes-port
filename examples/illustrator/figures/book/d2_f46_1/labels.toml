@@ -197,7 +197,7 @@ show = true
 conf = 97.0
 
 [[label]]
-text = ",B,CorD"
+text = "B, C or D"
 x = 517.3
 y = 587.0
 w = 57.3

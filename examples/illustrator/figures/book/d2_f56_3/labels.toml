@@ -71,7 +71,7 @@ show = true
 conf = 96.9
 
 [[label]]
-text = "=0.5g"
+text = "≈0.5 g"
 x = 1016.0
 y = 378.0
 w = 84.0
@@ -99,7 +99,7 @@ show = true
 conf = 92.9
 
 [[label]]
-text = "100-250"
+text = "100–250 g/7 d"
 x = 1016.7
 y = 492.7
 w = 115.3
@@ -127,7 +127,7 @@ show = true
 conf = 91.9
 
 [[label]]
-text = "250-500 g/7 d"
+text = "250–500 g/7 d"
 x = 1016.0
 y = 606.3
 w = 195.7

@@ -1,7 +1,7 @@
 font = "Helvetica Neue"
 
 [[label]]
-text = "Anterior drawe Anterior drawe"
+text = "Anterior drawer"
 x = 695.7
 y = 22.8
 w = 157.7
@@ -113,7 +113,7 @@ show = true
 conf = 96.0
 
 [[label]]
-text = "een only if no criterion is met"
+text = "Framed green only if no criterion is met"
 x = 213.3
 y = 239.7
 w = 278.3
@@ -183,7 +183,7 @@ show = true
 conf = 96.8
 
 [[label]]
-text = "(increased"
+text = "(increased)"
 x = 237.7
 y = 328.0
 w = 78.7

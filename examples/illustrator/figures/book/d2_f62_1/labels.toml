@@ -85,10 +85,10 @@ show = true
 conf = 96.9
 
 [[label]]
-text = "lower tone, longe"
+text = "lower tone, longer collapse"
 x = 891.7
 y = 438.3
-w = 175.0
+w = 275.0
 h = 24.0
 size = 25.8
 baseline = 456.9

@@ -1,7 +1,7 @@
 font = "Helvetica Neue"
 
 [[label]]
-text = "SUPINE (HOGRE LIGGANDE)"
+text = "SUPINE (SITS HIGHER)"
 x = 222.7
 y = 25.7
 w = 283.3
@@ -15,7 +15,7 @@ show = true
 conf = 92.6
 
 [[label]]
-text = "STAENDE + PRESS (LAGRE LIGGANDE)"
+text = "STANDING + STRAINING (SITS LOWER)"
 x = 757.0
 y = 25.6
 w = 386.0
@@ -85,7 +85,7 @@ show = true
 conf = 92.1
 
 [[label]]
-text = "uteri"
+text = ""
 x = 376.0
 y = 338.3
 w = 40.3
@@ -99,7 +99,7 @@ show = true
 conf = 94.9
 
 [[label]]
-text = "ix uteri"
+text = ""
 x = 910.7
 y = 339.0
 w = 58.7
@@ -108,15 +108,15 @@ size = 29.6
 baseline = 358.0
 color = "#F9E9E6"
 bold = false
-erase = true
+erase = false
 show = true
 conf = 96.8
 
 [[label]]
-text = "cervix"
+text = "cervix uteri"
 x = 320.0
 y = 340.3
-w = 52.0
+w = 96.3
 h = 16.0
 size = 29.6
 baseline = 356.3
@@ -127,18 +127,19 @@ show = true
 conf = 96.4
 
 [[label]]
-text = "cerv"
+text = "cervix uteri"
 x = 872.0
-y = 345.0
-w = 37.7
-h = 18.0
+y = 339.0
+w = 97.4
+h = 22.0
 size = 29.6
-baseline = 363.0
-color = "#B91E20"
+baseline = 358.0
+color = "#F9E9E6"
 bold = false
 erase = true
 show = true
 conf = 92.1
+fill = "#C8202A"
 
 [[label]]
 text = "vesica"
@@ -197,7 +198,7 @@ show = true
 conf = 90.7
 
 [[label]]
-text = "FORESLAGEN/"
+text = "PROPOSED /"
 x = 738.7
 y = 665.3
 w = 89.3
@@ -211,7 +212,7 @@ show = true
 conf = 92.2
 
 [[label]]
-text = "ORSAKSPIL"
+text = "CAUSAL ARROW"
 x = 465.0
 y = 667.7
 w = 71.3
@@ -225,7 +226,7 @@ show = true
 conf = 92.8
 
 [[label]]
-text = "OSAKER LANK"
+text = "UNCERTAIN LINK"
 x = 738.0
 y = 683.7
 w = 89.7
@@ -239,7 +240,7 @@ show = true
 conf = 92.9
 
 [[label]]
-text = "(ETABLERAD MEKANISM)"
+text = "(ESTABLISHED MECHANISM)"
 x = 464.7
 y = 685.3
 w = 146.7

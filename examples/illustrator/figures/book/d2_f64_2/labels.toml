@@ -108,8 +108,8 @@ size = 20.4
 baseline = 116.3
 color = "#101011"
 bold = true
-erase = true
-show = true
+erase = false
+show = false
 conf = 74.0
 
 [[label]]

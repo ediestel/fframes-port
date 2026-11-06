@@ -15,7 +15,7 @@ show = true
 conf = 96.6
 
 [[label]]
-text = "G SOUR"
+text = ""
 x = 789.0
 y = 43.7
 w = 61.7
@@ -127,10 +127,10 @@ show = true
 conf = 96.8
 
 [[label]]
-text = "ding"
-x = 640.0
+text = "No visible bleeding"
+x = 547.0
 y = 463.0
-w = 28.3
+w = 121.3
 h = 17.7
 size = 15.7
 baseline = 476.7
@@ -141,10 +141,10 @@ show = true
 conf = 97.0
 
 [[label]]
-text = "Visible bleedin"
+text = "Visible bleeding"
 x = 752.0
 y = 462.7
-w = 101.3
+w = 108.0
 h = 14.3
 size = 15.7
 baseline = 477.0

@@ -1,7 +1,7 @@
 font = "Helvetica Neue"
 
 [[label]]
-text = "250"
+text = "≥50"
 x = 757.7
 y = 220.0
 w = 76.7

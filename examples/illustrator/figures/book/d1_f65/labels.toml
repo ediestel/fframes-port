@@ -113,7 +113,7 @@ show = true
 conf = 92.2
 
 [[label]]
-text = "externus W"
+text = "externus"
 x = 447.7
 y = 342.6
 w = 110.3
@@ -127,7 +127,7 @@ show = true
 conf = 87.5
 
 [[label]]
-text = "evterniic"
+text = "externus"
 x = 863.7
 y = 347.7
 w = 72.3
