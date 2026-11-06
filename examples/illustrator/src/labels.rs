@@ -144,12 +144,16 @@ pub fn ocr(picture: &RgbImage, work: &Path) -> Result<Labels, String> {
     }
     let mut labels = merge(found);
     // A drawing read as letters comes out far larger or smaller than the lettering of the
-    // figure ("CNC" over a person icon, "wall t" in a hatching): out it goes, before its erase
-    // would take the drawing with it.
+    // figure, short or unsure ("CNC" over a person icon, "wall t" in a hatching): out it goes,
+    // before its erase would take the drawing with it. A large title read with confidence stays.
     let mut sizes: Vec<f64> = labels.iter().map(|l| l.size).collect();
     sizes.sort_by(f64::total_cmp);
     if let Some(&median) = sizes.get(sizes.len() / 2) {
-        labels.retain(|l| l.size <= 2.5 * median && l.size >= 0.45 * median);
+        labels.retain(|l| {
+            let odd = l.size > 2.5 * median || l.size < 0.45 * median;
+            let letters = l.text.chars().filter(|c| c.is_alphanumeric()).count();
+            !odd || (letters > 4 && l.conf >= 90.0)
+        });
     }
     uniform_sizes(&mut labels);
     Ok(Labels { font: default_font(), labels })

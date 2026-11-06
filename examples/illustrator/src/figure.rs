@@ -60,6 +60,9 @@ pub struct TraceSettings {
     pub contour_width: Option<f32>,
     pub contour_color: Option<String>,
     pub contour_min_area: Option<f32>,
+    /// `"picture"`: every outline piece takes the colour of the picture under it (a navy
+    /// banner stays navy, dark tissue dark grey) instead of the one outline colour, black.
+    pub outline_color: Option<String>,
     pub dark: Option<f32>,
     pub line_w: Option<usize>,
     pub speck: Option<usize>,

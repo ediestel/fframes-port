@@ -88,6 +88,10 @@ label (its lettering stays erased), or add a `[[label]]` by hand for lettering t
 The canvas is the picture times `scale` (Dix-Hallpike: 675 x 372 px at 3 = 2025 x 1116 px). The
 artist's app must use exactly that size; `export/README.txt` says so.
 
+`outline_color = "picture"` in `[trace]` gives every outline piece the colour of the picture
+under it (the mean of its dark pixels) instead of black: a navy banner stays navy, dark tissue
+dark grey, a black line black. For painted and AI figures; line art keeps the default.
+
 `[trace]` overrides the fframes-vector preset: `dark` (a pixel darker than this fraction of
 full brightness is line; this picture's contours are dark grey, so 0.6 instead of the preset's
 0.42), `line_w`, `speck`, `tol`, `min_piece`, `colors`, `turd`, `turd_outline`, `alpha`, `opt`,

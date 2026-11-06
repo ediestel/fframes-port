@@ -55,6 +55,9 @@ pub fn trace(fig: &Figure) -> Result<String, String> {
     for piece in &mut doc.pieces {
         piece.group = if piece.color == 0 { OUTLINES } else { PIECES }.to_owned();
     }
+    if fig.trace.outline_color.as_deref() == Some("picture") {
+        tint_outlines(&mut doc, &source, fig.scale, params.flatten.dark);
+    }
     doc.save(fig.pieces_path()).map_err(|e| format!("pieces.json: {e}"))?;
     std::fs::write(dir.join("trace.svg"), doc.to_svg_grouped()).map_err(|e| format!("trace.svg: {e}"))?;
     let flat = flat_image(&source, &params);
@@ -80,6 +83,49 @@ pub fn trace(fig: &Figure) -> Result<String, String> {
         lines.len(),
         dir.display()
     ))
+}
+
+/// Every outline piece in the colour of the picture under it instead of the one outline
+/// colour: the mean of the dark pixels (darker than `dark` of full brightness) in its box. A
+/// navy banner or a dark tissue then stays navy or dark grey and a black line stays black.
+fn tint_outlines(doc: &mut fframes_vector::PieceDocument, picture: &RgbImage, scale: u32, dark: f32) {
+    let s = scale.max(1) as f32;
+    let limit = dark * 255.0;
+    let mut index = std::collections::HashMap::new();
+    for i in 0..doc.pieces.len() {
+        if doc.pieces[i].group != OUTLINES {
+            continue;
+        }
+        let [bx, by, bw, bh] = doc.pieces[i].bbox;
+        let x0 = (bx / s).floor().max(0.0) as u32;
+        let y0 = (by / s).floor().max(0.0) as u32;
+        let x1 = (((bx + bw) / s).ceil() as u32).min(picture.width());
+        let y1 = (((by + bh) / s).ceil() as u32).min(picture.height());
+        let (mut sum, mut n) = ([0u64; 3], 0u64);
+        for y in y0..y1 {
+            for x in x0..x1 {
+                let p = picture.get_pixel(x, y);
+                let luma = 0.299 * f32::from(p[0]) + 0.587 * f32::from(p[1]) + 0.114 * f32::from(p[2]);
+                if luma < limit {
+                    for c in 0..3 {
+                        sum[c] += u64::from(p[c]);
+                    }
+                    n += 1;
+                }
+            }
+        }
+        if n == 0 {
+            continue;
+        }
+        // rounded to steps of 8 so the palette stays small
+        let mean = |c: usize| ((sum[c] / n) as u8) & 0xF8;
+        let hex = format!("#{:02x}{:02x}{:02x}", mean(0), mean(1), mean(2));
+        let color = *index.entry(hex.clone()).or_insert_with(|| {
+            doc.palette.push(hex);
+            (doc.palette.len() - 1) as u16
+        });
+        doc.pieces[i].color = color;
+    }
 }
 
 /// The centrelines of the source trace, or the advice to run the stage.
