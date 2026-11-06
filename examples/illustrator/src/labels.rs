@@ -196,8 +196,10 @@ fn read(input: &Path, picture: &RgbImage, origin: (f32, f32)) -> Result<Vec<Labe
         if c.len() < 12 || c[0] != "5" {
             continue;
         }
-        // Quotes the OCR adds where an icon touches a word.
+        // Quotes the OCR adds where an icon touches a word; an S before a digit read as $ (S2-S4).
         let text = c[11].trim().trim_matches(|c| "\"'‘’“”«»".contains(c));
+        let fixed = (1..=5).fold(text.to_owned(), |t, d| t.replace(&format!("${d}"), &format!("S{d}")));
+        let text = fixed.as_str();
         let conf: f32 = c[10].parse().unwrap_or(-1.0);
         // Noise the OCR finds in drawings: low confidence. Of the words without a letter or
         // digit only the signs of labels stay (+ / & > < = - % :), read with confidence; an
@@ -248,6 +250,22 @@ fn read(input: &Path, picture: &RgbImage, origin: (f32, f32)) -> Result<Vec<Labe
         if line.len() > 1 && line[0].text.chars().count() == 1 && line[0].height > 1.3 * line[1].height {
             line.remove(0);
         }
+        // An icon beside a word reads as a doubtful word at the end of its line ("il INFECTION",
+        // "Of wu NUTRITION", "TODD <2", "4) Blocked"): the words below 80 at either end go.
+        while line.len() > 1 && line.first().is_some_and(|w| w.conf < 80.0) {
+            line.remove(0);
+        }
+        while line.len() > 1 && line.last().is_some_and(|w| w.conf < 80.0) {
+            line.pop();
+        }
+        // A number in a circle before a heading reads as "4)": the circle stays drawn.
+        let numbered = |t: &str| {
+            let t = t.trim_end_matches([')', '.']);
+            !t.is_empty() && t.len() <= 2 && t.chars().all(|c| c.is_ascii_digit())
+        };
+        if line.len() > 1 && numbered(&line[0].text) && line[0].text.len() > 1 {
+            line.remove(0);
+        }
         if line.is_empty() {
             continue;
         }
@@ -275,6 +293,12 @@ fn read(input: &Path, picture: &RgbImage, origin: (f32, f32)) -> Result<Vec<Labe
         if conf < 70.0
             || crosses
             || (short_word && conf < 91.0)
+            // two letters alone ("SS", "ae", "Os", "Ne", "ww"): lowercase is a texture, and
+            // capitals need 94 (CT, QT, PR read at 95 and more)
+            || (short_word
+                && longest == 2
+                && !text.chars().any(|c| c.is_ascii_digit())
+                && (text.chars().any(char::is_lowercase) || conf < 94.0))
             || (!short_value && (longest < 2 || (longest < 3 && conf < 90.0)))
         {
             continue;
